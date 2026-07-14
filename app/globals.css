@@ -1,0 +1,237 @@
+@import 'tailwindcss';
+
+/* AXYOMA landing — craft material, brand amber→red, tipografia de ofício.
+   Hero centralizada com logo em destaque e efeito de borda/aurora. */
+
+:root {
+  --brand-1: #fcb31b;
+  --brand-2: #fb860a;
+  --brand-3: #f6400e;
+  --brand-4: #e32111;
+  --ink: #ececf1;
+  --ink-dim: #a1a1aa;
+  --ink-faint: #6b6b74;
+  --bg: #050506;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --surface: rgba(255, 255, 255, 0.02);
+  --surface-hover: rgba(255, 255, 255, 0.04);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-1);
+  outline-offset: 3px;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  background: var(--bg);
+  font-family: var(--font-bricolage), system-ui, sans-serif;
+  font-optical-sizing: auto;
+  font-variation-settings: 'wdth' 100;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display,
+.font-brand,
+.brand-italic {
+  font-family: var(--font-playfair), Georgia, 'Times New Roman', serif;
+  font-style: italic;
+}
+
+.font-mono {
+  font-family: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.brand-gradient {
+  background: linear-gradient(135deg, #fcb31b 0%, #fb860a 45%, #f6400e 75%, #e32111 100%);
+}
+
+.brand-text {
+  background: linear-gradient(135deg, #fcb31b 0%, #fb860a 45%, #f6400e 75%, #e32111 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Rising entrance used sparingly on first paint */
+@keyframes ax-rise {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.ax-rise {
+  animation: ax-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Subtle brand glow for nav / mock accents */
+.ax-glow {
+  box-shadow: 0 0 48px -16px rgba(246, 64, 14, 0.35);
+}
+
+/* Glass nav */
+.ax-nav-glass {
+  background: rgba(5, 5, 6, 0.72);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* Product mock chrome */
+.ax-mock {
+  background: linear-gradient(180deg, #0c0c0f 0%, #070708 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    0 40px 80px -24px rgba(0, 0, 0, 0.85),
+    0 0 60px -20px rgba(246, 64, 14, 0.18);
+}
+
+/* Soft amber vignette — hero only, not full-page wallpaper */
+.ax-hero-vignette {
+  background:
+    radial-gradient(70% 55% at 50% 0%, rgba(251, 134, 10, 0.12), transparent 55%),
+    radial-gradient(50% 40% at 50% 0%, rgba(252, 179, 27, 0.06), transparent 50%);
+}
+
+/* Starfield: contained within the hero, not aggressive full-page wallpaper */
+.ax-star {
+  position: absolute;
+  border-radius: 9999px;
+  animation: ax-twinkle var(--dur, 4s) ease-in-out var(--delay, 0s) infinite;
+  will-change: opacity;
+}
+
+@keyframes ax-twinkle {
+  0%, 100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+/* Hero logo stage: conic border beams + halo glow, matching original */
+.ax-stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 30px;
+  padding: 1px;
+  animation: ax-breathe 4.5s ease-in-out infinite;
+}
+
+@keyframes ax-breathe {
+  0%, 100% {
+    box-shadow: 0 0 42px -14px rgba(246, 64, 14, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 72px -10px rgba(252, 179, 27, 0.5);
+  }
+}
+
+.ax-beam,
+.ax-beam-rev {
+  position: absolute;
+  inset: -50%;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ax-beam {
+  background: conic-gradient(
+    transparent 0deg 275deg,
+    rgba(252, 179, 27, 0.95) 318deg,
+    rgba(246, 64, 14, 0.95) 342deg,
+    transparent 360deg
+  );
+  animation: ax-orbit 4.2s linear infinite;
+}
+
+.ax-beam-rev {
+  opacity: 0;
+  background: conic-gradient(
+    from 180deg,
+    transparent 0deg 285deg,
+    rgba(251, 134, 10, 0.9) 325deg,
+    rgba(227, 33, 17, 0.9) 348deg,
+    transparent 360deg
+  );
+  animation: ax-orbit-rev 3s linear infinite;
+  transition: opacity 0.35s ease;
+}
+
+.ax-halo {
+  position: absolute;
+  inset: -18px;
+  border-radius: 40px;
+  filter: blur(18px);
+  opacity: 0.35;
+  background: conic-gradient(
+    transparent 0deg 275deg,
+    rgba(252, 179, 27, 0.8) 318deg,
+    rgba(246, 64, 14, 0.8) 342deg,
+    transparent 360deg
+  );
+  animation: ax-orbit 4.2s linear infinite;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+@keyframes ax-orbit {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes ax-orbit-rev {
+  to {
+    transform: rotate(-1turn);
+  }
+}
+
+.ax-hover:hover .ax-beam-rev {
+  opacity: 1;
+}
+
+.ax-hover:hover .ax-halo {
+  opacity: 0.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ax-rise,
+  .ax-stage,
+  .ax-star {
+    animation: none;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  .ax-stage {
+    box-shadow: 0 0 48px -12px rgba(246, 64, 14, 0.4);
+  }
+
+  .ax-beam,
+  .ax-beam-rev,
+  .ax-halo {
+    display: none;
+  }
+}
