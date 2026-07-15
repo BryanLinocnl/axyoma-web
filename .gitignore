@@ -34,3 +34,4 @@ next-env.d.ts
 _deploy_*
 _deploy-manifest.json
 _deploy-payload-final.json
+.env*
