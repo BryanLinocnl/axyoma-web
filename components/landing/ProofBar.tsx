@@ -42,7 +42,7 @@ export function ProofBar({ id }: { id?: string }): React.JSX.Element {
 
 function FactCard({ fact }: { fact: Fact }) {
   return (
-    <div className="group relative min-h-[14rem] rounded-2xl border border-white/10 p-[5px]">
+    <div className="group relative h-[9rem] min-h-[9rem] rounded-2xl border border-white/10 p-[5px]">
       <GlowingEffect
         spread={40}
         glow={true}
@@ -50,7 +50,7 @@ function FactCard({ fact }: { fact: Fact }) {
         proximity={64}
         inactiveZone={0.01}
       />
-      <div className="relative flex h-full flex-col items-center justify-center gap-3 overflow-hidden rounded-[13px] bg-[var(--bg)]/80 px-5 py-6 text-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-sm transition-colors duration-300 group-hover:bg-[var(--bg)] sm:py-7">
+      <div className="relative flex h-full flex-col items-center justify-center gap-2 overflow-hidden rounded-[13px] bg-[var(--bg)]/80 px-4 py-4 text-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-sm transition-colors duration-300 group-hover:bg-[var(--bg)] sm:py-5">
         <div className="flex items-center justify-center rounded-full border border-brand/20 bg-brand/10 p-2 text-[var(--brand-2)] shadow-[0_0_14px_rgba(252,179,27,0.12)] transition-all duration-300 group-hover:scale-110 group-hover:border-brand/40 group-hover:shadow-[0_0_22px_rgba(252,179,27,0.22)]">
           {fact.icon}
         </div>
