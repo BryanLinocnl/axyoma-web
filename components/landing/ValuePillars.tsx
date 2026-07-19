@@ -7,7 +7,7 @@ const PILLARS = [
   {
     n: '02',
     title: 'Sem chave de API',
-    body: 'Conta + créditos e pronto. Zero OpenRouter, zero painel de provedor, zero montar stack só para começar a criar.',
+    body: 'Conta + créditos e pronto. Zero chaves de API, zero painel de provedor, zero montar stack só para começar a criar.',
   },
   {
     n: '03',

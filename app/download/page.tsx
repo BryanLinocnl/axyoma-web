@@ -11,9 +11,9 @@ import { StarField } from '@/components/StarField'
 // Exemplo: .dmg, .exe, .AppImage, .deb, etc.
 // ============================================================
 const DOWNLOAD_LINKS = {
-  mac:   'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.2/AXYOMA-AI-0.2.2-arm64.dmg',
-  win:   'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.2/AXYOMA-AI-0.2.2-setup.exe',
-  linux: 'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.2/AXYOMA-AI-0.2.2.AppImage',
+  mac:   'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.3/AXYOMA.AI-0.2.3-arm64.dmg',
+  win:   'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.3/AXYOMA.AI-0.2.3-setup.exe',
+  linux: 'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.3/AXYOMA.AI-0.2.3.AppImage',
 } as const
 
 const RELEASES = 'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/latest'
@@ -125,7 +125,7 @@ export default function DownloadPage(): React.JSX.Element {
         </p>
 
         <p className="mt-8 text-xs text-[var(--ink-faint)]">
-          Já tem o app? <Link href="/conta" className="underline">Acesse sua conta</Link>
+          Já tem o app? <Link href="/conta/visao-geral/visao-geral" className="underline">Acesse sua conta</Link>
         </p>
       </div>
     </main>

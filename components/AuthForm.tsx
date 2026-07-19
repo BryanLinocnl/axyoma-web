@@ -92,12 +92,12 @@ export function AuthForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 
         })
         if (error) throw error
         const { data } = await supabase.auth.getSession()
-        if (data.session) router.push('/conta')
+        if (data.session) router.push('/conta/visao-geral/visao-geral')
         else setMsg('Conta criada! Confirme o e-mail que enviamos para entrar.')
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
         if (error) throw error
-        router.push('/conta')
+        router.push('/conta/visao-geral/visao-geral')
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Erro ao autenticar.')

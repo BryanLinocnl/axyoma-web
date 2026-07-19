@@ -1,28 +1,59 @@
+import { z } from 'zod'
 import { verifyUser } from '@/lib/auth'
-import { getBalance, debitUsage } from '@/lib/supabase-admin'
+import { getBalance, debitUsage, checkRateLimit, recordPendingCharge } from '@/lib/supabase-admin'
+import { corsHeaders } from '@/lib/cors'
 
 // Proxy de chat completions (OpenAI-compatible), streaming pass-through.
-// Fluxo: verifica JWT → checa saldo → injeta a chave real → repassa o SSE da
-// OpenRouter ao app, lendo o `usage.cost` do chunk final para debitar no fim.
+// Fluxo: verifica JWT → rate limit → checa saldo → valida corpo (zod + allow-list
+// de modelo + caps) → injeta a chave real → repassa o SSE da OpenRouter ao app,
+// lendo o `usage.cost` do chunk final para debitar no fim.
+//
+// INTEGRIDADE DE CRÉDITO (Fase 3):
+//   * O dreno do upstream é DESACOPLADO do consumo do client: se o usuário aperta
+//     Stop / desconecta, seguimos lendo o upstream server-side até o fim para que
+//     `usage.cost` chegue e o débito ocorra. Nunca cancelamos o upstream por
+//     abort do client (senão haveria completion parcial de graça).
+//   * Fallback: se `usage.cost` não vier, cobramos um mínimo (CHAT_MIN_CHARGE_USD);
+//     se o débito lançar, registramos marcador de reconciliação (sem cobrança
+//     dupla). Assim toda geração debita.
 export const runtime = 'edge'
 
 const OPENROUTER = 'https://openrouter.ai/api/v1'
-const CORS = {
-  'Access-Control-Allow-Origin': process.env.CORS_ORIGIN || '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+
+// Limites (documentados). Overrides por env quando fizer sentido em produção.
+const RATE_LIMIT = Number(process.env.CHAT_RATE_LIMIT ?? 30) // req / janela / usuário
+const RATE_WINDOW_S = Number(process.env.CHAT_RATE_WINDOW_S ?? 60)
+const MAX_BODY_BYTES = Number(process.env.CHAT_MAX_BODY_BYTES ?? 256 * 1024) // 256 KB
+const MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS ?? 32000)
+const MAX_MESSAGES = 200
+const MIN_CHARGE_USD = Number(process.env.CHAT_MIN_CHARGE_USD ?? 0.0002)
+
+// Allow-list de modelos (opcional): se `CHAT_MODEL_ALLOWLIST` estiver setado
+// (comma), só esses modelos passam. Caso contrário, política sã: modelo bem
+// formado + caps de tamanho/tokens (impede pedir max_tokens absurdo/corpo gigante).
+function modelAllowList(): Set<string> | null {
+  const raw = process.env.CHAT_MODEL_ALLOWLIST
+  if (!raw) return null
+  const set = new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))
+  return set.size > 0 ? set : null
 }
 
-export function OPTIONS(): Response {
-  return new Response(null, { status: 204, headers: CORS })
-}
-
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...CORS },
+const MessageSchema = z
+  .object({
+    role: z.enum(['system', 'user', 'assistant', 'tool', 'developer']),
+    content: z.union([z.string(), z.array(z.unknown()), z.null()]).optional(),
   })
-}
+  .passthrough()
+
+const BodySchema = z
+  .object({
+    model: z.string().min(1).max(200),
+    messages: z.array(MessageSchema).min(1).max(MAX_MESSAGES),
+    max_tokens: z.number().int().positive().max(MAX_TOKENS).optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    top_p: z.number().min(0).max(1).optional(),
+  })
+  .passthrough() // deixa passar tools/stop/etc. para a OpenRouter
 
 interface Usage {
   cost?: number
@@ -30,7 +61,18 @@ interface Usage {
   completion_tokens?: number
 }
 
+export function OPTIONS(req: Request): Response {
+  return new Response(null, { status: 204, headers: corsHeaders(req, 'POST, OPTIONS') })
+}
+
 export async function POST(req: Request): Promise<Response> {
+  const CORS = corsHeaders(req, 'POST, OPTIONS')
+  const json = (status: number, body: unknown, extra?: Record<string, string>): Response =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json', ...CORS, ...(extra ?? {}) },
+    })
+
   // 1) Autenticação (local, sem tocar o Supabase).
   let userId: string
   try {
@@ -39,7 +81,18 @@ export async function POST(req: Request): Promise<Response> {
     return json(401, { error: { message: 'não autenticado', type: 'auth' } })
   }
 
-  // 2) Gate de saldo — protege a chave antes de qualquer chamada à OpenRouter.
+  // 2) Rate limit por usuário (custo/abuso). Fail-open se a RPC não existir.
+  const rl = await checkRateLimit({ userId, bucket: 'chat', limit: RATE_LIMIT, windowSeconds: RATE_WINDOW_S })
+  if (!rl.allowed) {
+    const retry = rl.resetAt ? Math.max(1, Math.ceil((Date.parse(rl.resetAt) - Date.now()) / 1000)) : RATE_WINDOW_S
+    return json(
+      429,
+      { error: { message: 'muitas requisições — aguarde e tente de novo', type: 'rate_limited' } },
+      { 'Retry-After': String(retry) },
+    )
+  }
+
+  // 3) Gate de saldo — protege a chave antes de qualquer chamada à OpenRouter.
   try {
     const balance = await getBalance(userId)
     if (!(balance > 0)) {
@@ -49,18 +102,34 @@ export async function POST(req: Request): Promise<Response> {
     return json(502, { error: { message: `falha ao checar saldo: ${(e as Error).message}`, type: 'upstream' } })
   }
 
-  // 3) Corpo: força streaming + pede o custo (usage.include) à OpenRouter.
-  let body: Record<string, unknown>
+  // 4) Corpo: cap de tamanho + validação zod + allow-list de modelo.
+  const raw = await req.text()
+  if (raw.length > MAX_BODY_BYTES) {
+    return json(413, { error: { message: 'corpo grande demais', type: 'bad_request' } })
+  }
+  let parsed: unknown
   try {
-    body = await req.json()
+    parsed = JSON.parse(raw)
   } catch {
     return json(400, { error: { message: 'corpo inválido', type: 'bad_request' } })
   }
+  const result = BodySchema.safeParse(parsed)
+  if (!result.success) {
+    return json(400, { error: { message: 'parâmetros inválidos', type: 'bad_request' } })
+  }
+  const body = result.data as Record<string, unknown>
+  const model = body.model as string
+
+  const allow = modelAllowList()
+  if (allow && !allow.has(model)) {
+    return json(400, { error: { message: 'modelo não permitido', type: 'bad_request' } })
+  }
+
+  // Força streaming + pede o custo (usage.include) à OpenRouter.
   body.stream = true
   body.usage = { include: true }
-  const model = typeof body.model === 'string' ? body.model : null
 
-  // 4) Encaminha à OpenRouter com a chave real (só existe aqui).
+  // 5) Encaminha à OpenRouter com a chave real (só existe aqui).
   const key = process.env.OPENROUTER_KEY
   if (!key) return json(500, { error: { message: 'OPENROUTER_KEY ausente', type: 'config' } })
 
@@ -82,7 +151,9 @@ export async function POST(req: Request): Promise<Response> {
     })
   }
 
-  // 5) Tee do SSE: repassa cada chunk ao app e vai lendo o último `usage` visto.
+  // 6) Dreno do SSE DESACOPLADO do client. Um pump em background lê o upstream
+  // até o fim (mesmo que o client desconecte), enquanto tenta repassar cada chunk
+  // ao client. Ao terminar, debita — SEMPRE.
   const reader = upstream.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
@@ -106,33 +177,69 @@ export async function POST(req: Request): Promise<Response> {
     }
   }
 
+  const settle = async (): Promise<void> => {
+    try {
+      if (lastUsage && typeof lastUsage.cost === 'number' && lastUsage.cost >= 0) {
+        await debitUsage({
+          userId,
+          costUsd: lastUsage.cost,
+          model,
+          promptTokens: lastUsage.prompt_tokens,
+          completionTokens: lastUsage.completion_tokens,
+        })
+      } else {
+        // Sem usage.cost: cobra o mínimo para que toda geração debite.
+        await debitUsage({ userId, costUsd: MIN_CHARGE_USD, model })
+      }
+    } catch (e) {
+      // Débito lançou: não sabemos se aplicou → NÃO retenta (evita dupla
+      // cobrança). Marca para reconciliação.
+      console.error('debit chat falhou', (e as Error).message)
+      await recordPendingCharge({
+        userId,
+        kind: 'chat',
+        model,
+        costUsd: lastUsage?.cost ?? null,
+        reason: `debit failed: ${(e as Error).message}`,
+      })
+    }
+  }
+
   const stream = new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      const { done, value } = await reader.read()
-      if (done) {
-        // Débito no fim do stream (mesma invocação). Falha aqui não quebra a
-        // resposta já entregue — apenas loga; reconciliação via usage_log.
+    start(controller) {
+      let clientGone = false
+      ;(async () => {
         try {
-          if (lastUsage && typeof lastUsage.cost === 'number' && lastUsage.cost >= 0) {
-            await debitUsage({
-              userId,
-              costUsd: lastUsage.cost,
-              model,
-              promptTokens: lastUsage.prompt_tokens,
-              completionTokens: lastUsage.completion_tokens,
-            })
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            scan(decoder.decode(value, { stream: true }))
+            if (!clientGone) {
+              try {
+                controller.enqueue(value)
+              } catch {
+                // Client desconectou: paramos de enfileirar, mas SEGUIMOS lendo o
+                // upstream até o fim para capturar o usage e debitar.
+                clientGone = true
+              }
+            }
           }
         } catch (e) {
-          console.error('debit falhou', (e as Error).message)
+          console.error('drain upstream falhou', (e as Error).message)
+        } finally {
+          await settle()
+          try {
+            controller.close()
+          } catch {
+            /* já fechado (client foi embora) */
+          }
         }
-        controller.close()
-        return
-      }
-      controller.enqueue(value)
-      scan(decoder.decode(value, { stream: true }))
+      })()
     },
     cancel() {
-      reader.cancel().catch(() => {})
+      // Client cancelou o stream. NÃO cancelamos o upstream — o pump continua
+      // drenando até o fim para garantir o débito. (enqueue passará a lançar,
+      // tratado no loop acima.)
     },
   })
 
