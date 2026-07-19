@@ -11,9 +11,9 @@ import { StarField } from '@/components/StarField'
 // Exemplo: .dmg, .exe, .AppImage, .deb, etc.
 // ============================================================
 const DOWNLOAD_LINKS = {
-  mac:   'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.3/AXYOMA.AI-0.2.3-arm64.dmg',
-  win:   'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.3/AXYOMA.AI-0.2.3-setup.exe',
-  linux: 'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.3/AXYOMA.AI-0.2.3.AppImage',
+  mac:   'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.4/AXYOMA.AI-0.2.4-arm64.dmg',
+  win:   'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.4/AXYOMA.AI-0.2.4-setup.exe',
+  linux: 'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/download/v0.2.4/AXYOMA.AI-0.2.4.AppImage',
 } as const
 
 const RELEASES = 'https://github.com/BryanLinocnl/AXIOMA-AI-releases/releases/latest'
