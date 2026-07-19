@@ -19,14 +19,14 @@ const PLANS: Plan[] = [
     live: true,
     price: '0',
     period: 'para sempre',
-    desc: 'Comece agora. Sem cartão. Use o quanto precisar com pacotes.',
+    desc: 'Comece agora, sem cartão. Compre créditos quando os de bônus acabarem.',
     highlight: true,
     perks: [
-      '100 créditos de bônus',
-      'Plan + Code',
-      'Todos os modelos',
-      'Pacotes se quiser mais',
-      'Sem teto artificial',
+      '100 créditos de bônus (não renováveis)',
+      'Code Mode e Plan Mode',
+      'Todas as ferramentas do app',
+      'Todos os modelos do catálogo (pay per use)',
+      'Compre créditos quando quiser',
     ],
     cta: { href: '/download', label: 'Baixar grátis' },
   },
@@ -34,24 +34,24 @@ const PLANS: Plan[] = [
     id: 'pro',
     name: 'Pro',
     live: false,
-    desc: 'Design mode e mais poder de criação quando abrir.',
+    desc: 'Tudo do Free, com Modo Design e créditos mensais.',
     perks: [
+      'Tudo do Plano Free',
+      '300 Skills Personalizadas',
+      '400 créditos mensais',
       'Modo Design',
-      'Tudo do Free',
-      'Prioridade de roadmap',
-      'Mais espaço para criar sob demanda',
     ],
   },
   {
     id: 'teams',
     name: 'Teams',
     live: false,
-    desc: 'Para times que criam juntos e compartilham créditos.',
+    desc: 'Para times que criam juntos.',
     perks: [
-      'Créditos e faturamento compartilhados',
-      'Assentos de equipe',
-      'Modo Design',
-      'Gestão unificada',
+      'Tudo do Plano Pro',
+      'Ferramentas Teams Exclusivas',
+      'Assessoria Advisor',
+      '1.000 créditos mensais',
     ],
   },
 ]
@@ -68,7 +68,7 @@ export function Pricing(): React.JSX.Element {
             Free agora. Pro e Teams em breve.
           </h2>
           <p className="mt-4 text-sm text-[var(--ink-dim)]">
-            1 crédito = R$ 0,30 · PIX e cartão nos pacotes
+            1 crédito = R$ 0,30 · pague com PIX · compre créditos quando quiser
           </p>
         </div>
 

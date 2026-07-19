@@ -1,6 +1,10 @@
 import './globals.css'
 import type { Metadata } from 'next'
-import { Bricolage_Grotesque, Playfair_Display, JetBrains_Mono } from 'next/font/google'
+import { Bricolage_Grotesque, Playfair_Display, JetBrains_Mono, Geist } from 'next/font/google'
+import { cn } from "@/lib/utils";
+import { ThemeProvider } from '@/components/theme-provider'
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
@@ -32,8 +36,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <html lang="pt-BR" className={`${bricolage.variable} ${playfair.variable} ${jetbrains.variable}`}>
-      <body>{children}</body>
+    <html lang="pt-BR" suppressHydrationWarning className={cn(bricolage.variable, playfair.variable, jetbrains.variable, "font-sans", geist.variable)}>
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   )
 }
