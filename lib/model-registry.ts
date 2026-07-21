@@ -204,6 +204,48 @@ export function toPublicModel(m: ResolvedModel): PublicModel {
   }
 }
 
+/**
+ * AUTO-HEAL da região de um modelo Vertex.
+ *
+ * Quando o proxy descobre (via fallback) que a região configurada em
+ * `public.models` está errada e que outra região (ex.: 'global') serve o modelo,
+ * chama isto para (1) invalidar a entrada de cache em memória do `resolveModel`
+ * desse id — pra próxima resolução reler do Postgres — e (2) gravar a região
+ * vencedora de volta na tabela via service-role (PATCH fire-and-forget).
+ *
+ * CONTRATO: best-effort e NÃO-BLOQUEANTE. Nunca lança (não pode quebrar a
+ * resposta ao client), nunca loga token/segredo, e não aguardamos a conclusão do
+ * PATCH. Se faltar env de service-role, apenas invalida o cache e desiste do
+ * PATCH silenciosamente. A região passada DEVE já ter sido validada pela
+ * allow-list (anti-SSRF) por quem chama.
+ */
+export function healModelRegion(id: string, region: string): void {
+  const key = id.trim()
+  const reg = region.trim()
+  if (!key || !reg) return
+
+  // (1) Invalida o cache imediatamente (síncrono): a próxima chamada resolve do
+  // Postgres já com a região correta, sem esperar o TTL.
+  cache.delete(key)
+
+  // (2) PATCH fire-and-forget na tabela models (service-role). Se env faltar,
+  // desiste do write mas mantém a invalidação de cache acima.
+  if (!SUPABASE_URL || !SERVICE_ROLE) return
+  const qs = new URLSearchParams({ id: `eq.${key}` })
+  void fetch(`${SUPABASE_URL}/rest/v1/models?${qs.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      apikey: SERVICE_ROLE,
+      Authorization: `Bearer ${SERVICE_ROLE}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({ region: reg }),
+  }).catch(() => {
+    // best-effort: um heal que falha não pode afetar a resposta em andamento.
+  })
+}
+
 /** Limpa o cache (útil em testes). */
 export function __clearModelCache(): void {
   cache.clear()

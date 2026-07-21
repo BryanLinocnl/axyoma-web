@@ -8,7 +8,13 @@ import {
   getSpendTodayUsd,
 } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
-import { resolveModel, RegionNotAllowedError, type ResolvedModel } from '@/lib/model-registry'
+import {
+  resolveModel,
+  RegionNotAllowedError,
+  isRegionAllowed,
+  healModelRegion,
+  type ResolvedModel,
+} from '@/lib/model-registry'
 import { getAccessToken } from '@/lib/google-auth'
 import {
   callVertex,
@@ -87,6 +93,26 @@ interface Usage {
 
 export function OPTIONS(req: Request): Response {
   return new Response(null, { status: 204, headers: corsHeaders(req, 'POST, OPTIONS') })
+}
+
+// Região de fallback do auto-heal Vertex. Um modelo pode ter sido cadastrado com
+// a região errada em public.models; se a região configurada não servir o modelo,
+// 'global' é a aposta mais provável de sucesso. O fallback só ocorre se 'global'
+// passar pela allow-list anti-SSRF (isRegionAllowed).
+const VERTEX_FALLBACK_REGION = 'global'
+
+/**
+ * Heurística de "modelo não servível nesta região" — o ÚNICO gatilho do fallback
+ * de região. A Vertex responde 404 quando o modelo não existe/serve na location
+ * pedida; alguns retornos trazem a pista só no corpo ('not found' / 'not servable').
+ * Erros que NÃO são disso (401/403/429/5xx) retornam false e seguem o tratamento
+ * normal — nada de retentar autenticação/quota/erro de servidor.
+ */
+function isNotServable(status: number, _bodyText: string): boolean {
+  // SÓ 404 dispara o fallback de região + auto-heal. NÃO casar por substring do
+  // corpo: um 403/500 transitório com "not found" na mensagem (numa região CORRETA)
+  // sobrescreveria a região certa com 'global' de forma permanente (data-integrity).
+  return status === 404
 }
 
 // Partes aceitas pelo generateContent (o que montamos a partir das messages).
@@ -238,16 +264,15 @@ async function proxyVertexImage(
     return json(500, { error: { message: 'falha de autenticação com o provedor', type: 'config' } })
   }
 
-  const url = buildGenerateContentUrl(model.region, projectId, model.upstream_model_id, 'google')
   const genBody = {
     contents: [{ role: 'user', parts }],
     generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
   }
 
-  // Chamada NÃO streaming. NÃO passamos o signal do client (débito é desacoplado).
-  let upstream: Response
-  try {
-    upstream = await fetch(url, {
+  // Chamada NÃO streaming, parametrizada por região (o host do endpoint depende
+  // dela). NÃO passamos o signal do client (débito é desacoplado).
+  const callImage = (region: string): Promise<Response> =>
+    fetch(buildGenerateContentUrl(region, projectId, model.upstream_model_id, 'google'), {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -255,18 +280,58 @@ async function proxyVertexImage(
       },
       body: JSON.stringify(genBody),
     })
+
+  const regionUsed = model.region
+  let upstream: Response
+  try {
+    upstream = await callImage(regionUsed)
   } catch (e) {
     console.error('vertex image call falhou:', (e as Error).message)
     return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
   }
 
+  // FALLBACK DE REGIÃO + AUTO-HEAL: se a região configurada não serve o modelo
+  // (404 / not-servable) e a região tentada != 'global' E 'global' passar pela
+  // allow-list anti-SSRF, RETENTA UMA vez com 'global'. Só uma retentativa (sem
+  // loop). Outros erros (401/403/429/5xx) seguem o tratamento normal abaixo.
+  let healedRegion: string | null = null
   if (!upstream.ok) {
     // Corpo cru do upstream só server-side (pode vazar infra); ao client, scrub.
     const detail = await upstream.text().catch(() => '')
-    console.error('vertex image upstream não-ok', upstream.status, detail || upstream.statusText)
-    return json(upstream.status || 502, {
-      error: { message: 'falha no provedor de modelo', type: 'upstream' },
-    })
+    if (
+      regionUsed !== VERTEX_FALLBACK_REGION &&
+      isRegionAllowed(VERTEX_FALLBACK_REGION) &&
+      isNotServable(upstream.status, detail)
+    ) {
+      try {
+        const retry = await callImage(VERTEX_FALLBACK_REGION)
+        if (retry.ok) {
+          upstream = retry
+          healedRegion = VERTEX_FALLBACK_REGION
+        } else {
+          const rdetail = await retry.text().catch(() => '')
+          console.error('vertex image retry global não-ok', retry.status, rdetail || retry.statusText)
+          return json(retry.status || 502, {
+            error: { message: 'falha no provedor de modelo', type: 'upstream' },
+          })
+        }
+      } catch (e) {
+        console.error('vertex image retry global falhou:', (e as Error).message)
+        return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
+      }
+    } else {
+      console.error('vertex image upstream não-ok', upstream.status, detail || upstream.statusText)
+      return json(upstream.status || 502, {
+        error: { message: 'falha no provedor de modelo', type: 'upstream' },
+      })
+    }
+  }
+
+  // Sucesso (direto ou após o retry global). Auto-heal fire-and-forget: grava a
+  // região vencedora em public.models e invalida o cache; NÃO bloqueia a resposta
+  // nem o débito (que acontece uma única vez, mais abaixo, só neste caminho).
+  if (healedRegion) {
+    healModelRegion(model.id, healedRegion)
   }
 
   let data: unknown
@@ -430,10 +495,11 @@ async function proxyVertex(
   // Chamada streaming ao Vertex. NÃO passamos o signal do client: o dreno é
   // desacoplado (débito sempre). callVertex reescreve o corpo (model=upstream,
   // stream=true, stream_options.include_usage=true, remove usage.include).
+  const regionUsed = model.region
   let upstream: Response
   try {
     upstream = await callVertex({
-      region: model.region,
+      region: regionUsed,
       upstreamModelId: model.upstream_model_id,
       body,
       accessToken,
@@ -444,14 +510,61 @@ async function proxyVertex(
     return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
   }
 
+  // FALLBACK DE REGIÃO + AUTO-HEAL: se a região configurada não serve o modelo
+  // (404 / not-servable) e a região tentada != 'global' E 'global' passar pela
+  // allow-list anti-SSRF, RETENTA UMA vez com 'global'. Só uma retentativa (sem
+  // loop). Outros erros (401/403/429/5xx) seguem o tratamento normal abaixo.
+  // Nada é debitado aqui — o débito só acontece no dreno do SSE bem-sucedido.
+  let healedRegion: string | null = null
   if (!upstream.ok || !upstream.body) {
+    // Corpo cru do upstream só server-side; ao client, mensagem genérica.
     const detail = await upstream.text().catch(() => '')
-    // Corpo cru do upstream só server-side; preservamos o status HTTP e devolvemos
-    // ao client uma mensagem genérica (o corpo cru pode vazar detalhes de infra).
-    console.error('vertex upstream não-ok', upstream.status, detail || upstream.statusText)
-    return json(upstream.status || 502, {
-      error: { message: 'falha no provedor de modelo', type: 'upstream' },
-    })
+    if (
+      regionUsed !== VERTEX_FALLBACK_REGION &&
+      isRegionAllowed(VERTEX_FALLBACK_REGION) &&
+      isNotServable(upstream.status, detail)
+    ) {
+      try {
+        const retry = await callVertex({
+          region: VERTEX_FALLBACK_REGION,
+          upstreamModelId: model.upstream_model_id,
+          body,
+          accessToken,
+        })
+        if (retry.ok && retry.body) {
+          upstream = retry
+          healedRegion = VERTEX_FALLBACK_REGION
+        } else {
+          const rdetail = await retry.text().catch(() => '')
+          console.error('vertex retry global não-ok', retry.status, rdetail || retry.statusText)
+          return json(retry.status || 502, {
+            error: { message: 'falha no provedor de modelo', type: 'upstream' },
+          })
+        }
+      } catch (e) {
+        console.error('vertex retry global falhou:', (e as Error).message)
+        return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
+      }
+    } else {
+      // Não é caso de fallback (ou 'global' não permitido): tratamento atual.
+      console.error('vertex upstream não-ok', upstream.status, detail || upstream.statusText)
+      return json(upstream.status || 502, {
+        error: { message: 'falha no provedor de modelo', type: 'upstream' },
+      })
+    }
+  }
+
+  // Sucesso (direto ou após o retry global). Auto-heal fire-and-forget: grava a
+  // região vencedora em public.models e invalida o cache; NÃO bloqueia a resposta
+  // nem o dreno/débito (que segue exatamente como antes, desacoplado do client).
+  if (healedRegion) {
+    healModelRegion(model.id, healedRegion)
+  }
+
+  // Guard de tipo: só chegamos aqui com upstream 2xx e body presente (o retry só
+  // é aceito com retry.body). Reafirma pro TS após a reatribuição do `let`.
+  if (!upstream.body) {
+    return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
   }
 
   const reader = upstream.body.getReader()
