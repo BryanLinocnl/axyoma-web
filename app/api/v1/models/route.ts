@@ -41,6 +41,10 @@ interface RawModel {
     output_modalities?: string[]
   }
   supported_parameters?: string[]
+  // Teto de imagens de REFERÊNCIA que o modelo aceita numa geração img2img.
+  // Só a tabela `public.models` popula isto (coluna max_reference_images); os
+  // modelos vindos só da OpenRouter ficam sem o campo (cliente aplica fallback).
+  max_reference_images?: number
 }
 
 // Linha de `public.models` — SOMENTE colunas seguras para expor (ver comentário
@@ -55,10 +59,11 @@ interface ModelsTableRow {
   input_price_usd_per_mtok: number | string
   output_price_usd_per_mtok: number | string
   sort_order: number
+  max_reference_images: number | null
 }
 
 const MODELS_TABLE_SELECT =
-  'id,display_name,context_length,input_modalities,output_modalities,supported_parameters,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order'
+  'id,display_name,context_length,input_modalities,output_modalities,supported_parameters,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order,max_reference_images'
 
 export function OPTIONS(req: Request): Response {
   return new Response(null, { status: 204, headers: corsHeaders(req, 'GET, OPTIONS') })
@@ -138,6 +143,8 @@ function tableRowToRawModel(row: ModelsTableRow): RawModel {
       output_modalities: row.output_modalities ?? [],
     },
     supported_parameters: row.supported_parameters ?? [],
+    // null → undefined: JSON.stringify omite o campo; o cliente aplica o fallback.
+    max_reference_images: row.max_reference_images ?? undefined,
   }
 }
 
