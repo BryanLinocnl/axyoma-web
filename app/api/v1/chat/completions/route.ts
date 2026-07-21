@@ -39,7 +39,10 @@ const OPENROUTER = 'https://openrouter.ai/api/v1'
 // Limites (documentados). Overrides por env quando fizer sentido em produção.
 const RATE_LIMIT = Number(process.env.CHAT_RATE_LIMIT ?? 30) // req / janela / usuário
 const RATE_WINDOW_S = Number(process.env.CHAT_RATE_WINDOW_S ?? 60)
-const MAX_BODY_BYTES = Number(process.env.CHAT_MAX_BODY_BYTES ?? 256 * 1024) // 256 KB
+// Cap de corpo: precisa acomodar IMAGENS de entrada (visão + edição imagem-para-imagem),
+// cujo base64 tem alguns MB. Gated por auth + rate-limit + saldo, então um corpo maior não é
+// vetor de abuso relevante. Overridável por env. (Texto puro fica muito abaixo disso.)
+const MAX_BODY_BYTES = Number(process.env.CHAT_MAX_BODY_BYTES ?? 16 * 1024 * 1024) // 16 MB
 const MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS ?? 32000)
 const MAX_MESSAGES = 200
 const MIN_CHARGE_USD = Number(process.env.CHAT_MIN_CHARGE_USD ?? 0.0002)
