@@ -148,6 +148,67 @@ function finiteOrNull(v: unknown): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null
 }
 
+// ---------------------------------------------------------------------------
+// Geração de IMAGEM — endpoint NATIVO generateContent (api_flavor 'gemini_image').
+// NÃO é o openapi/chat/completions (esse é texto). Aqui o corpo/resposta são o
+// formato nativo do Gemini no Vertex: contents[].parts[] com inlineData base64.
+// ---------------------------------------------------------------------------
+
+/**
+ * Monta a URL do endpoint nativo `:generateContent` do Vertex (geração de imagem).
+ *
+ * - `location === 'global'` → host SEM prefixo regional ('aiplatform.googleapis.com').
+ * - qualquer outra location → host regional ('{location}-aiplatform.googleapis.com').
+ *
+ * A `location` DEVE vir já validada contra a allowlist (ver model-registry). Ela é
+ * interpolada no host, então tratá-la como confiável aqui é intencional (anti-SSRF
+ * fica a cargo de quem resolve o modelo).
+ */
+export function buildGenerateContentUrl(
+  location: string,
+  projectId: string,
+  upstreamModelId: string,
+  publisher = 'google',
+): string {
+  const loc = location.trim()
+  const host = loc === 'global' ? 'aiplatform.googleapis.com' : `${loc}-aiplatform.googleapis.com`
+  return `https://${host}/v1/projects/${projectId}/locations/${loc}/publishers/${publisher}/models/${upstreamModelId}:generateContent`
+}
+
+/** Uma imagem inline extraída da resposta generateContent. `data` é base64 cru. */
+export type InlineImage = {
+  mimeType: string
+  /** base64 (sem prefixo data:). */
+  data: string
+}
+
+/**
+ * Extrai TODAS as imagens inline de uma resposta `:generateContent` (não streaming).
+ * Varre candidates[].content.parts[] e coleta cada part com `inlineData` (tolera
+ * também `inline_data` snake_case por robustez). Parts de texto são ignoradas.
+ * Nunca lança: entrada malformada → array vazio.
+ */
+export function extractInlineImages(data: unknown): InlineImage[] {
+  const out: InlineImage[] = []
+  const candidates = (data as { candidates?: unknown })?.candidates
+  if (!Array.isArray(candidates)) return out
+  for (const cand of candidates) {
+    const parts = (cand as { content?: { parts?: unknown } })?.content?.parts
+    if (!Array.isArray(parts)) continue
+    for (const part of parts) {
+      const inline =
+        (part as { inlineData?: unknown })?.inlineData ?? (part as { inline_data?: unknown })?.inline_data
+      if (!inline || typeof inline !== 'object') continue
+      const raw = (inline as { data?: unknown }).data
+      if (typeof raw !== 'string' || raw.length === 0) continue
+      const mime =
+        (inline as { mimeType?: unknown }).mimeType ?? (inline as { mime_type?: unknown }).mime_type
+      out.push({ data: raw, mimeType: typeof mime === 'string' && mime.length > 0 ? mime : 'image/png' })
+    }
+  }
+  return out
+}
+
 /**
  * Extrai o usage do ÚLTIMO chunk que o contém, a partir de um buffer/texto SSE
  * acumulado. Varre todas as linhas `data:` e retorna o último usage encontrado

@@ -13,8 +13,13 @@ const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY
 /** Provedores de upstream suportados. FASE 1: só 'vertex' e 'openrouter' ativos. */
 export type ModelProvider = 'vertex' | 'openrouter' | 'openai' | 'groq'
 
-/** Dialeto da API do upstream. FASE 1: só 'openai' (sem adaptador anthropic ainda). */
-export type ApiFlavor = 'openai' | 'anthropic'
+/**
+ * Dialeto da API do upstream.
+ * - 'openai'       → endpoint openapi/chat/completions (texto/streaming).
+ * - 'anthropic'    → reservado (sem adaptador ainda).
+ * - 'gemini_image' → endpoint nativo generateContent do Vertex (geração de imagem).
+ */
+export type ApiFlavor = 'openai' | 'anthropic' | 'gemini_image'
 
 /**
  * Linha resolvida de `public.models` — TIPO SERVER-ONLY. Contém colunas de
