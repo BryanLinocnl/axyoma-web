@@ -19,6 +19,8 @@
 // erro carregam apenas status/código e corpo já sanitizado pelo próprio Google
 // (que não ecoa segredos), nunca o token de entrada.
 
+import { getVercelOidcToken } from '@vercel/functions/oidc'
+
 // -----------------------------------------------------------------------------
 // Constantes de protocolo (OAuth 2.0 Token Exchange — RFC 8693 — e Google IAM).
 // -----------------------------------------------------------------------------
@@ -147,26 +149,17 @@ async function fetchWithRetry(url: string, init: RequestInit, contexto: string):
 // Passo 1 — Token OIDC da Vercel.
 // -----------------------------------------------------------------------------
 /**
- * Obtém o token OIDC da identidade da função Vercel. Preferimos
- * `@vercel/functions/oidc` (getVercelOidcToken) SE estiver instalado; como o
- * pacote não faz parte das deps hoje, caímos no env `VERCEL_OIDC_TOKEN` que a
- * Vercel injeta em runtime. O import é dinâmico e tolerante a ausência para não
- * quebrar o build do edge.
+ * Obtém o token OIDC da identidade da função Vercel via `@vercel/functions/oidc`
+ * (getVercelOidcToken). Na Vercel, o token OIDC é POR-REQUEST (injetado no
+ * contexto/headers da requisição quando o OIDC Federation está ativo) — NÃO é um
+ * env var estático em runtime. Por isso usamos a API oficial; o env
+ * `VERCEL_OIDC_TOKEN` só existe no dev local (`vercel env pull`) e fica como
+ * fallback. Requer OIDC Federation habilitado no projeto Vercel.
  */
 async function getVercelOidc(): Promise<string> {
   try {
-    // Import dinâmico com specifier em variável: evita que o TS/bundler tente
-    // resolver o pacote estaticamente (ele NÃO está nas deps hoje). Só resolve em
-    // runtime se alguém adicionar @vercel/functions ao projeto no futuro.
-    const specifier = '@vercel/functions/oidc'
-    const mod = (await import(/* webpackIgnore: true */ specifier).catch(
-      () => null,
-    )) as { getVercelOidcToken?: () => Promise<string> | string } | null
-
-    if (mod?.getVercelOidcToken) {
-      const t = await mod.getVercelOidcToken()
-      if (t) return t
-    }
+    const t = await getVercelOidcToken()
+    if (t) return t
   } catch {
     // Ignora e cai no fallback por env — nunca logamos o motivo com token.
   }
@@ -174,7 +167,7 @@ async function getVercelOidc(): Promise<string> {
   if (VERCEL_OIDC_TOKEN) return VERCEL_OIDC_TOKEN
 
   throw new Error(
-    'Token OIDC da Vercel indisponível: instale @vercel/functions ou verifique VERCEL_OIDC_TOKEN.',
+    'Token OIDC da Vercel indisponível: confirme que o OIDC Federation está ATIVO no projeto Vercel (Settings > Security).',
   )
 }
 
