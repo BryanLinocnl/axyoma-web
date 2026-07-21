@@ -18,6 +18,9 @@ export interface CatalogModel {
   outputModalities: string[] // ex.: ["text"]
   supportedParameters: string[] // ex.: ["tools","reasoning",...]
   paramSize?: string // "32B" quando dá pra inferir do nome
+  // Teto de imagens de referência (img2img) do modelo — só vem da tabela
+  // `public.models`. Ausente (OpenRouter) → o consumidor aplica fallback (4).
+  maxReferenceImages?: number
 }
 
 interface RawModel {
@@ -30,6 +33,7 @@ interface RawModel {
     output_modalities?: string[]
   }
   supported_parameters?: string[]
+  max_reference_images?: number
 }
 
 // "Qwen3 32B", "Llama 405B", "GLM 4.6 355B-A32B" → "32B"/"405B"/"355B".
@@ -59,6 +63,7 @@ export async function fetchCatalog(): Promise<CatalogModel[]> {
     outputModalities: m.architecture?.output_modalities ?? [],
     supportedParameters: m.supported_parameters ?? [],
     paramSize: parseParamSize(m.name ?? ''),
+    maxReferenceImages: m.max_reference_images,
   }))
   list.sort(byRelevance)
   return list
