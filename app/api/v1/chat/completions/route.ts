@@ -10,7 +10,13 @@ import {
 import { corsHeaders } from '@/lib/cors'
 import { resolveModel, RegionNotAllowedError, type ResolvedModel } from '@/lib/model-registry'
 import { getAccessToken } from '@/lib/google-auth'
-import { callVertex, usageFromDataPayload, type VertexUsage } from '@/lib/vertex'
+import {
+  callVertex,
+  usageFromDataPayload,
+  buildGenerateContentUrl,
+  extractInlineImages,
+  type VertexUsage,
+} from '@/lib/vertex'
 import { costUsd } from '@/lib/cost'
 
 // Proxy de chat completions (OpenAI-compatible), streaming pass-through.
@@ -78,6 +84,291 @@ interface Usage {
 
 export function OPTIONS(req: Request): Response {
   return new Response(null, { status: 204, headers: corsHeaders(req, 'POST, OPTIONS') })
+}
+
+// Partes aceitas pelo generateContent (o que montamos a partir das messages).
+type GenTextPart = { text: string }
+type GenInlinePart = { inlineData: { mimeType: string; data: string } }
+type GenPart = GenTextPart | GenInlinePart
+
+// data:<mime>;base64,<b64>  — só data URLs base64 viram inlineData. Qualquer
+// http(s):// é IGNORADA (anti-SSRF: NUNCA baixamos URL de referência).
+const DATA_URL_RE = /^data:([^;,]+);base64,([\s\S]+)$/
+
+/**
+ * Converte as `messages` OpenAI recebidas em `parts` do generateContent.
+ *
+ * - Junta o texto de TODAS as mensagens role='user' (a última domina, pois é o
+ *   prompt principal + refs) em UMA part {text}.
+ * - Cada `image_url` cujo `url` seja uma DATA URL base64 vira {inlineData}.
+ * - `image_url` http(s):// é ignorada (não baixamos nada — anti-SSRF). String de
+ *   conteúdo simples é tratada como texto.
+ * Ordem final: a part de texto primeiro, depois as imagens (formato confirmado).
+ */
+function messagesToImageParts(messages: unknown): GenPart[] {
+  const texts: string[] = []
+  const images: GenInlinePart[] = []
+  if (!Array.isArray(messages)) return []
+
+  for (const msg of messages) {
+    if (!msg || typeof msg !== 'object') continue
+    const m = msg as Record<string, unknown>
+    if (m.role !== 'user') continue
+    const content = m.content
+    if (typeof content === 'string') {
+      if (content.trim()) texts.push(content)
+      continue
+    }
+    if (!Array.isArray(content)) continue
+    for (const part of content) {
+      if (!part || typeof part !== 'object') continue
+      const p = part as Record<string, unknown>
+      if (p.type === 'text' && typeof p.text === 'string') {
+        if (p.text.trim()) texts.push(p.text)
+      } else if (p.type === 'image_url') {
+        const url = (p.image_url as { url?: unknown } | undefined)?.url
+        if (typeof url !== 'string') continue
+        const match = DATA_URL_RE.exec(url.trim())
+        if (match) {
+          // Só data URL base64 vira ref inline. http(s) é ignorada (anti-SSRF).
+          images.push({ inlineData: { mimeType: match[1], data: match[2] } })
+        }
+      }
+    }
+  }
+
+  const parts: GenPart[] = []
+  const joined = texts.join('\n').trim()
+  if (joined) parts.push({ text: joined })
+  parts.push(...images)
+  return parts
+}
+
+/** Extrai o texto concatenado das parts de texto da resposta generateContent. */
+function extractText(data: unknown): string {
+  const candidates = (data as { candidates?: unknown })?.candidates
+  if (!Array.isArray(candidates)) return ''
+  const out: string[] = []
+  for (const cand of candidates) {
+    const parts = (cand as { content?: { parts?: unknown } })?.content?.parts
+    if (!Array.isArray(parts)) continue
+    for (const part of parts) {
+      const t = (part as { text?: unknown })?.text
+      if (typeof t === 'string' && t.length > 0) out.push(t)
+    }
+  }
+  return out.join('')
+}
+
+/** Lê tokens do usageMetadata (não-streaming) de forma tolerante. Só p/ registro. */
+function imageUsageTokens(data: unknown): { prompt: number; completion: number; total: number } {
+  const um = (data as { usageMetadata?: Record<string, unknown> })?.usageMetadata ?? {}
+  const n = (v: unknown): number => {
+    const x = Number(v)
+    return Number.isFinite(x) && x > 0 ? x : 0
+  }
+  const prompt = n(um.promptTokenCount)
+  const completion = n(um.candidatesTokenCount)
+  const total = n(um.totalTokenCount) || prompt + completion
+  return { prompt, completion, total }
+}
+
+/**
+ * Caminho VERTEX IMAGEM (api_flavor 'gemini_image') — endpoint NATIVO
+ * `:generateContent` (NÃO o openapi/chat/completions, que é texto).
+ *
+ * O desktop pede imagem via /chat/completions com modalities:['image','text'] e
+ * LÊ a imagem em choices[0].delta.images[0].image_url.url. Por isso a RESPOSTA ao
+ * client é SEMPRE SSE OpenAI-compatível (mesmo id/model/object do ramo texto),
+ * embora o upstream aqui NÃO seja streaming (montamos o SSE a partir do JSON).
+ *
+ * Invariantes preservadas:
+ *  - Guard de preço ANTES de gerar (image_price_usd nulo/<=0 → 400, nunca de graça).
+ *  - COBRANÇA FLAT por imagem: cost = nº_imagens × image_price_usd. Débito SEMPRE
+ *    que gerar (mesma mecânica: recordPendingCharge se o débito lançar).
+ *  - Segurança: token/credencial nunca em log/erro/response; region só do
+ *    registry; refs http(s) NÃO baixadas; erro do upstream é scrubado.
+ */
+async function proxyVertexImage(
+  userId: string,
+  model: ResolvedModel,
+  body: Record<string, unknown>,
+  CORS: Record<string, string>,
+): Promise<Response> {
+  const json = (status: number, b: unknown, extra?: Record<string, string>): Response =>
+    new Response(JSON.stringify(b), {
+      status,
+      headers: { 'Content-Type': 'application/json', ...CORS, ...(extra ?? {}) },
+    })
+
+  // Guard de preço FLAT por imagem: recusamos ANTES de chamar o upstream se não há
+  // preço de imagem configurado (nulo/<=0). Nunca gerar imagem de graça.
+  const imagePrice = model.image_price_usd
+  if (imagePrice == null || !(imagePrice > 0)) {
+    return json(400, {
+      error: { message: 'modelo de imagem sem preço configurado — indisponível', type: 'config' },
+    })
+  }
+
+  // region já validada contra a allowlist no model-registry (anti-SSRF); host do
+  // endpoint depende dela.
+  if (!model.region) {
+    return json(500, { error: { message: 'region ausente para modelo vertex', type: 'config' } })
+  }
+
+  const projectId = process.env.GCP_PROJECT_ID
+  if (!projectId) {
+    return json(500, { error: { message: 'GCP_PROJECT_ID ausente', type: 'config' } })
+  }
+
+  const parts = messagesToImageParts(body.messages)
+  if (parts.length === 0) {
+    return json(400, { error: { message: 'nenhum conteúdo de prompt para gerar imagem', type: 'bad_request' } })
+  }
+
+  // Token Google (WIF/OIDC). Falha aqui é erro de config/infra, não do client.
+  let accessToken: string
+  try {
+    accessToken = await getAccessToken()
+  } catch (e) {
+    console.error('auth Google falhou (vertex image):', (e as Error).message)
+    return json(500, { error: { message: 'falha de autenticação com o provedor', type: 'config' } })
+  }
+
+  const url = buildGenerateContentUrl(model.region, projectId, model.upstream_model_id, 'google')
+  const genBody = {
+    contents: [{ role: 'user', parts }],
+    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+  }
+
+  // Chamada NÃO streaming. NÃO passamos o signal do client (débito é desacoplado).
+  let upstream: Response
+  try {
+    upstream = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(genBody),
+    })
+  } catch (e) {
+    console.error('vertex image call falhou:', (e as Error).message)
+    return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
+  }
+
+  if (!upstream.ok) {
+    // Corpo cru do upstream só server-side (pode vazar infra); ao client, scrub.
+    const detail = await upstream.text().catch(() => '')
+    console.error('vertex image upstream não-ok', upstream.status, detail || upstream.statusText)
+    return json(upstream.status || 502, {
+      error: { message: 'falha no provedor de modelo', type: 'upstream' },
+    })
+  }
+
+  let data: unknown
+  try {
+    data = await upstream.json()
+  } catch (e) {
+    console.error('vertex image resposta inválida (json):', (e as Error).message)
+    return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
+  }
+
+  let images = extractInlineImages(data)
+  if (images.length === 0) {
+    // O desktop PRECISA da imagem; um chunk vazio não serve. Erro scrub 502.
+    console.error('vertex image: modelo não retornou imagem')
+    return json(502, { error: { message: 'modelo não retornou imagem', type: 'upstream' } })
+  }
+  // Proteção de memória do edge: imagens base64 são grandes (MBs) e a resposta do
+  // upstream não tem cap. Limita a QUANTIDADE e o TAMANHO total antes de montar o
+  // SSE, para não estourar o isolate (OOM).
+  const MAX_IMAGES = 6
+  const MAX_TOTAL_B64 = 16 * 1024 * 1024 // ~16 MB de base64 somados
+  if (images.length > MAX_IMAGES) images = images.slice(0, MAX_IMAGES)
+  const totalB64 = images.reduce((n, im) => n + (im.data?.length ?? 0), 0)
+  if (totalB64 > MAX_TOTAL_B64) {
+    console.error(`vertex image: resposta grande demais (${totalB64} b64)`)
+    return json(502, { error: { message: 'imagem grande demais', type: 'upstream' } })
+  }
+
+  const text = extractText(data)
+  const tokens = imageUsageTokens(data)
+
+  // COBRANÇA FLAT: cost = nº_imagens × image_price_usd. Débito SEMPRE que gerar
+  // (mesma mecânica de scrub: recordPendingCharge se o débito lançar, sem retry
+  // para não arriscar cobrança dupla). Feito ANTES de responder para garantir o
+  // débito; o custo não depende de tokens.
+  const cost = images.length * imagePrice
+  try {
+    await debitUsage({
+      userId,
+      costUsd: cost,
+      model: model.id,
+      promptTokens: tokens.prompt,
+      completionTokens: tokens.completion,
+    })
+  } catch (e) {
+    console.error('debit chat (vertex image) falhou', (e as Error).message)
+    await recordPendingCharge({
+      userId,
+      kind: 'image',
+      model: model.id,
+      costUsd: cost,
+      reason: `debit failed (vertex image): ${(e as Error).message}`,
+    })
+  }
+
+  // Resposta SSE OpenAI-compatível. UM chunk com choices[0].delta.images (uma
+  // entrada por imagem, o desktop lê image_url.url) + o texto opcional; depois um
+  // chunk final com finish_reason:'stop' e usage; depois [DONE].
+  const id = `chatcmpl-${crypto.randomUUID()}`
+  const created = Math.floor(Date.now() / 1000)
+  const objectType = 'chat.completion.chunk'
+
+  const deltaImages = images.map((img) => ({
+    type: 'image_url',
+    image_url: { url: `data:${img.mimeType};base64,${img.data}` },
+  }))
+
+  const firstDelta: Record<string, unknown> = { role: 'assistant', images: deltaImages }
+  if (text) firstDelta.content = text
+
+  const imageChunk = {
+    id,
+    object: objectType,
+    created,
+    model: model.id,
+    choices: [{ index: 0, delta: firstDelta, finish_reason: null }],
+  }
+
+  const finalChunk = {
+    id,
+    object: objectType,
+    created,
+    model: model.id,
+    choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+    usage: {
+      prompt_tokens: tokens.prompt,
+      completion_tokens: tokens.completion,
+      total_tokens: tokens.total,
+    },
+  }
+
+  const sse =
+    `data: ${JSON.stringify(imageChunk)}\n\n` +
+    `data: ${JSON.stringify(finalChunk)}\n\n` +
+    `data: [DONE]\n\n`
+
+  return new Response(sse, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      ...CORS,
+    },
+  })
 }
 
 /**
@@ -371,6 +662,10 @@ export async function POST(req: Request): Promise<Response> {
       return json(400, { error: { message: 'região do modelo não permitida', type: 'bad_request' } })
     }
     return json(502, { error: { message: `falha ao resolver modelo: ${(e as Error).message}`, type: 'upstream' } })
+  }
+
+  if (resolved && resolved.provider === 'vertex' && resolved.api_flavor === 'gemini_image') {
+    return proxyVertexImage(userId, resolved, body, CORS)
   }
 
   if (resolved && resolved.provider === 'vertex' && resolved.api_flavor === 'openai') {
