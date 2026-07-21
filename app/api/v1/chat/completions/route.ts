@@ -1,7 +1,17 @@
 import { z } from 'zod'
 import { verifyUser } from '@/lib/auth'
-import { getBalance, debitUsage, checkRateLimit, recordPendingCharge } from '@/lib/supabase-admin'
+import {
+  getBalance,
+  debitUsage,
+  checkRateLimit,
+  recordPendingCharge,
+  getSpendTodayUsd,
+} from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
+import { resolveModel, RegionNotAllowedError, type ResolvedModel } from '@/lib/model-registry'
+import { getAccessToken } from '@/lib/google-auth'
+import { callVertex, usageFromDataPayload, type VertexUsage } from '@/lib/vertex'
+import { costUsd } from '@/lib/cost'
 
 // Proxy de chat completions (OpenAI-compatible), streaming pass-through.
 // Fluxo: verifica JWT → rate limit → checa saldo → valida corpo (zod + allow-list
@@ -27,6 +37,11 @@ const MAX_BODY_BYTES = Number(process.env.CHAT_MAX_BODY_BYTES ?? 256 * 1024) // 
 const MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS ?? 32000)
 const MAX_MESSAGES = 200
 const MIN_CHARGE_USD = Number(process.env.CHAT_MIN_CHARGE_USD ?? 0.0002)
+
+// Cap de gasto diário (§7). DESABILITADO por padrão: env vazia/0 => sem limite
+// (comportamento atual). Quando > 0, o gate pré-request soma o gasto USD do dia
+// (usage_log) e barra com 402. Entregue desabilitado, mas com o código presente.
+const DAILY_SPEND_CAP_USD = Number(process.env.DAILY_SPEND_CAP_USD ?? 0)
 
 // Allow-list de modelos (opcional): se `CHAT_MODEL_ALLOWLIST` estiver setado
 // (comma), só esses modelos passam. Caso contrário, política sã: modelo bem
@@ -63,6 +78,207 @@ interface Usage {
 
 export function OPTIONS(req: Request): Response {
   return new Response(null, { status: 204, headers: corsHeaders(req, 'POST, OPTIONS') })
+}
+
+/**
+ * Caminho VERTEX (FASE 1: Gemini/Google via Vertex, flavor OpenAI).
+ *
+ * Preserva TODAS as invariantes do proxy: dreno do SSE DESACOPLADO do client
+ * (o pump em background segue lendo o upstream até o fim mesmo se o client
+ * abortar) e DÉBITO SEMPRE (fallback MIN_CHARGE_USD; recordPendingCharge se o
+ * débito lançar). A resposta ao client é SEMPRE formato OpenAI/SSE — o endpoint
+ * openapi do Vertex já devolve nesse formato, então repassamos os chunks crus.
+ *
+ * Diferenças em relação ao caminho OpenRouter:
+ *  - Auth via Google WIF (getAccessToken) em vez da OPENROUTER_KEY.
+ *  - NÃO existe `usage.cost` na resposta: o custo é calculado por nós a partir
+ *    dos tokens (usage do chunk final) × preços da tabela `public.models`.
+ *  - Guard de preço 0: recusa ANTES de gerar (evita geração "de graça").
+ */
+async function proxyVertex(
+  userId: string,
+  model: ResolvedModel,
+  body: Record<string, unknown>,
+  CORS: Record<string, string>,
+): Promise<Response> {
+  const json = (status: number, b: unknown, extra?: Record<string, string>): Response =>
+    new Response(JSON.stringify(b), {
+      status,
+      headers: { 'Content-Type': 'application/json', ...CORS, ...(extra ?? {}) },
+    })
+
+  // Guard de preço: recusamos ANTES de chamar o upstream se o preço de SAÍDA
+  // (output_price) for <= 0. Decisão: a saída é o que o modelo GERA; se ela for
+  // gratuita, a geração sai de graça independentemente do preço de entrada — o
+  // que abriria um buraco de cobrança. Por isso barramos por output_price <= 0
+  // (não apenas quando AMBOS são 0): nunca gerar saída sem preço configurado.
+  if (model.output_price_usd_per_mtok <= 0) {
+    return json(400, {
+      error: { message: 'modelo sem preço de saída configurado — indisponível', type: 'config' },
+    })
+  }
+  // region já foi validada contra a allowlist no model-registry (anti-SSRF); aqui
+  // só garantimos que não é nula (o host do endpoint depende dela).
+  if (!model.region) {
+    return json(500, { error: { message: 'region ausente para modelo vertex', type: 'config' } })
+  }
+
+  // Token Google (WIF/OIDC). Falha aqui é erro de config/infra, não do client.
+  let accessToken: string
+  try {
+    accessToken = await getAccessToken()
+  } catch (e) {
+    // Detalhe cru só server-side; ao client, mensagem genérica (sem vazar infra).
+    console.error('auth Google falhou (vertex):', (e as Error).message)
+    return json(500, { error: { message: 'falha de autenticação com o provedor', type: 'config' } })
+  }
+
+  // Chamada streaming ao Vertex. NÃO passamos o signal do client: o dreno é
+  // desacoplado (débito sempre). callVertex reescreve o corpo (model=upstream,
+  // stream=true, stream_options.include_usage=true, remove usage.include).
+  let upstream: Response
+  try {
+    upstream = await callVertex({
+      region: model.region,
+      upstreamModelId: model.upstream_model_id,
+      body,
+      accessToken,
+    })
+  } catch (e) {
+    // Detalhe cru só server-side; ao client, mensagem genérica (sem vazar infra).
+    console.error('vertex call falhou:', (e as Error).message)
+    return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
+  }
+
+  if (!upstream.ok || !upstream.body) {
+    const detail = await upstream.text().catch(() => '')
+    // Corpo cru do upstream só server-side; preservamos o status HTTP e devolvemos
+    // ao client uma mensagem genérica (o corpo cru pode vazar detalhes de infra).
+    console.error('vertex upstream não-ok', upstream.status, detail || upstream.statusText)
+    return json(upstream.status || 502, {
+      error: { message: 'falha no provedor de modelo', type: 'upstream' },
+    })
+  }
+
+  const reader = upstream.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let lastUsage: VertexUsage | null = null
+
+  // Processa UMA linha SSE (mesmo trim do ramo OpenRouter, para uniformizar o
+  // parsing entre os dois caminhos).
+  const scanLine = (raw: string): void => {
+    const line = raw.trim()
+    if (!line.startsWith('data:')) return
+    const u = usageFromDataPayload(line.slice('data:'.length))
+    if (u) lastUsage = u
+  }
+
+  const scan = (text: string): void => {
+    buffer += text
+    let nl: number
+    while ((nl = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, nl)
+      buffer = buffer.slice(nl + 1)
+      scanLine(line)
+    }
+  }
+
+  // Flush do resíduo: um último `data:` com usage pode chegar sem '\n' final. Sem
+  // este scan, esse usage se perderia e cairíamos em MIN_CHARGE. Chamado após o
+  // loop de leitura terminar (done) e ANTES do settle/débito.
+  const flush = (): void => {
+    if (buffer.length === 0) return
+    scanLine(buffer)
+    buffer = ''
+  }
+
+  const settle = async (): Promise<void> => {
+    const usage = lastUsage
+    try {
+      if (usage) {
+        // cost_usd = in/1e6*input_price + out/1e6*output_price. Como já barramos
+        // preço 0 acima, costUsd não lança PriceNotConfiguredError aqui.
+        const cost = costUsd({
+          promptTokens: usage.prompt_tokens,
+          completionTokens: usage.completion_tokens,
+          inputPrice: model.input_price_usd_per_mtok,
+          outputPrice: model.output_price_usd_per_mtok,
+        })
+        await debitUsage({
+          userId,
+          costUsd: cost,
+          model: model.id, // model canônico da tabela (id OpenRouter p/ dedup).
+          promptTokens: usage.prompt_tokens,
+          completionTokens: usage.completion_tokens,
+        })
+      } else {
+        // Sem usage no SSE: cobra o mínimo para que toda geração debite.
+        await debitUsage({ userId, costUsd: MIN_CHARGE_USD, model: model.id })
+      }
+    } catch (e) {
+      // Débito lançou: não sabemos se aplicou → NÃO retenta (evita dupla
+      // cobrança). Marca para reconciliação.
+      console.error('debit chat (vertex) falhou', (e as Error).message)
+      await recordPendingCharge({
+        userId,
+        kind: 'chat',
+        model: model.id,
+        costUsd: null,
+        reason: `debit failed (vertex): ${(e as Error).message}`,
+      })
+    }
+  }
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      let clientGone = false
+      ;(async () => {
+        try {
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            scan(decoder.decode(value, { stream: true }))
+            if (!clientGone) {
+              try {
+                controller.enqueue(value)
+              } catch {
+                // Client desconectou: paramos de enfileirar, mas SEGUIMOS lendo o
+                // upstream até o fim para capturar o usage e debitar.
+                clientGone = true
+              }
+            }
+          }
+        } catch (e) {
+          console.error('drain vertex falhou', (e as Error).message)
+        } finally {
+          // Loop terminou (done) — captura um último `data:`/usage residual que
+          // tenha chegado sem '\n' final, ANTES de liquidar o débito.
+          flush()
+          await settle()
+          try {
+            controller.close()
+          } catch {
+            /* já fechado (client foi embora) */
+          }
+        }
+      })()
+    },
+    cancel() {
+      // Client cancelou. NÃO cancelamos o upstream — o pump segue drenando até o
+      // fim para garantir o débito.
+    },
+  })
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      ...CORS,
+    },
+  })
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -102,6 +318,21 @@ export async function POST(req: Request): Promise<Response> {
     return json(502, { error: { message: `falha ao checar saldo: ${(e as Error).message}`, type: 'upstream' } })
   }
 
+  // 3b) Cap de gasto diário (§7) — DESABILITADO por padrão. Só ativo quando
+  // DAILY_SPEND_CAP_USD > 0. Soma o gasto USD do dia (usage_log) e barra com 402
+  // se já atingiu/excedeu o teto. FAIL-OPEN: erro de infra não bloqueia (a soma
+  // já devolve 0 nesse caso), pois é uma feature opcional.
+  if (Number.isFinite(DAILY_SPEND_CAP_USD) && DAILY_SPEND_CAP_USD > 0) {
+    try {
+      const spentTodayUsd = await getSpendTodayUsd(userId)
+      if (spentTodayUsd >= DAILY_SPEND_CAP_USD) {
+        return json(402, { error: { message: 'limite de gasto diário atingido', type: 'daily_cap' } })
+      }
+    } catch (e) {
+      console.error('daily cap check falhou (fail-open):', (e as Error).message)
+    }
+  }
+
   // 4) Corpo: cap de tamanho + validação zod + allow-list de modelo.
   const raw = await req.text()
   if (raw.length > MAX_BODY_BYTES) {
@@ -125,6 +356,27 @@ export async function POST(req: Request): Promise<Response> {
     return json(400, { error: { message: 'modelo não permitido', type: 'bad_request' } })
   }
 
+  // 4b) RESOLUÇÃO OVERLAY: a tabela public.models é a fonte de verdade de
+  // roteamento. Achou E provider==='vertex' && api_flavor==='openai' → caminho
+  // VERTEX. Senão (não achou, ou outro provider/flavor) → FALLBACK OpenRouter
+  // (o caminho ATUAL, 100% intacto, logo abaixo). A tabela é overlay, não a
+  // allow-list única: o que não estiver nela (incl. Claude na Fase 1) vai pra
+  // OpenRouter, que valida os próprios modelos.
+  let resolved: ResolvedModel | null = null
+  try {
+    resolved = await resolveModel(model)
+  } catch (e) {
+    if (e instanceof RegionNotAllowedError) {
+      // Recusa de segurança (anti-SSRF), não um "não encontrado".
+      return json(400, { error: { message: 'região do modelo não permitida', type: 'bad_request' } })
+    }
+    return json(502, { error: { message: `falha ao resolver modelo: ${(e as Error).message}`, type: 'upstream' } })
+  }
+
+  if (resolved && resolved.provider === 'vertex' && resolved.api_flavor === 'openai') {
+    return proxyVertex(userId, resolved, body, CORS)
+  }
+
   // Força streaming + pede o custo (usage.include) à OpenRouter.
   body.stream = true
   body.usage = { include: true }
@@ -146,8 +398,11 @@ export async function POST(req: Request): Promise<Response> {
 
   if (!upstream.ok || !upstream.body) {
     const detail = await upstream.text().catch(() => '')
+    // Corpo cru do upstream só server-side; preservamos o status HTTP e devolvemos
+    // ao client uma mensagem genérica (o corpo cru pode vazar detalhes de infra).
+    console.error('openrouter upstream não-ok', upstream.status, detail || upstream.statusText)
     return json(upstream.status || 502, {
-      error: { message: `openrouter: ${detail || upstream.statusText}`, type: 'upstream' },
+      error: { message: 'falha no provedor de modelo', type: 'upstream' },
     })
   }
 

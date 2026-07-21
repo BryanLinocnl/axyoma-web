@@ -176,7 +176,16 @@ export async function recordPendingCharge(params: {
   }
 }
 
-/** Debita o custo real (USD) do turno; a conversão p/ créditos é feita no banco. */
+/**
+ * Debita o custo real (USD) do turno; a conversão p/ créditos é feita no banco.
+ *
+ * Margem: a RPC `spend_openrouter_usage_admin` tem assinatura de 7 args, com
+ * `p_margin_override numeric default null` NO FIM. Quando a env
+ * `CREDIT_MARGIN_MULTIPLIER` estiver setada como um número válido, repassamos esse
+ * valor como `p_margin_override` (sobrescreve `billing_config.margin_multiplier`
+ * só nesta chamada, sem deploy). Sem a env → omitimos o arg (default null no banco
+ * = comportamento atual idêntico).
+ */
 export async function debitUsage(params: {
   userId: string
   costUsd: number
@@ -184,11 +193,57 @@ export async function debitUsage(params: {
   promptTokens?: number
   completionTokens?: number
 }): Promise<void> {
-  await rpc('spend_openrouter_usage_admin', {
+  const args: Record<string, unknown> = {
     p_user: params.userId,
     p_cost_usd: params.costUsd,
     p_model: params.model ?? null,
     p_prompt_tokens: params.promptTokens ?? 0,
     p_completion_tokens: params.completionTokens ?? 0,
-  })
+  }
+
+  const rawMargin = process.env.CREDIT_MARGIN_MULTIPLIER
+  if (rawMargin != null && rawMargin.trim() !== '') {
+    const margin = Number(rawMargin)
+    // Só repassa se for número finito; caso contrário mantém o default do banco.
+    if (Number.isFinite(margin)) args.p_margin_override = margin
+  }
+
+  await rpc('spend_openrouter_usage_admin', args)
+}
+
+/**
+ * Soma o gasto (USD) do dia corrente do usuário, lido de `usage_log` (o custo em
+ * USD vive no campo `meta.cost_usd` gravado pela RPC de débito). É a base do cap
+ * de gasto diário OPCIONAL (§7) — só chamado quando `DAILY_SPEND_CAP_USD > 0`.
+ *
+ * FAIL-OPEN: se a leitura falhar (infra/rede), devolve 0 para NÃO bloquear o
+ * usuário por erro de infraestrutura numa feature opcional. O `limit` alto é uma
+ * trava de sanidade (o dia dificilmente terá tantas gerações por usuário).
+ */
+export async function getSpendTodayUsd(userId: string): Promise<number> {
+  try {
+    const { url, key } = assertEnv()
+    const startOfDay = new Date()
+    startOfDay.setUTCHours(0, 0, 0, 0)
+    const qs = new URLSearchParams({
+      user_id: `eq.${userId}`,
+      ts: `gte.${startOfDay.toISOString()}`,
+      select: 'meta',
+      limit: '10000',
+    })
+    const res = await fetch(`${url}/rest/v1/usage_log?${qs.toString()}`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+    if (!res.ok) return 0
+    const rows = (await res.json()) as { meta?: { cost_usd?: unknown } | null }[]
+    let total = 0
+    for (const r of rows) {
+      const c = Number(r.meta?.cost_usd)
+      if (Number.isFinite(c) && c > 0) total += c
+    }
+    return total
+  } catch (e) {
+    console.error('getSpendTodayUsd indisponível (fail-open):', (e as Error).message)
+    return 0
+  }
 }
