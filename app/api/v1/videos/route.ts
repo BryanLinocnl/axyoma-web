@@ -44,6 +44,8 @@ const BodySchema = z
     prompt: z.string().min(1).max(MAX_PROMPT),
     model: z.string().min(1).max(200),
     durationSeconds: z.number().int().min(MIN_DURATION_S).max(MAX_DURATION_S).optional(),
+    // Proporção do vídeo: 16:9 (widescreen) ou 9:16 (vertical). Default 16:9.
+    aspectRatio: z.enum(['16:9', '9:16']).optional().default('16:9'),
     // Frame inicial opcional: SOMENTE data URL base64 (http(s):// é IGNORADA — nunca
     // baixamos URL de referência, anti-SSRF).
     image: z.string().min(1).max(MAX_BODY_BYTES).optional(),
@@ -117,6 +119,7 @@ export async function POST(req: Request): Promise<Response> {
   if (!prompt) return json(400, { error: { message: 'prompt obrigatório', type: 'bad_request' } })
   const model = parsed.data.model.trim()
   const durationSeconds = parsed.data.durationSeconds ?? DEFAULT_DURATION_S
+  const aspectRatio = parsed.data.aspectRatio
 
   // Frame inicial opcional: só aceitamos data URL base64. Qualquer outra coisa é
   // ignorada silenciosamente (não é erro; simplesmente não vira image ref).
@@ -203,7 +206,7 @@ export async function POST(req: Request): Promise<Response> {
   if (imageRef) instance.image = imageRef
   const submitBody = {
     instances: [instance],
-    parameters: { sampleCount: 1, durationSeconds },
+    parameters: { sampleCount: 1, durationSeconds, aspectRatio },
   }
 
   const submit = (reg: string): Promise<Response> =>
