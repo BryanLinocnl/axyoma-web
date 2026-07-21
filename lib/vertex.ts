@@ -172,7 +172,13 @@ export function buildGenerateContentUrl(
 ): string {
   const loc = location.trim()
   const host = loc === 'global' ? 'aiplatform.googleapis.com' : `${loc}-aiplatform.googleapis.com`
-  return `https://${host}/v1/projects/${projectId}/locations/${loc}/publishers/${publisher}/models/${upstreamModelId}:generateContent`
+  // O generateContent usa `publishers/{publisher}/models/{ID BARE}`. O
+  // upstream_model_id da tabela vem no estilo openapi ('google/gemini-...') — se
+  // deixássemos o prefixo do publisher, o path duplicaria ('.../models/google/gemini-...')
+  // e a Vertex responde 404. Removemos o prefixo `{publisher}/` quando presente.
+  const prefix = `${publisher}/`
+  const modelId = upstreamModelId.startsWith(prefix) ? upstreamModelId.slice(prefix.length) : upstreamModelId
+  return `https://${host}/v1/projects/${projectId}/locations/${loc}/publishers/${publisher}/models/${modelId}:generateContent`
 }
 
 /** Uma imagem inline extraída da resposta generateContent. `data` é base64 cru. */
