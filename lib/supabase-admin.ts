@@ -148,7 +148,7 @@ export async function checkRateLimit(params: {
  */
 export async function recordPendingCharge(params: {
   userId: string
-  kind: 'chat' | 'image'
+  kind: 'chat' | 'image' | 'video'
   model?: string | null
   costUsd?: number | null
   reason: string
