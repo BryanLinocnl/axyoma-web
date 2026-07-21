@@ -181,6 +181,44 @@ export function buildGenerateContentUrl(
   return `https://${host}/v1/projects/${projectId}/locations/${loc}/publishers/${publisher}/models/${modelId}:generateContent`
 }
 
+// ---------------------------------------------------------------------------
+// Geração de VÍDEO — endpoint NATIVO :predictLongRunning (api_flavor 'veo').
+// ASSÍNCRONO: SUBMIT com :predictLongRunning devolve { name: 'projects/.../operations/<id>' }
+// (rápido); o POLL usa :fetchPredictOperation { operationName } até { done:true },
+// e a resposta traz videos[].bytesBase64Encoded (mp4 base64). NÃO é streaming e
+// NÃO é o generateContent (imagem). Mesmo host/strip-de-publisher do buildGenerateContentUrl.
+// ---------------------------------------------------------------------------
+
+/** Métodos long-running do Vertex usados pelo fluxo de vídeo (Veo). */
+export type LongRunningMethod = 'predictLongRunning' | 'fetchPredictOperation'
+
+/**
+ * Monta a URL de um método long-running (`:predictLongRunning` para SUBMIT,
+ * `:fetchPredictOperation` para POLL) do Vertex — reusa EXATAMENTE a lógica de
+ * host e strip-de-publisher do `buildGenerateContentUrl`.
+ *
+ * - `location === 'global'` → host SEM prefixo regional ('aiplatform.googleapis.com').
+ * - qualquer outra location → host regional ('{location}-aiplatform.googleapis.com').
+ *
+ * A `location` DEVE vir já validada contra a allowlist (ver model-registry) — é
+ * interpolada no host (anti-SSRF fica a cargo de quem resolve o modelo). O
+ * `upstreamModelId` pode vir no estilo openapi ('google/veo-...'); removemos o
+ * prefixo `{publisher}/` para não duplicar o path (a Vertex responde 404 senão).
+ */
+export function buildLongRunningUrl(
+  location: string,
+  projectId: string,
+  upstreamModelId: string,
+  method: LongRunningMethod,
+  publisher = 'google',
+): string {
+  const loc = location.trim()
+  const host = loc === 'global' ? 'aiplatform.googleapis.com' : `${loc}-aiplatform.googleapis.com`
+  const prefix = `${publisher}/`
+  const modelId = upstreamModelId.startsWith(prefix) ? upstreamModelId.slice(prefix.length) : upstreamModelId
+  return `https://${host}/v1/projects/${projectId}/locations/${loc}/publishers/${publisher}/models/${modelId}:${method}`
+}
+
 /** Uma imagem inline extraída da resposta generateContent. `data` é base64 cru. */
 export type InlineImage = {
   mimeType: string

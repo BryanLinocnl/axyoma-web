@@ -18,8 +18,10 @@ export type ModelProvider = 'vertex' | 'openrouter' | 'openai' | 'groq'
  * - 'openai'       → endpoint openapi/chat/completions (texto/streaming).
  * - 'anthropic'    → reservado (sem adaptador ainda).
  * - 'gemini_image' → endpoint nativo generateContent do Vertex (geração de imagem).
+ * - 'veo'          → endpoint nativo :predictLongRunning do Vertex (geração de
+ *                    VÍDEO, assíncrona: submit → poll → fetchPredictOperation).
  */
-export type ApiFlavor = 'openai' | 'anthropic' | 'gemini_image'
+export type ApiFlavor = 'openai' | 'anthropic' | 'gemini_image' | 'veo'
 
 /**
  * Linha resolvida de `public.models` — TIPO SERVER-ONLY. Contém colunas de
@@ -40,6 +42,13 @@ export type ResolvedModel = {
   input_price_usd_per_mtok: number
   output_price_usd_per_mtok: number
   image_price_usd: number | null
+  /**
+   * Metadados NÃO-estruturados do modelo (jsonb `public.models.metadata`).
+   * SERVER-ONLY. É onde vive `price_per_second_usd` dos modelos de vídeo (Veo),
+   * já que `image_price_usd` não modela cobrança por duração. Use o helper
+   * `videoPricePerSecondUsd()` para ler o preço de vídeo com segurança.
+   */
+  metadata: Record<string, unknown> | null
   enabled: boolean
   supports_tools: boolean
   supports_reasoning: boolean
@@ -76,6 +85,7 @@ const SELECT_COLS = [
   'input_price_usd_per_mtok',
   'output_price_usd_per_mtok',
   'image_price_usd',
+  'metadata',
   'enabled',
   'supports_tools',
   'supports_reasoning',
@@ -129,6 +139,10 @@ function normalize(row: Record<string, unknown>): ResolvedModel {
     input_price_usd_per_mtok: num(row.input_price_usd_per_mtok),
     output_price_usd_per_mtok: num(row.output_price_usd_per_mtok),
     image_price_usd: row.image_price_usd == null ? null : num(row.image_price_usd),
+    metadata:
+      row.metadata != null && typeof row.metadata === 'object' && !Array.isArray(row.metadata)
+        ? (row.metadata as Record<string, unknown>)
+        : null,
     enabled: row.enabled === true,
     supports_tools: row.supports_tools === true,
     supports_reasoning: row.supports_reasoning === true,
@@ -244,6 +258,20 @@ export function healModelRegion(id: string, region: string): void {
   }).catch(() => {
     // best-effort: um heal que falha não pode afetar a resposta em andamento.
   })
+}
+
+/**
+ * Preço por SEGUNDO (USD) de um modelo de vídeo (Veo), lido de
+ * `metadata.price_per_second_usd`. Diferente de imagem/texto, a cobrança de vídeo
+ * é por duração — não há coluna dedicada; o preço vive no jsonb `metadata`.
+ *
+ * Retorna `null` quando ausente/malformado/<=0 — o chamador DEVE tratar isso como
+ * "não configurado" e RECUSAR a cobrança (nunca gerar vídeo de graça).
+ */
+export function videoPricePerSecondUsd(m: ResolvedModel): number | null {
+  const raw = m.metadata?.price_per_second_usd
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : null
 }
 
 /** Limpa o cache (útil em testes). */
