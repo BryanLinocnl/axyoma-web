@@ -18,7 +18,7 @@ const FACTS: Fact[] = [
   { label: 'Modelos', value: 'Claude, GPT, Gemini, DeepSeek…', icon: <Cpu className="h-4 w-4" /> },
   { label: 'Agente', value: 'Terminal, editor e GitHub', icon: <SquareTerminal className="h-4 w-4" /> },
   { label: 'Uso', value: 'Sem teto artificial', icon: <Infinity className="h-4 w-4" /> },
-  { label: 'Free pack', value: '100 créditos', icon: <Gift className="h-4 w-4" /> },
+  { label: 'Free pack', value: '400 créditos', icon: <Gift className="h-4 w-4" /> },
 ]
 
 export function ProofBar({ id }: { id?: string }): React.JSX.Element {

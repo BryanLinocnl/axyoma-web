@@ -19,13 +19,13 @@ const PLANS: Plan[] = [
     live: true,
     price: '0',
     period: 'para sempre',
-    desc: 'Comece agora, sem cartão. Compre créditos quando os de bônus acabarem.',
+    desc: 'Comece sem cartão: 400 créditos de bônus, como um mês de Pro para testar.',
     highlight: true,
     perks: [
-      '100 créditos de bônus (não renováveis)',
+      '400 créditos de bônus (modelos Vertex AI)',
       'Code Mode e Plan Mode',
       'Todas as ferramentas do app',
-      'Todos os modelos do catálogo (pay per use)',
+      'Demais modelos com créditos comprados',
       'Compre créditos quando quiser',
     ],
     cta: { href: '/download', label: 'Baixar grátis' },
@@ -37,8 +37,8 @@ const PLANS: Plan[] = [
     desc: 'Tudo do Free, com Modo Design e créditos mensais.',
     perks: [
       'Tudo do Plano Free',
-      '300 Skills Personalizadas',
-      '400 créditos mensais',
+      'Skills personalizadas',
+      'Créditos de franquia mensais (Vertex AI)',
       'Modo Design',
     ],
   },
@@ -51,7 +51,7 @@ const PLANS: Plan[] = [
       'Tudo do Plano Pro',
       'Ferramentas Teams Exclusivas',
       'Assessoria Advisor',
-      '1.000 créditos mensais',
+      'Créditos compartilhados pelo time (Vertex AI)',
     ],
   },
 ]
@@ -69,6 +69,10 @@ export function Pricing(): React.JSX.Element {
           </h2>
           <p className="mt-4 text-sm text-[var(--ink-dim)]">
             1 crédito = R$ 0,30 · pague com PIX · compre créditos quando quiser
+          </p>
+          <p className="mx-auto mt-2 max-w-xl text-xs text-[var(--ink-faint)]">
+            Créditos de bônus e de franquia valem para os modelos da Vertex AI (Google Cloud).
+            Créditos comprados valem para todos os modelos, incluindo os da Vertex.
           </p>
         </div>
 

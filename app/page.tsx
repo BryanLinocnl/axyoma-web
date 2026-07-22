@@ -5,6 +5,7 @@ import { ModesSection } from '@/components/landing/ModesSection'
 import { ValuePillars } from '@/components/landing/ValuePillars'
 import { HowItWorks } from '@/components/landing/HowItWorks'
 import { Pricing } from '@/components/landing/Pricing'
+import { Faq } from '@/components/landing/Faq'
 import { FinalCta } from '@/components/landing/FinalCta'
 import { SiteFooter } from '@/components/landing/SiteFooter'
 
@@ -24,6 +25,7 @@ export default function Home(): React.JSX.Element {
       <ValuePillars />
       <HowItWorks />
       <Pricing />
+      <Faq />
       <FinalCta />
       <SiteFooter />
     </main>

@@ -52,7 +52,7 @@ export function FinalCta(): React.JSX.Element {
           <span className="font-brand brand-text">sem</span> travar.
         </h2>
         <p className="mx-auto mt-5 max-w-md text-base text-[var(--ink-dim)]">
-          Grátis. 100 créditos. Sem cartão. Sem teto opaco.
+          Grátis. 400 créditos. Sem cartão. Sem teto opaco.
         </p>
 
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
