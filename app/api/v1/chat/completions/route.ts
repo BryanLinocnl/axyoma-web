@@ -43,14 +43,22 @@ export const runtime = 'edge'
 const OPENROUTER = 'https://openrouter.ai/api/v1'
 
 // Limites (documentados). Overrides por env quando fizer sentido em produção.
-const RATE_LIMIT = Number(process.env.CHAT_RATE_LIMIT ?? 30) // req / janela / usuário
+// ATENÇÃO: este é um app AGÊNTICO — UM turno dispara DEZENAS de requisições/min
+// (cada iteração do loop = 1 request; sub-agents = várias). 30/min estourava logo
+// na 1ª mensagem, TODO turno, virando 429 "provedor atingiu o limite" (era o
+// PRÓPRIO proxy, não o Vertex). Teto alto (por-usuário, já gated por auth+saldo+
+// cap diário — o controle de abuso é o saldo, não isto). Overridável por env.
+const RATE_LIMIT = Number(process.env.CHAT_RATE_LIMIT ?? 600) // req / janela / usuário
 const RATE_WINDOW_S = Number(process.env.CHAT_RATE_WINDOW_S ?? 60)
 // Cap de corpo: precisa acomodar IMAGENS de entrada (visão + edição imagem-para-imagem),
 // cujo base64 tem alguns MB. Gated por auth + rate-limit + saldo, então um corpo maior não é
 // vetor de abuso relevante. Overridável por env. (Texto puro fica muito abaixo disso.)
 const MAX_BODY_BYTES = Number(process.env.CHAT_MAX_BODY_BYTES ?? 16 * 1024 * 1024) // 16 MB
 const MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS ?? 32000)
-const MAX_MESSAGES = 200
+// Turnos agênticos longos acumulam MUITAS mensagens (cada tool = assistant +
+// tool result). 200 era baixo demais — um turno de vários minutos estourava e o
+// proxy rejeitava com 400 no meio do trabalho. Sobe o teto (overridável por env).
+const MAX_MESSAGES = Number(process.env.CHAT_MAX_MESSAGES ?? 5000)
 const MIN_CHARGE_USD = Number(process.env.CHAT_MIN_CHARGE_USD ?? 0.0002)
 
 // Cap de gasto diário (§7). DESABILITADO por padrão: env vazia/0 => sem limite
@@ -753,7 +761,12 @@ export async function POST(req: Request): Promise<Response> {
   }
   const result = BodySchema.safeParse(parsed)
   if (!result.success) {
-    return json(400, { error: { message: 'parâmetros inválidos', type: 'bad_request' } })
+    // Diz QUAL campo falhou (ex.: "messages: Array must contain at most N element(s)")
+    // — a mensagem genérica escondia a causa e obrigava a adivinhar. Sem vazar
+    // dados: só o caminho do campo + a regra que quebrou, do próprio zod.
+    const first = result.error.issues[0]
+    const detail = first ? `${first.path.join('.') || 'corpo'}: ${first.message}` : 'formato inválido'
+    return json(400, { error: { message: `parâmetros inválidos — ${detail}`, type: 'bad_request' } })
   }
   const body = result.data as Record<string, unknown>
   const model = body.model as string
