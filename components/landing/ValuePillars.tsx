@@ -12,7 +12,7 @@ const PILLARS = [
   {
     n: '03',
     title: 'Só paga o que usa',
-    body: 'Free com 100 créditos de bônus. Pacotes quando quiser mais. Assinatura opcional — quando Pro e Teams abrirem.',
+    body: 'Free com 400 créditos de bônus (modelos Vertex AI) — como um mês de Pro. Compre créditos para todos os modelos. Assinatura opcional quando Pro e Teams abrirem.',
   },
   {
     n: '04',

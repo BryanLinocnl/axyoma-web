@@ -7,7 +7,7 @@ const STEPS = [
   {
     n: '02',
     title: 'Crie sua conta',
-    body: '100 créditos de bônus na hora. Sem cartão.',
+    body: '400 créditos de bônus na hora. Sem cartão.',
   },
   {
     n: '03',

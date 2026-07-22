@@ -28,10 +28,34 @@ const jetbrains = JetBrains_Mono({
   weight: ['400', '500', '600'],
 })
 
+const SITE_URL = 'https://axyoma.ia.br'
+const SITE_DESC =
+  'Desenhe para as redes, planeje a execução e rode o agente no mesmo app — com os melhores modelos e sem teto artificial de uso. Créditos que você controla. Sem chave de API. Sem montar stack.'
+
 export const metadata: Metadata = {
-  title: 'Axyoma — Crie sem limite de uso',
-  description:
-    'Desenhe para as redes, planeje a execução e rode o agente no mesmo app — com os melhores modelos e sem teto artificial de uso. Créditos que você controla. Sem chave de API. Sem montar stack.',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'Axyoma — Crie sem limite de uso',
+    template: '%s',
+  },
+  description: SITE_DESC,
+  applicationName: 'Axyoma AI',
+  keywords: ['Axyoma', 'IA', 'agente de código', 'estúdio de engenharia', 'design com IA', 'créditos'],
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    locale: 'pt_BR',
+    url: SITE_URL,
+    siteName: 'Axyoma AI',
+    title: 'Axyoma — Crie sem limite de uso',
+    description: SITE_DESC,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Axyoma — Crie sem limite de uso',
+    description: SITE_DESC,
+  },
+  robots: { index: true, follow: true },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }): React.JSX.Element {

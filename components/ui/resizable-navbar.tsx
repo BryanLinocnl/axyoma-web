@@ -91,7 +91,7 @@ export const NavBody = ({ children, className, visible }: NavBodyProps) => {
         damping: 50,
       }}
       style={{
-        minWidth: "800px",
+        minWidth: "1000px",
       }}
       className={cn(
         "relative z-[60] mx-auto hidden h-16 max-w-7xl flex-row items-center justify-between rounded-none bg-transparent px-4 py-2 lg:flex",

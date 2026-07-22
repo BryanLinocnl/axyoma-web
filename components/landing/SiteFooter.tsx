@@ -1,16 +1,15 @@
 import Link from 'next/link'
 import { AxiomaLogo } from '@/components/AxiomaLogo'
+import { EMPRESA } from '@/lib/empresa'
 
 const LINKS = [
+  { href: '/recursos', label: 'Recursos' },
+  { href: '/contato', label: 'Sobre' },
   { href: '/docs', label: 'Docs' },
-  { href: '/login', label: 'Entrar' },
   { href: '/download', label: 'Download' },
-]
-
-// Handles oficiais ainda abertos no PRD — placeholders documentados.
-const SOCIAL = [
-  { href: 'https://x.com/axyoma', label: 'X', external: true },
-  { href: 'https://instagram.com/axyoma', label: 'Instagram', external: true },
+  { href: '/contato', label: 'Contato' },
+  { href: '/privacidade', label: 'Privacidade' },
+  { href: '/termos', label: 'Termos' },
 ]
 
 export function SiteFooter(): React.JSX.Element {
@@ -25,11 +24,17 @@ export function SiteFooter(): React.JSX.Element {
 
           <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[var(--ink-faint)]">
             {LINKS.map((l) => (
-              <Link key={l.href} href={l.href} className="transition-colors hover:text-white">
+              <Link key={l.label} href={l.href} className="transition-colors hover:text-white">
                 {l.label}
               </Link>
             ))}
-            {SOCIAL.map((s) => (
+            <a
+              href={`mailto:${EMPRESA.email}`}
+              className="transition-colors hover:text-white"
+            >
+              {EMPRESA.email}
+            </a>
+            {EMPRESA.social.map((s) => (
               <a
                 key={s.href}
                 href={s.href}
@@ -44,7 +49,9 @@ export function SiteFooter(): React.JSX.Element {
         </div>
 
         <div className="flex flex-col items-start justify-between gap-2 border-t border-white/8 pt-5 text-xs text-[var(--ink-faint)] sm:flex-row sm:items-center">
-          <p>© 2026 Axyoma</p>
+          <p>
+            © 2026 {EMPRESA.razaoSocial} · CNPJ {EMPRESA.cnpj} · {EMPRESA.cidade}
+          </p>
           <p>
             Feita no{' '}
             <span className="font-brand text-[var(--ink-dim)]">Axyoma</span> IA

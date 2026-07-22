@@ -129,7 +129,7 @@ export function Hero(): React.JSX.Element {
           className="ax-rise mt-4 text-xs text-[var(--ink-faint)]"
           style={{ animationDelay: '340ms' }}
         >
-          100 créditos grátis · use o quanto quiser com pacotes · sem cartão para começar
+          400 créditos grátis · como um mês de Pro para testar · sem cartão para começar
         </p>
       </div>
     </section>
