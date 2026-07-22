@@ -116,6 +116,23 @@ const VERTEX_FALLBACK_REGION = 'global'
  * Erros que NÃO são disso (401/403/429/5xx) retornam false e seguem o tratamento
  * normal — nada de retentar autenticação/quota/erro de servidor.
  */
+// Extrai a mensagem de erro REAL do corpo do upstream (Vertex/OpenRouter) para
+// devolver ao client em vez do genérico "falha no provedor de modelo". Sem isto,
+// todo 4xx do provedor virava caixa-preta e obrigava a adivinhar a causa. Só a
+// `error.message` do provedor (validação/limite) — cap de tamanho; nunca o corpo
+// cru inteiro (que pode ter ruído/infra).
+function upstreamErrorMessage(detail: string): string {
+  const fallback = 'falha no provedor de modelo'
+  if (!detail) return fallback
+  try {
+    const j = JSON.parse(detail)
+    const msg = j?.error?.message ?? (Array.isArray(j) ? j[0]?.error?.message : undefined)
+    if (typeof msg === 'string' && msg.trim()) return `provedor: ${msg.trim().slice(0, 300)}`
+  } catch { /* não é JSON */ }
+  const t = detail.trim()
+  return t ? `provedor: ${t.slice(0, 300)}` : fallback
+}
+
 function isNotServable(status: number, _bodyText: string): boolean {
   // SÓ 404 dispara o fallback de região + auto-heal. NÃO casar por substring do
   // corpo: um 403/500 transitório com "not found" na mensagem (numa região CORRETA)
@@ -546,7 +563,7 @@ async function proxyVertex(
           const rdetail = await retry.text().catch(() => '')
           console.error('vertex retry global não-ok', retry.status, rdetail || retry.statusText)
           return json(retry.status || 502, {
-            error: { message: 'falha no provedor de modelo', type: 'upstream' },
+            error: { message: upstreamErrorMessage(rdetail), type: 'upstream' },
           })
         }
       } catch (e) {
@@ -557,7 +574,7 @@ async function proxyVertex(
       // Não é caso de fallback (ou 'global' não permitido): tratamento atual.
       console.error('vertex upstream não-ok', upstream.status, detail || upstream.statusText)
       return json(upstream.status || 502, {
-        error: { message: 'falha no provedor de modelo', type: 'upstream' },
+        error: { message: upstreamErrorMessage(detail), type: 'upstream' },
       })
     }
   }
@@ -826,7 +843,7 @@ export async function POST(req: Request): Promise<Response> {
     // ao client uma mensagem genérica (o corpo cru pode vazar detalhes de infra).
     console.error('openrouter upstream não-ok', upstream.status, detail || upstream.statusText)
     return json(upstream.status || 502, {
-      error: { message: 'falha no provedor de modelo', type: 'upstream' },
+      error: { message: upstreamErrorMessage(detail), type: 'upstream' },
     })
   }
 
