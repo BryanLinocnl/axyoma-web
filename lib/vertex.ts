@@ -54,13 +54,22 @@ type OpenAIChatBody = Record<string, unknown> & {
  *   endpoint OpenAI-compat do Vertex PENSA mas NÃO devolve o resumo no stream — o
  *   painel "Pensamento" ficava vazio (só o aviso de rate-limit do harness). Com a
  *   flag, a Vertex emite os pensamentos como `delta.reasoning_content`, que o app
- *   já parseia. O `reasoning_effort` (budget) o app já manda.
+ *   já parseia.
+ * - DESCARTA o `reasoning_effort` que o app manda: a Vertex recusa os dois juntos
+ *   ("Expected one of either reasoning_effort or custom thinking_config; found
+ *   both"). Como só o thinking_config expõe `include_thoughts`, ele vence. Sem
+ *   `thinking_budget` explícito → thinking padrão (dinâmico) do modelo, evitando
+ *   400 por budget fora do limite.
  * Não muta o objeto original.
  */
 export function rewriteBodyForVertex(clientBody: OpenAIChatBody, upstreamModelId: string): OpenAIChatBody {
-  const { usage: _drop, stream_options: prevStreamOpts, google: prevGoogleRaw, ...rest } = clientBody as OpenAIChatBody & {
-    google?: unknown
-  }
+  const {
+    usage: _drop,
+    reasoning_effort: _dropEffort,
+    stream_options: prevStreamOpts,
+    google: prevGoogleRaw,
+    ...rest
+  } = clientBody as OpenAIChatBody & { google?: unknown; reasoning_effort?: unknown }
   const asObj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {})
   const prevGoogle = asObj(prevGoogleRaw)
   const prevThinking = asObj(prevGoogle.thinking_config)
