@@ -599,10 +599,29 @@ async function proxyVertex(
 
   // Processa UMA linha SSE (mesmo trim do ramo OpenRouter, para uniformizar o
   // parsing entre os dois caminhos).
+  // DIAGNÓSTICO (remover depois): loga UMA vez os campos do delta do 1º chunk com
+  // conteúdo, pra confirmar se a Vertex está emitindo reasoning/reasoning_content
+  // agora que ligamos include_thoughts. Aparece nos logs do server (Vercel/local).
+  let sampled = false
+  const sampleDelta = (payload: string): void => {
+    if (sampled) return
+    const t = payload.trim()
+    if (!t || t === '[DONE]') return
+    try {
+      const obj = JSON.parse(t) as { choices?: { delta?: Record<string, unknown> }[] }
+      const delta = obj.choices?.[0]?.delta
+      if (!delta) return
+      sampled = true
+      console.log('[vertex-diag] delta keys:', Object.keys(delta), '| has reasoning:', 'reasoning' in delta, '| has reasoning_content:', 'reasoning_content' in delta)
+    } catch { /* chunk parcial — ignora */ }
+  }
+
   const scanLine = (raw: string): void => {
     const line = raw.trim()
     if (!line.startsWith('data:')) return
-    const u = usageFromDataPayload(line.slice('data:'.length))
+    const payload = line.slice('data:'.length)
+    sampleDelta(payload)
+    const u = usageFromDataPayload(payload)
     if (u) lastUsage = u
   }
 
