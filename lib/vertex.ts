@@ -47,15 +47,33 @@ type OpenAIChatBody = Record<string, unknown> & {
  * - `stream` = true (sempre streamamos; o dreno depende disso).
  * - `stream_options.include_usage` = true (pra receber o usage no chunk final).
  * - remove `usage` (ex.: `usage:{include:true}` estilo OpenRouter) — não existe no Vertex.
+ * - liga os THOUGHT SUMMARIES do Gemini via `google.thinking_config.include_thoughts
+ *   =true` NO TOP-LEVEL do corpo. `extra_body` é convenção do SDK OpenAI (ele
+ *   ESPALHA o conteúdo na raiz do JSON); o endpoint REST não conhece essa chave —
+ *   por isso a 1ª tentativa (aninhada em extra_body) foi ignorada. Sem a flag, o
+ *   endpoint OpenAI-compat do Vertex PENSA mas NÃO devolve o resumo no stream — o
+ *   painel "Pensamento" ficava vazio (só o aviso de rate-limit do harness). Com a
+ *   flag, a Vertex emite os pensamentos como `delta.reasoning_content`, que o app
+ *   já parseia. O `reasoning_effort` (budget) o app já manda.
  * Não muta o objeto original.
  */
 export function rewriteBodyForVertex(clientBody: OpenAIChatBody, upstreamModelId: string): OpenAIChatBody {
-  const { usage: _drop, stream_options: prevStreamOpts, ...rest } = clientBody
+  const { usage: _drop, stream_options: prevStreamOpts, google: prevGoogleRaw, ...rest } = clientBody as OpenAIChatBody & {
+    google?: unknown
+  }
+  const asObj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {})
+  const prevGoogle = asObj(prevGoogleRaw)
+  const prevThinking = asObj(prevGoogle.thinking_config)
   return {
     ...rest,
     model: upstreamModelId,
     stream: true,
     stream_options: { ...(prevStreamOpts ?? {}), include_usage: true },
+    // Top-level `google` (equivale ao que o SDK gera a partir de extra_body).
+    google: {
+      ...prevGoogle,
+      thinking_config: { include_thoughts: true, ...prevThinking },
+    },
   }
 }
 
