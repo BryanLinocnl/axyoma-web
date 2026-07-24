@@ -55,17 +55,21 @@ type OpenAIChatBody = Record<string, unknown> & {
  *   painel "Pensamento" ficava vazio (só o aviso de rate-limit do harness). Com a
  *   flag, a Vertex emite os pensamentos como `delta.reasoning_content`, que o app
  *   já parseia.
- * - DESCARTA o `reasoning_effort` que o app manda: a Vertex recusa os dois juntos
- *   ("Expected one of either reasoning_effort or custom thinking_config; found
- *   both"). Como só o thinking_config expõe `include_thoughts`, ele vence. Sem
- *   `thinking_budget` explícito → thinking padrão (dinâmico) do modelo, evitando
- *   400 por budget fora do limite.
+ * - DESCARTA o `reasoning_effort` que o app manda (a Vertex recusa reasoning_effort
+ *   + thinking_config juntos: "found both") e o USA para derivar o thinking do
+ *   Gemini 3.x (ver abaixo).
+ * - THINKING por FAMÍLIA (confirmado por chamada real):
+ *     • Gemini 2.5 → só `include_thoughts:true` (budget dinâmico padrão já pensa e
+ *       devolve o resumo).
+ *     • Gemini 3.x → precisa de `thinking_level` ("low"/"high"); só include_thoughts
+ *       NÃO faz o 3.x (ex.: Flash-Lite) emitir thoughts, e ele IGNORA thinking_budget.
+ *       Mapeamos do reasoning_effort do app: low→"low", senão "high".
  * Não muta o objeto original.
  */
 export function rewriteBodyForVertex(clientBody: OpenAIChatBody, upstreamModelId: string): OpenAIChatBody {
   const {
     usage: _drop,
-    reasoning_effort: _dropEffort,
+    reasoning_effort: reasoningEffort,
     stream_options: prevStreamOpts,
     google: prevGoogleRaw,
     ...rest
@@ -73,6 +77,13 @@ export function rewriteBodyForVertex(clientBody: OpenAIChatBody, upstreamModelId
   const asObj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {})
   const prevGoogle = asObj(prevGoogleRaw)
   const prevThinking = asObj(prevGoogle.thinking_config)
+
+  const thinkingConfig: Record<string, unknown> = { include_thoughts: true }
+  // Gemini 3.x: thinking_level obrigatório pra pensar+emitir (budget é ignorado).
+  if (/gemini-3/i.test(upstreamModelId)) {
+    thinkingConfig.thinking_level = reasoningEffort === 'low' ? 'low' : 'high'
+  }
+
   return {
     ...rest,
     model: upstreamModelId,
@@ -81,7 +92,8 @@ export function rewriteBodyForVertex(clientBody: OpenAIChatBody, upstreamModelId
     // Top-level `google` (equivale ao que o SDK gera a partir de extra_body).
     google: {
       ...prevGoogle,
-      thinking_config: { include_thoughts: true, ...prevThinking },
+      // prevThinking por último: se o client já mandou algo, ele vence.
+      thinking_config: { ...thinkingConfig, ...prevThinking },
     },
   }
 }
