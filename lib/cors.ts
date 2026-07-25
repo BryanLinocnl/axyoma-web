@@ -20,11 +20,32 @@
 
 const WILDCARD = '*'
 
+// Default quando `CORS_ORIGIN` não está definida (auditoria B-4).
+//
+// Antes o default era `*`: qualquer site aberto no navegador do usuário podia
+// chamar estas rotas com o JWT dele (se conseguisse o token) e, principalmente,
+// ler a resposta — inclusive as rotas que GASTAM crédito. "Esqueci de setar a
+// env" não pode ser o modo mais permissivo.
+//
+// O default agora é a própria origem do deploy (o site é o único cliente de
+// browser que precisa de CORS). O desktop chama do processo main, que não manda
+// `Origin` — CORS não se aplica a ele, então isso não quebra o app.
+function defaultOrigins(): string[] {
+  const out: string[] = []
+  const site = process.env.NEXT_PUBLIC_SITE_URL
+  if (site) out.push(site.replace(/\/+$/, ''))
+  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL
+  if (vercel) out.push(`https://${vercel.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`)
+  return out
+}
+
 function allowList(): string[] {
-  return (process.env.CORS_ORIGIN || WILDCARD)
+  const configured = (process.env.CORS_ORIGIN || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
+  if (configured.length > 0) return configured
+  return defaultOrigins()
 }
 
 export function corsHeaders(req: Request, methods = 'GET, POST, OPTIONS'): Record<string, string> {
