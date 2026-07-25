@@ -142,8 +142,11 @@
   position: relative;
 }
 
+/* Espelho de `.gb-tilt-right` — mesmo ângulo raso, girando para o outro lado.
+ * Os 13deg/-8deg de antes funcionavam com um painel largo e baixo; com a
+ * janela inteira do app (quase quadrada, cheia de texto) o keystone denuncia. */
 .gb-tilt {
-  transform: perspective(2200px) rotateX(13deg) rotateZ(-8deg);
+  transform: perspective(3400px) rotateX(6deg) rotateZ(-2.5deg);
   transform-origin: 50% 0%;
   box-shadow: var(--shadow-panel);
 }
@@ -180,13 +183,25 @@
   --gb-fade: linear-gradient(
     to bottom,
     #000 0%,
-    #000 26%,
-    rgba(0, 0, 0, 0.94) 40%,
-    rgba(0, 0, 0, 0.8) 53%,
-    rgba(0, 0, 0, 0.58) 66%,
-    rgba(0, 0, 0, 0.34) 78%,
-    rgba(0, 0, 0, 0.14) 89%,
-    transparent 100%
+    #000 18%,
+    rgba(0, 0, 0, 0.98) 26%,
+    rgba(0, 0, 0, 0.95) 33%,
+    rgba(0, 0, 0, 0.9) 40%,
+    rgba(0, 0, 0, 0.83) 47%,
+    rgba(0, 0, 0, 0.74) 54%,
+    rgba(0, 0, 0, 0.64) 60%,
+    rgba(0, 0, 0, 0.53) 66%,
+    rgba(0, 0, 0, 0.42) 72%,
+    rgba(0, 0, 0, 0.31) 78%,
+    rgba(0, 0, 0, 0.21) 84%,
+    rgba(0, 0, 0, 0.13) 86%,
+    rgba(0, 0, 0, 0.06) 90%,
+    /* ZERA ANTES DO FIM DO ELEMENTO, de propósito.
+       Terminando em 100% o último pixel da imagem, da borda de 1px e do canto
+       arredondado ainda é pintado — e uma linha reta com 3% de alfa sobre um
+       fundo chapado se vê perfeitamente. Com o zero em 93%, os 7% finais são
+       recortados por completo e não sobra aresta nenhuma para denunciar onde
+       o painel acaba. */ transparent 93%
   );
   -webkit-mask-image: var(--gb-fade);
   mask-image: var(--gb-fade);

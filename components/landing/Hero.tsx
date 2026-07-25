@@ -69,7 +69,10 @@ export function Hero(): React.JSX.Element {
             </div>
           </div>
 
-          {/* sm+ : o print real, que é onde ele tem espaço pra ser lido. */}
+          {/* sm+ : o print real, que é onde ele tem espaço pra ser lido.
+              Transborda a coluna de propósito — o que dominava a página não era
+              a largura, era a ALTURA: a janela inteira do app é quase quadrada,
+              e por isso a imagem é cortada em 2,32:1 antes de entrar aqui. */}
           <div className="gb-settle hidden sm:ml-[8%] sm:block sm:w-[116%] lg:ml-[14%] lg:w-[110%]">
             <div
               className="gb-tilt gb-fade-bottom overflow-hidden rounded-[14px]"
