@@ -162,10 +162,26 @@
   }
 }
 
-/* A borda que sai da tela dissolve na mesa em vez de ser cortada em seco. */
+/* A borda que sai da tela dissolve na mesa em vez de ser cortada em seco.
+ *
+ * Rampa de MUITAS paradas, não `#000 62% → transparent`: um degradê linear de
+ * alfa é percebido como corte seco perto do fim, porque o olho é sensível às
+ * últimas frações de opacidade. As paradas abaixo aproximam um ease-out — o
+ * painel começa a sumir cedo e some devagar. */
 .gb-fade-bottom {
-  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+  --gb-fade: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 26%,
+    rgba(0, 0, 0, 0.94) 40%,
+    rgba(0, 0, 0, 0.8) 53%,
+    rgba(0, 0, 0, 0.58) 66%,
+    rgba(0, 0, 0, 0.34) 78%,
+    rgba(0, 0, 0, 0.14) 89%,
+    transparent 100%
+  );
+  -webkit-mask-image: var(--gb-fade);
+  mask-image: var(--gb-fade);
 }
 
 /* Superfície que o vidro desfoca: campo azul lavado, do azul do acento. Sem
