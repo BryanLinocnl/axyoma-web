@@ -99,6 +99,14 @@ export async function verifyUserWithEmail(authHeader: string | null): Promise<{ 
   const payload = await verify(authHeader)
   const sub = payload.sub
   if (!sub || typeof sub !== 'string') throw new Error('sub ausente')
-  const email = typeof payload.email === 'string' ? payload.email : null
+  // SEGURANÇA: o gate de admin compara `email` com uma allowlist. Sem exigir
+  // verificação, um provedor OAuth que devolva e-mail não confirmado (ou a
+  // confirmação desligada no projeto) permitiria cadastrar-se com o e-mail de um
+  // admin e acessar métricas globais. Só devolvemos o e-mail se for confirmado.
+  const claims = payload as Record<string, unknown>
+  const verified =
+    claims.email_verified === true ||
+    (claims.user_metadata as Record<string, unknown> | undefined)?.email_verified === true
+  const email = verified && typeof payload.email === 'string' ? payload.email : null
   return { userId: sub, email }
 }

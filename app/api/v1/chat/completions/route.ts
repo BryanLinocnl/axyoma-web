@@ -6,6 +6,10 @@ import {
   checkRateLimit,
   recordPendingCharge,
   getSpendTodayUsd,
+  holdCredits,
+  settleHold,
+  releaseHold,
+  InsufficientCreditsError,
 } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
 import {
@@ -40,6 +44,22 @@ import { costUsd } from '@/lib/cost'
 //     dupla). Assim toda geração debita.
 export const runtime = 'edge'
 
+// Mantém a invocação viva até a promise terminar, SEM depender de
+// '@vercel/functions' (cujo entrypoint raiz puxa 'ws' e quebra o build edge).
+// No runtime edge da Vercel o contexto expõe waitUntil; fora dele, no-op — a
+// promise segue rodando normalmente no processo local.
+function keepAlive(p: Promise<unknown>): void {
+  try {
+    const ctx = (globalThis as { [k: string]: unknown })[
+      Symbol.for('@vercel/request-context') as unknown as string
+    ] as { get?: () => { waitUntil?: (p: Promise<unknown>) => void } } | undefined
+    ctx?.get?.().waitUntil?.(p)
+  } catch {
+    /* sem contexto — a promise continua rodando */
+  }
+  void p.catch(() => {})
+}
+
 const OPENROUTER = 'https://openrouter.ai/api/v1'
 
 // Limites (documentados). Overrides por env quando fizer sentido em produção.
@@ -60,6 +80,23 @@ const MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS ?? 32000)
 // proxy rejeitava com 400 no meio do trabalho. Sobe o teto (overridável por env).
 const MAX_MESSAGES = Number(process.env.CHAT_MAX_MESSAGES ?? 5000)
 const MIN_CHARGE_USD = Number(process.env.CHAT_MIN_CHARGE_USD ?? 0.0002)
+
+// Créditos reservados por requisição, ANTES de saber o custo real. É um teto
+// aproximado, não uma cobrança: o settle troca pelo valor efetivo e devolve a
+// diferença. Serve para (a) serializar requisições concorrentes contra o mesmo
+// saldo e (b) impedir que uma conta gere muito além do que tem.
+const HOLD_CREDITS_MAX = Number(process.env.CHAT_HOLD_CREDITS_MAX ?? 60)
+const HOLD_CREDITS_MIN = Number(process.env.CHAT_HOLD_CREDITS_MIN ?? 1)
+
+function estimateHoldCredits(body: Record<string, unknown>): number {
+  const maxTokens = Number(body.max_tokens)
+  // Sem max_tokens declarado, assume o teto da rota (pior caso).
+  const out = Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : MAX_TOKENS
+  // ~1 crédito por 1k tokens de saída, dentro de [MIN, MAX]. Aproximação
+  // deliberadamente grosseira: o objetivo é limitar a exposição, não precificar.
+  const est = out / 1000
+  return Math.min(HOLD_CREDITS_MAX, Math.max(HOLD_CREDITS_MIN, Math.ceil(est)))
+}
 
 // Cap de gasto diário (§7). DESABILITADO por padrão: env vazia/0 => sem limite
 // (comportamento atual). Quando > 0, o gate pré-request soma o gasto USD do dia
@@ -521,6 +558,23 @@ async function proxyVertex(
   // desacoplado (débito sempre). callVertex reescreve o corpo (model=upstream,
   // stream=true, stream_options.include_usage=true, remove usage.include).
   const regionUsed = model.region
+  // RESERVA (C-7): mesma proteção do caminho OpenRouter — debita uma estimativa
+  // atômica antes de gastar no upstream; o settle troca pelo custo real.
+  let holdId: string | null = null
+  try {
+    holdId = await holdCredits({
+      userId,
+      credits: estimateHoldCredits(body),
+      kind: 'vertex',
+      model: model.id,
+    })
+  } catch (e) {
+    if (e instanceof InsufficientCreditsError) {
+      return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })
+    }
+    console.error('reserva de créditos (vertex) falhou:', (e as Error).message)
+    return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })
+  }
   let upstream: Response
   try {
     upstream = await callVertex({
@@ -562,17 +616,20 @@ async function proxyVertex(
         } else {
           const rdetail = await retry.text().catch(() => '')
           console.error('vertex retry global não-ok', retry.status, rdetail || retry.statusText)
+          if (holdId) await releaseHold(holdId).catch(() => {})
           return json(retry.status || 502, {
             error: { message: upstreamErrorMessage(rdetail), type: 'upstream' },
           })
         }
       } catch (e) {
         console.error('vertex retry global falhou:', (e as Error).message)
+        if (holdId) await releaseHold(holdId).catch(() => {})
         return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
       }
     } else {
       // Não é caso de fallback (ou 'global' não permitido): tratamento atual.
       console.error('vertex upstream não-ok', upstream.status, detail || upstream.statusText)
+      if (holdId) await releaseHold(holdId).catch(() => {})
       return json(upstream.status || 502, {
         error: { message: upstreamErrorMessage(detail), type: 'upstream' },
       })
@@ -637,16 +694,27 @@ async function proxyVertex(
           inputPrice: model.input_price_usd_per_mtok,
           outputPrice: model.output_price_usd_per_mtok,
         })
-        await debitUsage({
-          userId,
-          costUsd: cost,
-          model: model.id, // model canônico da tabela (id OpenRouter p/ dedup).
-          promptTokens: usage.prompt_tokens,
-          completionTokens: usage.completion_tokens,
-        })
+        if (holdId) {
+          await settleHold({
+            holdId,
+            costUsd: cost,
+            model: model.id,
+            promptTokens: usage.prompt_tokens,
+            completionTokens: usage.completion_tokens,
+          })
+        } else {
+          await debitUsage({
+            userId,
+            costUsd: cost,
+            model: model.id, // model canônico da tabela (id OpenRouter p/ dedup).
+            promptTokens: usage.prompt_tokens,
+            completionTokens: usage.completion_tokens,
+          })
+        }
       } else {
         // Sem usage no SSE: cobra o mínimo para que toda geração debite.
-        await debitUsage({ userId, costUsd: MIN_CHARGE_USD, model: model.id })
+        if (holdId) await settleHold({ holdId, costUsd: MIN_CHARGE_USD, model: model.id })
+        else await debitUsage({ userId, costUsd: MIN_CHARGE_USD, model: model.id })
       }
     } catch (e) {
       // Débito lançou: não sabemos se aplicou → NÃO retenta (evita dupla
@@ -665,7 +733,10 @@ async function proxyVertex(
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       let clientGone = false
-      ;(async () => {
+      // waitUntil: mantém a invocação viva até o dreno terminar. Sem isto, o
+      // cliente abortar o stream (ler 1 byte e dar RST) podia encerrar a
+      // função ANTES do settle() — geração paga por nós, cobrança pulada.
+      const drain = (async () => {
         try {
           for (;;) {
             const { done, value } = await reader.read()
@@ -695,6 +766,7 @@ async function proxyVertex(
           }
         }
       })()
+      keepAlive(drain)
     },
     cancel() {
       // Client cancelou. NÃO cancelamos o upstream — o pump segue drenando até o
@@ -740,14 +812,19 @@ export async function POST(req: Request): Promise<Response> {
     )
   }
 
-  // 3) Gate de saldo — protege a chave antes de qualquer chamada à OpenRouter.
+  // 3) Gate de saldo. ATENÇÃO: isto é só um atalho para responder 402 cedo — a
+  // proteção real é a RESERVA atômica (hold) feita logo antes de chamar o
+  // upstream. Um `balance > 0` sozinho não segura nada: N requisições
+  // simultâneas leem o mesmo saldo e todas passam.
   try {
     const balance = await getBalance(userId)
     if (!(balance > 0)) {
       return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })
     }
   } catch (e) {
-    return json(502, { error: { message: `falha ao checar saldo: ${(e as Error).message}`, type: 'upstream' } })
+    // Sem detalhe do PostgREST no corpo (vazava nome de RPC/coluna/constraint).
+    console.error('checar saldo falhou:', (e as Error).message)
+    return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })
   }
 
   // 3b) Cap de gasto diário (§7) — DESABILITADO por padrão. Só ativo quando
@@ -761,7 +838,11 @@ export async function POST(req: Request): Promise<Response> {
         return json(402, { error: { message: 'limite de gasto diário atingido', type: 'daily_cap' } })
       }
     } catch (e) {
-      console.error('daily cap check falhou (fail-open):', (e as Error).message)
+      // FAIL-CLOSED: se o cap está LIGADO e não conseguimos apurar o gasto do
+      // dia, liberar seria remover o teto justamente numa instabilidade — o
+      // oposto do que o cap existe pra fazer.
+      console.error('daily cap check falhou (fail-closed):', (e as Error).message)
+      return json(503, { error: { message: 'serviço indisponível', type: 'daily_cap' } })
     }
   }
 
@@ -821,10 +902,39 @@ export async function POST(req: Request): Promise<Response> {
   // Força streaming + pede o custo (usage.include) à OpenRouter.
   body.stream = true
   body.usage = { include: true }
+  // SEGURANÇA (cobrança): `stream_options` vinha do cliente e o schema é
+  // .passthrough(). Com `include_usage: false`, a OpenRouter não manda o chunk
+  // de usage, `lastUsage` fica null e o settle caía no MIN_CHARGE (US$ 0,0002)
+  // — uma geração de US$ 2 saía por 0,0002 (~10.000× menos), repetível no
+  // limite de 600 req/min. O caminho Vertex já forçava isto; aqui faltava.
+  body.stream_options = { ...(body.stream_options as object | undefined), include_usage: true }
+  // Parâmetros que fazem a OpenRouter cobrar por fora do preço do modelo (ex.:
+  // plugin de busca, ~US$ 4/1000 resultados) não passam vindos do cliente.
+  delete (body as Record<string, unknown>).plugins
 
   // 5) Encaminha à OpenRouter com a chave real (só existe aqui).
   const key = process.env.OPENROUTER_KEY
   if (!key) return json(500, { error: { message: 'OPENROUTER_KEY ausente', type: 'config' } })
+
+  // RESERVA (auditoria C-7): debita uma estimativa ANTES de gastar dinheiro no
+  // upstream. É atômica no banco (`where balance >= …`), então requisições
+  // concorrentes serializam em vez de todas passarem pelo mesmo saldo lido.
+  // No fim, settleHold troca a estimativa pelo custo real (devolve a diferença).
+  let holdId: string | null = null
+  try {
+    holdId = await holdCredits({
+      userId,
+      credits: estimateHoldCredits(body),
+      kind: 'openrouter',
+      model,
+    })
+  } catch (e) {
+    if (e instanceof InsufficientCreditsError) {
+      return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })
+    }
+    console.error('reserva de créditos falhou:', (e as Error).message)
+    return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })
+  }
 
   const upstream = await fetch(`${OPENROUTER}/chat/completions`, {
     method: 'POST',
@@ -842,6 +952,8 @@ export async function POST(req: Request): Promise<Response> {
     // Corpo cru do upstream só server-side; preservamos o status HTTP e devolvemos
     // ao client uma mensagem genérica (o corpo cru pode vazar detalhes de infra).
     console.error('openrouter upstream não-ok', upstream.status, detail || upstream.statusText)
+    // Nada foi gerado → devolve a reserva inteira.
+    if (holdId) await releaseHold(holdId).catch(() => {})
     return json(upstream.status || 502, {
       error: { message: upstreamErrorMessage(detail), type: 'upstream' },
     })
@@ -875,13 +987,24 @@ export async function POST(req: Request): Promise<Response> {
 
   const settle = async (): Promise<void> => {
     try {
-      if (lastUsage && typeof lastUsage.cost === 'number' && lastUsage.cost >= 0) {
+      const hasCost = lastUsage && typeof lastUsage.cost === 'number' && lastUsage.cost >= 0
+      // Liquida a RESERVA: cobra o custo real e devolve a diferença. Se por
+      // algum motivo não houver hold, cai no débito direto (comportamento antigo).
+      if (holdId) {
+        await settleHold({
+          holdId,
+          costUsd: hasCost ? (lastUsage as { cost: number }).cost : MIN_CHARGE_USD,
+          model,
+          promptTokens: lastUsage?.prompt_tokens,
+          completionTokens: lastUsage?.completion_tokens,
+        })
+      } else if (hasCost) {
         await debitUsage({
           userId,
-          costUsd: lastUsage.cost,
+          costUsd: (lastUsage as { cost: number }).cost,
           model,
-          promptTokens: lastUsage.prompt_tokens,
-          completionTokens: lastUsage.completion_tokens,
+          promptTokens: lastUsage?.prompt_tokens,
+          completionTokens: lastUsage?.completion_tokens,
         })
       } else {
         // Sem usage.cost: cobra o mínimo para que toda geração debite.
@@ -904,7 +1027,10 @@ export async function POST(req: Request): Promise<Response> {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       let clientGone = false
-      ;(async () => {
+      // waitUntil: mantém a invocação viva até o dreno terminar. Sem isto, o
+      // cliente abortar o stream (ler 1 byte e dar RST) podia encerrar a
+      // função ANTES do settle() — geração paga por nós, cobrança pulada.
+      const drain = (async () => {
         try {
           for (;;) {
             const { done, value } = await reader.read()
@@ -931,6 +1057,7 @@ export async function POST(req: Request): Promise<Response> {
           }
         }
       })()
+      keepAlive(drain)
     },
     cancel() {
       // Client cancelou o stream. NÃO cancelamos o upstream — o pump continua

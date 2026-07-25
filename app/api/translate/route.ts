@@ -14,6 +14,9 @@
 //     Pode mudar/limitar sem aviso — por isso o fallback é sempre o original.
 // =============================================================================
 
+import { verifyUser } from '@/lib/auth'
+import { checkRateLimit } from '@/lib/supabase-admin'
+
 export const runtime = 'edge'
 
 const MAX_TEXTS = 80 // itens * 2 (title+summary) — 50 notícias cabem folgado
@@ -64,6 +67,28 @@ async function translateOne(text: string, target: Target): Promise<string> {
 }
 
 export async function POST(req: Request): Promise<Response> {
+  // SEGURANÇA: esta rota não tinha autenticação NENHUMA. Qualquer pessoa na
+  // internet usava a função como relay gratuito do Google Translate (80 textos
+  // × 1200 chars por requisição, disparados em paralelo), queimando cota de
+  // invocação/banda da Vercel e lavando origem de tráfego pelos nossos IPs.
+  let userId: string
+  try {
+    userId = await verifyUser(req.headers.get('authorization'))
+  } catch {
+    return json({ error: { message: 'não autenticado' } }, 401)
+  }
+  try {
+    const rl = await checkRateLimit({
+      userId,
+      bucket: 'translate',
+      limit: Number(process.env.TRANSLATE_RATE_LIMIT ?? 30),
+      windowSeconds: 60,
+    })
+    if (!rl.allowed) return json({ error: { message: 'muitas traduções — tente em instantes' } }, 429)
+  } catch {
+    return json({ error: { message: 'limite indisponível' } }, 429)
+  }
+
   let body: unknown
   try {
     body = await req.json()

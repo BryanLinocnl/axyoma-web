@@ -122,6 +122,15 @@ export async function checkRateLimit(params: {
   bucket: string
   limit: number
   windowSeconds: number
+  /**
+   * Comportamento quando a RPC de rate limit não responde.
+   * `false` (padrão) = FAIL-CLOSED: nega. É o certo para buckets que gastam
+   * dinheiro nosso (chat/imagem/vídeo/busca) — antes o fail-open significava
+   * que uma migration não aplicada ou uma instabilidade removia o ÚNICO limite
+   * de gasto do produto, em todas as rotas de uma vez.
+   * `true` só para buckets sem custo direto.
+   */
+  failOpen?: boolean
 }): Promise<RateLimitResult> {
   try {
     const r = await rpc<{ allowed: boolean; remaining: number; limit: number; reset_at: string | null }>(
@@ -135,8 +144,12 @@ export async function checkRateLimit(params: {
     )
     return { allowed: r.allowed, remaining: r.remaining, limit: r.limit, resetAt: r.reset_at }
   } catch (e) {
-    console.error('rate_limit_hit indisponível (fail-open):', (e as Error).message)
-    return { allowed: true, remaining: params.limit, limit: params.limit, resetAt: null }
+    const failOpen = params.failOpen === true
+    console.error(
+      `rate_limit_hit indisponível (${failOpen ? 'fail-open' : 'FAIL-CLOSED'}):`,
+      (e as Error).message,
+    )
+    return { allowed: failOpen, remaining: 0, limit: params.limit, resetAt: null }
   }
 }
 
@@ -186,6 +199,71 @@ export async function recordPendingCharge(params: {
  * só nesta chamada, sem deploy). Sem a env → omitimos o arg (default null no banco
  * = comportamento atual idêntico).
  */
+/**
+ * Reserva créditos ANTES de chamar o upstream (auditoria C-7).
+ *
+ * O gate antigo era só uma leitura de saldo e o débito vinha no fim do stream:
+ * N requisições simultâneas liam o mesmo saldo, todas passavam, o saldo ia a
+ * negativo e a geração continuava. Aqui o débito da estimativa é atômico
+ * (`where balance >= p_credits` no SQL), então a concorrência serializa.
+ *
+ * Retorna o `holdId`, que deve ser liquidado (settleHold) ou devolvido
+ * (releaseHold). Lança `InsufficientCreditsError` quando não há saldo.
+ */
+export class InsufficientCreditsError extends Error {
+  constructor() {
+    super('créditos esgotados')
+    this.name = 'InsufficientCreditsError'
+  }
+}
+
+export async function holdCredits(params: {
+  userId: string
+  credits: number
+  kind?: string
+  model?: string | null
+}): Promise<string> {
+  try {
+    return await rpc<string>('hold_credits', {
+      p_user: params.userId,
+      p_credits: params.credits,
+      p_kind: params.kind ?? 'chat',
+      p_model: params.model ?? null,
+    })
+  } catch (e) {
+    if (/saldo insuficiente/i.test((e as Error).message)) throw new InsufficientCreditsError()
+    throw e
+  }
+}
+
+/** Troca a reserva pelo custo real (devolve a diferença) e registra o uso. */
+export async function settleHold(params: {
+  holdId: string
+  costUsd: number
+  model?: string | null
+  promptTokens?: number
+  completionTokens?: number
+}): Promise<void> {
+  const args: Record<string, unknown> = {
+    p_hold: params.holdId,
+    p_cost_usd: params.costUsd,
+    p_model: params.model ?? null,
+    p_prompt_tokens: params.promptTokens ?? 0,
+    p_completion_tokens: params.completionTokens ?? 0,
+  }
+  const rawMargin = process.env.CREDIT_MARGIN_MULTIPLIER
+  if (rawMargin != null && rawMargin.trim() !== '') {
+    const margin = Number(rawMargin)
+    if (Number.isFinite(margin)) args.p_margin_override = margin
+  }
+  await rpc('settle_hold', args)
+}
+
+/** Devolve a reserva inteira (falha antes de gerar qualquer coisa). */
+export async function releaseHold(holdId: string): Promise<void> {
+  await rpc('release_hold', { p_hold: holdId })
+}
+
 export async function debitUsage(params: {
   userId: string
   costUsd: number
@@ -243,7 +321,10 @@ export async function getSpendTodayUsd(userId: string): Promise<number> {
     }
     return total
   } catch (e) {
-    console.error('getSpendTodayUsd indisponível (fail-open):', (e as Error).message)
-    return 0
+    // Propaga: devolver 0 aqui DESLIGAVA silenciosamente o cap diário de gasto
+    // numa instabilidade do banco. Quem chama decide (a rota de chat trata como
+    // indisponibilidade e recusa, em vez de liberar gasto ilimitado).
+    console.error('getSpendTodayUsd indisponível:', (e as Error).message)
+    throw e
   }
 }
