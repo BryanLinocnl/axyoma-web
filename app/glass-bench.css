@@ -148,9 +148,17 @@
   box-shadow: var(--shadow-panel);
 }
 
+/* Inclinação SUAVE, e pivô no centro.
+ *
+ * A versão anterior (rotateX 11deg, rotateZ 5deg, origem 0% 0%) parecia
+ * distorcida com este conteúdo: pivotar no canto superior esquerdo faz o
+ * painel inteiro girar em torno de um ponto fora do eixo de leitura, e o
+ * keystone do rotateX é MUITO mais visível num documento denso de texto do
+ * que num painel de chat. Menos ângulo, mais perspectiva (keystone mais
+ * raso) e pivô central resolvem sem perder a sensação de objeto pousado. */
 .gb-tilt-right {
-  transform: perspective(2400px) rotateX(11deg) rotateZ(5deg);
-  transform-origin: 0% 0%;
+  transform: perspective(3400px) rotateX(6deg) rotateZ(2.5deg);
+  transform-origin: 50% 0%;
   box-shadow: var(--shadow-panel);
 }
 

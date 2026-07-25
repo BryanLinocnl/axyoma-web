@@ -46,8 +46,12 @@ export function ScaleSection(): React.JSX.Element {
             </div>
           </div>
 
-          {/* sm+ : o print real do modo Plan. */}
-          <div className="hidden sm:-ml-[10%] sm:block sm:w-[116%] lg:-ml-[8%] lg:w-[110%]">
+          {/* sm+ : o print real do modo Plan.
+              Não vaza da coluna como o do hero. Aquele é largo e baixo (2,8:1)
+              e o transbordo dá a sensação de tela grande demais pra caber;
+              este é quase quadrado (1,55:1) e, no mesmo tamanho, engolia a
+              seção inteira. Fica dentro do container, alinhado à esquerda. */}
+          <div className="hidden sm:block sm:w-[92%] lg:w-[82%]">
             <div
               className="gb-tilt-right gb-fade-bottom overflow-hidden rounded-[14px]"
               style={{ border: '1px solid var(--hairline)', boxShadow: 'var(--shadow-panel)' }}
