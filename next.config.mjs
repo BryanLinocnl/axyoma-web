@@ -1,5 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Pasta de saída. Existe como env porque `next dev` e `next build` gravam no
+  // MESMO `.next` por padrão: rodar um build enquanto alguém está com o dev
+  // server aberto apaga os chunks que o navegador dele está referenciando, e a
+  // aba quebra com ChunkLoadError ou perde a folha de estilos.
+  //
+  // Para verificar um build sem atrapalhar quem está desenvolvendo:
+  //   NEXT_DIST_DIR=.next-verify npm run build
+  //   NEXT_DIST_DIR=.next-verify npm run start -- -p 4311
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   // O proxy é um Route Handler em runtime edge.
   reactStrictMode: true,
   webpack: (config) => {
