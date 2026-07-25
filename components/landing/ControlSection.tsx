@@ -130,17 +130,17 @@ const CARDS: {
 }[] = [
   {
     title: 'Planeje antes de executar',
-    body: 'A IA propõe o plano. Você decide o que realmente acontece.',
+    body: 'A IA cria um plano completo antes de começar. Revise, ajuste e aprove cada etapa.',
     art: PlanProposal,
   },
   {
     title: 'Tudo fica visível',
-    body: 'Cada arquivo lido, comando executado e alteração realizada aparece em tempo real.',
+    body: 'Arquivos lidos, comandos executados, ferramentas utilizadas e custos aparecem em tempo real.',
     art: RunTrail,
   },
   {
-    title: 'Nada acontece sem permissão',
-    body: 'Execuções sensíveis sempre pedem confirmação antes de continuar.',
+    title: 'Controle total',
+    body: 'Defina quando o agente pode agir sozinho e quando deve solicitar sua aprovação.',
     art: PermissionPrompt,
   },
 ]
@@ -150,16 +150,15 @@ export function ControlSection(): React.JSX.Element {
     <section id="controle" className="relative">
       <div className="mx-auto max-w-[1200px] px-5 py-20 sm:px-6 sm:py-28 lg:py-32">
         <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
-          <h2 className="gb-display max-w-[15ch] text-[clamp(2.1rem,4.6vw,3.25rem)]">
-            Velocidade quando você precisa. Controle quando importa.
+          <h2 className="gb-display max-w-[14ch] text-[clamp(2.1rem,4.6vw,3.25rem)]">
+            A IA executa. Você continua no comando.
           </h2>
           <p
             className="gb-measure text-[16.5px] leading-relaxed lg:pb-2"
             style={{ color: 'var(--ink-muted)' }}
           >
-            O Axyoma trabalha nos seus arquivos, no terminal e no seu projeto, mas cada ação
-            importante passa por você. Revise planos, acompanhe o progresso e aprove apenas o que
-            faz sentido.
+            O Axyoma planeja, analisa arquivos, executa tarefas e acompanha o progresso. Antes de
+            qualquer ação importante, você decide o que realmente acontece.
           </p>
         </div>
 

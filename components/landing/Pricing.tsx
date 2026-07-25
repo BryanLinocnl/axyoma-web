@@ -60,15 +60,16 @@ export function Pricing(): React.JSX.Element {
         <div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
           {/* Coluna do argumento */}
           <div className="lg:sticky lg:top-28 lg:self-start">
-            <h2 className="gb-display max-w-[13ch] text-[clamp(2.1rem,4.9vw,3.5rem)]">
-              Pague pelo que faz sentido para você.
+            <h2 className="gb-display max-w-[14ch] text-[clamp(2.1rem,4.9vw,3.5rem)]">
+              Escolha como prefere usar o Axyoma.
             </h2>
             <p
               className="gb-measure mt-6 text-[16.5px] leading-relaxed"
               style={{ color: 'var(--ink-muted)' }}
             >
-              Comece gratuitamente com créditos inclusos. Quando precisar, escolha um plano ou
-              compre créditos adicionais sem mudar a forma como trabalha.
+              Comece gratuitamente com créditos inclusos. Assine para receber novos créditos todos
+              os meses e desbloquear recursos premium da plataforma, ou conecte sua própria API
+              quando preferir.
             </p>
 
             <dl className="mt-8 flex flex-col">

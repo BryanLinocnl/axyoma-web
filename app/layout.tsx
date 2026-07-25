@@ -45,12 +45,12 @@ const jetbrains = JetBrains_Mono({
 
 const SITE_URL = 'https://axyoma.ia.br'
 const SITE_DESC =
-  'Planeje, revise e execute tarefas com qualquer modelo de IA em um único app. O Axyoma acompanha cada etapa, mostra o custo antes da execução e nunca faz nada sem a sua aprovação.'
+  'Planeje, execute e acompanhe tarefas com Gemini, Claude, GPT, Grok, DeepSeek e centenas de outros modelos. Comece com créditos inclusos ou conecte sua própria API. Você escolhe como usar.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'Axyoma — A IA faz o trabalho. Você mantém o controle.',
+    default: 'Axyoma — Trabalhe com qualquer IA. Em um único lugar.',
     template: '%s',
   },
   description: SITE_DESC,
@@ -62,12 +62,12 @@ export const metadata: Metadata = {
     locale: 'pt_BR',
     url: SITE_URL,
     siteName: 'Axyoma AI',
-    title: 'Axyoma — A IA faz o trabalho. Você mantém o controle.',
+    title: 'Axyoma — Trabalhe com qualquer IA. Em um único lugar.',
     description: SITE_DESC,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Axyoma — A IA faz o trabalho. Você mantém o controle.',
+    title: 'Axyoma — Trabalhe com qualquer IA. Em um único lugar.',
     description: SITE_DESC,
   },
   robots: { index: true, follow: true },

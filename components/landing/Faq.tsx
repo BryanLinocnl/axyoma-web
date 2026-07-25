@@ -1,23 +1,27 @@
 const ITEMS: Array<[string, string]> = [
   [
     'O que é o Axyoma?',
-    'O Axyoma é uma plataforma para criar, revisar e executar tarefas com IA utilizando diversos modelos em um único aplicativo. Roda como app de desktop, ao lado do seu editor e do seu terminal.',
+    'O Axyoma é uma plataforma aberta para trabalhar com agentes de IA utilizando centenas de modelos em um único aplicativo. Roda como app de desktop, ao lado do seu editor e do seu terminal.',
   ],
   [
-    'Preciso configurar APIs?',
-    'Não para começar. Basta criar sua conta e utilizar os créditos disponíveis.',
+    'Preciso configurar uma API?',
+    'Não. Você pode começar imediatamente com os créditos inclusos. Se preferir, também pode conectar sua própria OpenRouter e outros provedores compatíveis.',
   ],
   [
-    'Posso escolher qual modelo usar?',
-    'Sim. Você pode selecionar o modelo mais adequado para cada tarefa conforme custo, velocidade ou qualidade — Gemini, Claude, GPT, Grok, Llama, DeepSeek, Kimi, Qwen, Mistral e outros, num seletor só.',
+    'Posso usar minha própria OpenRouter?',
+    'Sim. O Axyoma permite conectar sua própria infraestrutura sempre que você desejar.',
   ],
   [
-    'O agente pode executar comandos sozinho?',
-    'Somente quando você permitir. Ações importantes sempre podem exigir aprovação antes da execução.',
+    'Posso escolher qual modelo será utilizado?',
+    'Sim. Escolha manualmente o modelo ideal para cada tarefa ou alterne entre diferentes provedores conforme custo, velocidade ou qualidade — Gemini, Claude, GPT, Grok, Llama, DeepSeek, Kimi, Qwen, Mistral e outros.',
+  ],
+  [
+    'O agente executa ações automaticamente?',
+    'Você define o nível de autonomia. Sempre que necessário, o Axyoma solicita sua aprovação antes de executar ações importantes.',
   ],
   [
     'Como funciona a cobrança?',
-    'Você acompanha o consumo em créditos durante toda a execução. O custo é transparente e aparece antes da confirmação das tarefas. Um crédito custa R$ 0,30 e você paga por PIX ou cartão. Bônus e franquia valem para os modelos da Vertex AI; créditos comprados valem para todos os modelos.',
+    'Você pode utilizar os créditos do Axyoma, comprar créditos adicionais ou utilizar sua própria API. O custo de cada execução é exibido de forma transparente. Um crédito custa R$ 0,30 e você paga por PIX ou cartão. Bônus e franquia valem para os modelos da Vertex AI; créditos comprados valem para todos os modelos.',
   ],
   [
     'Quais sistemas operacionais são suportados?',

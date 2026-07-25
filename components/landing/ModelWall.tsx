@@ -24,14 +24,14 @@ export function ModelWall(): React.JSX.Element {
     <section className="relative">
       <div className="mx-auto max-w-[1200px] px-5 py-16 sm:px-6 sm:py-20">
         <p className="text-center text-[16px]" style={{ color: 'var(--ink)' }}>
-          Os principais modelos. Um único lugar.
+          Todos os principais modelos. Uma única plataforma.
         </p>
         <p
-          className="mx-auto mt-1 max-w-[62ch] text-center text-[16px]"
+          className="mx-auto mt-1 max-w-[64ch] text-center text-[16px]"
           style={{ color: 'var(--ink-faint)' }}
         >
-          Troque entre Gemini, Claude, GPT, DeepSeek, Grok e dezenas de outros modelos sem trocar
-          de aplicativo nem aprender outra ferramenta.
+          Troque de modelo a qualquer momento sem trocar de aplicativo. Use os créditos do Axyoma
+          ou conecte sua própria OpenRouter — o fluxo continua exatamente o mesmo.
         </p>
 
         <ul className="mx-auto mt-12 grid max-w-[880px] grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-3 lg:grid-cols-5">

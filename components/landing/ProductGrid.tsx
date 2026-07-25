@@ -177,17 +177,17 @@ function ToolsArt(): React.JSX.Element {
 const QUADRANTS: { title: string; body: string; art: () => React.JSX.Element; tag?: string }[] = [
   {
     title: 'Code',
-    body: 'Leia arquivos, implemente funcionalidades, rode testes e abra Pull Requests automaticamente.',
+    body: 'Leia projetos, implemente funcionalidades, execute testes e automatize tarefas de desenvolvimento com segurança.',
     art: CodeArt,
   },
   {
     title: 'Plan',
-    body: 'Transforme objetivos em planos revisáveis antes da execução.',
+    body: 'Transforme objetivos em planos revisáveis antes da execução. Ajuste estratégias e aprove apenas o que fizer sentido.',
     art: PlanArt,
   },
   {
     title: 'Design',
-    body: 'Crie interfaces, componentes, imagens e materiais visuais sem sair do projeto.',
+    body: 'Crie interfaces, imagens, componentes e materiais visuais utilizando os melhores modelos para cada tarefa.',
     art: DesignArt,
     tag: 'Pro · em breve',
   },
@@ -203,7 +203,7 @@ export function ProductGrid(): React.JSX.Element {
     <section id="modos" className="relative">
       <div className="mx-auto max-w-[1200px] px-5 py-20 sm:px-6 sm:py-28 lg:py-32">
         <h2 className="gb-display text-[clamp(2.1rem,4.9vw,3.5rem)]">
-          <span className="block">Um aplicativo.</span>
+          <span className="block">Uma plataforma.</span>
           <span className="block">Três formas de trabalhar.</span>
         </h2>
         <p

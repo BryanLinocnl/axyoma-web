@@ -2,16 +2,16 @@ import { AppMock } from './AppMock'
 
 const COLUMNS: [string, string][] = [
   [
-    'Sem configuração complicada',
-    'Crie sua conta e comece a usar. Sem dezenas de painéis, integrações ou configuração manual antes da primeira tarefa.',
+    'Comece sem configurar nada',
+    'Crie sua conta e faça sua primeira execução em poucos segundos. Nenhuma API é necessária para começar.',
   ],
   [
-    'Sem surpresas',
-    'Antes de executar qualquer tarefa você sabe exatamente qual modelo será usado e quanto aquela execução irá consumir.',
+    'Transparência em cada execução',
+    'Antes de confirmar qualquer tarefa, você sabe qual modelo será utilizado e quanto aquela execução irá consumir.',
   ],
   [
-    'Você escolhe o modelo',
-    'Use modelos rápidos para tarefas simples e modelos avançados quando precisar da melhor qualidade. A decisão é sempre sua.',
+    'Liberdade para escolher',
+    'Use os créditos do Axyoma ou conecte sua OpenRouter quando quiser. A plataforma funciona da forma que fizer mais sentido para você.',
   ],
 ]
 
@@ -21,14 +21,14 @@ export function ScaleSection(): React.JSX.Element {
       <div className="mx-auto max-w-[1200px] px-5 pb-0 pt-20 sm:px-6 sm:pt-28 lg:pt-32">
         <h2 className="gb-display text-[clamp(2.1rem,4.9vw,3.5rem)]">
           <span className="block">Comece em segundos.</span>
-          <span className="block">Escale sem trocar de ferramenta.</span>
+          <span className="block">Trabalhe do seu jeito.</span>
         </h2>
         <p
           className="gb-measure mt-6 text-[16.5px] leading-relaxed"
           style={{ color: 'var(--ink-muted)' }}
         >
-          Descreva o objetivo. O Axyoma monta um plano, estima o custo, executa cada etapa e
-          acompanha todo o processo até a entrega.
+          Crie sua conta e receba créditos para começar imediatamente. Se preferir, conecte sua
+          própria API e continue usando sua infraestrutura desde o primeiro dia.
         </p>
       </div>
 

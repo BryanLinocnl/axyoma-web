@@ -47,12 +47,13 @@ export function SiteFooter(): React.JSX.Element {
         {/* Fecho da página: a última coisa é a ação, não a lista de links. */}
         <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
-            <h2 className="gb-display max-w-[16ch] text-[clamp(2rem,4.4vw,3rem)]">
-              Instale hoje. Execute sua primeira tarefa em minutos.
+            <h2 className="gb-display max-w-[15ch] text-[clamp(2rem,4.4vw,3rem)]">
+              Uma plataforma. Todos os modelos. Total liberdade.
             </h2>
             <p className="gb-measure mt-5 text-[16px]" style={{ color: 'var(--ink-muted)' }}>
-              Crie sua conta, receba créditos para começar e descubra uma forma mais rápida de
-              trabalhar com IA.
+              Baixe o Axyoma, comece com créditos inclusos e descubra uma forma mais inteligente de
+              trabalhar com IA. Quando quiser, conecte sua própria API ou continue usando os
+              recursos da plataforma.
             </p>
           </div>
 

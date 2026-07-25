@@ -9,17 +9,17 @@ export function Hero(): React.JSX.Element {
             linhas cheias, e deixar o navegador quebrar sozinho dava três
             linhas desalinhadas em 1440. */}
         <h1 className="gb-display gb-lift text-[clamp(2.35rem,5.9vw,4.5rem)]">
-          <span className="block">A IA faz o trabalho.</span>
-          <span className="block">Você mantém o controle.</span>
+          <span className="block">Trabalhe com qualquer IA.</span>
+          <span className="block">Em um único lugar.</span>
         </h1>
 
         <p
           className="gb-lift gb-measure mt-7 text-[17px] leading-relaxed sm:text-[18px]"
           style={{ color: 'var(--ink-muted)', animationDelay: '90ms' }}
         >
-          Planeje, revise e execute tarefas com qualquer modelo de IA em um único app. O Axyoma
-          acompanha cada etapa, mostra o custo antes da execução e nunca faz nada sem a sua
-          aprovação.
+          Planeje, execute e acompanhe tarefas com Gemini, Claude, GPT, Grok, DeepSeek e centenas
+          de outros modelos. Comece com créditos inclusos ou conecte sua própria API. Você escolhe
+          como usar.
         </p>
 
         <div

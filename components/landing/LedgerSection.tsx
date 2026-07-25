@@ -44,8 +44,8 @@ export function LedgerSection(): React.JSX.Element {
           className="gb-measure mt-6 text-[16.5px] leading-relaxed"
           style={{ color: 'var(--ink-muted)' }}
         >
-          O Axyoma registra todas as operações realizadas pelo agente, mostra quais modelos foram
-          utilizados e exibe o custo de cada etapa antes e depois da execução.
+          Cada execução mostra quais modelos foram utilizados, quanto custou e quais ferramentas
+          foram acionadas. Sem estimativas escondidas. Sem cobranças inesperadas.
         </p>
 
         <div className="mt-14 grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:gap-16">
