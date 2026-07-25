@@ -56,9 +56,14 @@ async function translateItems(items: NewsRow[], target: Lang): Promise<Record<st
     texts.push(it.title)
     texts.push(it.summary ?? '')
   }
+  // /api/translate agora exige sessão (antes era um relay aberto do Google
+  // Translate, usável por qualquer um na internet).
+  const { data: sess } = await supabase.auth.getSession()
+  const token = sess.session?.access_token
+  if (!token) throw new Error('sem sessão')
   const res = await fetch('/api/translate', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ texts, target }),
   })
   if (!res.ok) throw new Error(`translate ${res.status}`)

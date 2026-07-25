@@ -72,6 +72,18 @@ export function ContaProvider({ children }: { children: React.ReactNode }): Reac
     // Os dados abaixo (saldo/plano/nome) chegam depois e preenchem via skeleton.
     setAuthReady(true)
 
+    // Bônus de cadastro: concedido pelo proxy (o valor mora na env
+    // SIGNUP_BONUS_CREDITS). Precisa vir ANTES da leitura do saldo, senão o
+    // primeiro acesso mostra 0 crédito. Idempotente no banco — chamar em todo
+    // login não credita de novo. Falha não bloqueia: cai na leitura normal.
+    const bootstrapBalance = await fetch('/api/v1/credits/bootstrap', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then((r) => (r.ok ? (r.json() as Promise<{ balance?: number }>) : null))
+      .then((d) => (typeof d?.balance === 'number' ? d.balance : null))
+      .catch(() => null)
+
     const [profileRes, credRes, subRes, statusRes, billingRes] = await Promise.all([
       supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
       supabase.from('credits').select('balance, total_purchased').eq('user_id', user.id).maybeSingle(),
@@ -80,7 +92,9 @@ export function ContaProvider({ children }: { children: React.ReactNode }): Reac
       fetch('/api/billing/config', { headers: { Authorization: `Bearer ${accessToken}` } }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ])
     setName(profileRes.data?.full_name ?? '')
-    setBalance(Number(credRes.data?.balance ?? 0))
+    // O saldo do bootstrap é o mais recente (a leitura em paralelo pode ter
+    // saído antes da concessão).
+    setBalance(bootstrapBalance ?? Number(credRes.data?.balance ?? 0))
     setPurchased(Number(credRes.data?.total_purchased ?? 0))
     setPlan((subRes.data as { plans?: { name?: string } } | null)?.plans?.name ?? 'Free')
     setIsAdmin(Boolean(statusRes?.isAdmin))
