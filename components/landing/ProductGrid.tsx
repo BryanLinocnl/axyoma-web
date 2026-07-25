@@ -1,7 +1,23 @@
+import type { Icon } from '@tabler/icons-react'
+import {
+  IconBrandFigma,
+  IconBrandGithub,
+  IconBrandMeta,
+  IconBrandNotion,
+  IconBrandSlack,
+  IconBrandStripe,
+  IconBrandSupabase,
+  IconBrandVercel,
+} from '@tabler/icons-react'
+
 /**
  * Os quadrantes do produto — quatro superfícies separadas por hairline, não por
  * caixa. Cada uma mostra a coisa em si: a árvore com o diff, as tarefas do
- * plano, as pranchetas do canvas, as ferramentas conectadas.
+ * plano, os arquivos de skill, as marcas dos MCPs nativos.
+ *
+ * O modo Design saiu daqui a pedido do dono: ainda está cru demais para ser
+ * vendido lado a lado com Code e Plan. Ele continua listado como recurso do
+ * plano Pro em `Pricing.tsx`.
  */
 
 function CodeArt(): React.JSX.Element {
@@ -82,94 +98,88 @@ function PlanArt(): React.JSX.Element {
   )
 }
 
-function DesignArt(): React.JSX.Element {
-  // Peças escritas, não retângulo com degradê: a prancheta tem que parecer o
-  // post que sai do canvas.
-  const boards = [
-    {
-      label: 'Post',
-      bg: 'linear-gradient(155deg,#1d4ed8,#2563eb 58%,#1e40af)',
-      kicker: 'Só esta semana',
-      title: 'Frete grátis\npro Nordeste',
-    },
-    {
-      label: 'Story',
-      bg: 'linear-gradient(155deg,#0f172a,#1e293b)',
-      kicker: 'Novidade',
-      title: 'Coleção\nde inverno',
-    },
-    {
-      label: 'Capa',
-      bg: 'linear-gradient(155deg,#f5820b,#ea580c)',
-      kicker: 'Liquida',
-      title: 'Até 50%\nde desconto',
-    },
+function SkillsArt(): React.JSX.Element {
+  // Duas skills abertas + a contagem: mostra que skill é um arquivo de
+  // procedimento em markdown, não um botão mágico.
+  const skills: [string, string][] = [
+    [
+      'revisar-pr.md',
+      'Antes de abrir PR: rodar os testes, conferir o lint, escrever a descrição em português e marcar o time de review.',
+    ],
+    [
+      'migration-segura.md',
+      'Nunca rodar migration sem backup. Gerar o SQL, mostrar o diff do schema e esperar aprovação.',
+    ],
   ]
   return (
-    <div className="grid grid-cols-3 gap-2.5">
-      {boards.map((b, i) => (
-        <div key={b.label} className="flex flex-col gap-1.5">
-          <div
-            className="relative flex flex-col justify-end overflow-hidden rounded-[10px] p-2.5"
-            style={{
-              background: b.bg,
-              aspectRatio: '4 / 3.4',
-              boxShadow: i === 0 ? '0 0 0 2px var(--accent)' : 'none',
-            }}
-          >
-            <span className="text-[7.5px] font-semibold uppercase tracking-[0.16em] text-white/70">
-              {b.kicker}
-            </span>
-            <span className="gb-display mt-1 whitespace-pre-line text-[13px] leading-[1.02] text-white">
-              {b.title}
+    <div className="flex flex-col gap-2.5">
+      {skills.map(([file, body]) => (
+        <div
+          key={file}
+          className="gb-raised rounded-[12px] p-3.5"
+          style={{ border: '1px solid var(--hairline)' }}
+        >
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="gb-mono text-[11px]">{file}</span>
+            <span className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>
+              skill
             </span>
           </div>
-          <span className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>
-            {b.label}
-          </span>
+          <p className="mt-2 text-[11.5px] leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
+            {body}
+          </p>
         </div>
       ))}
+      <p className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+        Escreva as suas —{' '}
+        <span className="font-medium" style={{ color: 'var(--accent)' }}>
+          300 no plano Pro
+        </span>
+        .
+      </p>
     </div>
   )
 }
 
-function ToolsArt(): React.JSX.Element {
-  const tools = ['GitHub', 'Terminal', 'Arquivos', 'Supabase', 'Figma', 'Postgres']
+/* Marcas reais, do Tabler, para os presets nativos que ele cobre. Postgres,
+ * Playwright, Brave Search, Higgsfield e Memória ficam em texto: desenhar um
+ * logo de cor e forma aproximada é pior que não mostrar. */
+const MCP_BRANDS: { name: string; Mark: Icon }[] = [
+  { name: 'GitHub', Mark: IconBrandGithub },
+  { name: 'Supabase', Mark: IconBrandSupabase },
+  { name: 'Vercel', Mark: IconBrandVercel },
+  { name: 'Slack', Mark: IconBrandSlack },
+  { name: 'Notion', Mark: IconBrandNotion },
+  { name: 'Figma', Mark: IconBrandFigma },
+  { name: 'Stripe', Mark: IconBrandStripe },
+  { name: 'Meta Ads', Mark: IconBrandMeta },
+]
+
+function McpArt(): React.JSX.Element {
   return (
     <div className="flex flex-col gap-3.5">
-      <div
-        className="gb-raised rounded-[12px] p-3.5"
-        style={{ border: '1px solid var(--hairline)' }}
-      >
-        <div className="flex items-baseline justify-between">
-          <span className="gb-mono text-[11px]">revisar-pr.md</span>
-          <span className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>
-            skill
-          </span>
-        </div>
-        <p className="mt-2 text-[11.5px] leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
-          Antes de abrir PR: rodar os testes, conferir o lint, escrever a descrição em português e
-          marcar o time de review.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {tools.map((t, i) => (
-          <span
-            key={t}
-            className="gb-raised rounded-full px-3 py-1.5 text-[12px] font-medium"
-            style={{
-              border: '1px solid var(--hairline)',
-              color: i < 3 ? 'var(--accent)' : 'var(--ink-muted)',
-            }}
+      <ul className="grid grid-cols-4 gap-2.5">
+        {MCP_BRANDS.map(({ name, Mark }) => (
+          <li
+            key={name}
+            className="gb-raised flex flex-col items-center justify-center gap-1.5 rounded-[12px] px-1 py-3"
+            style={{ border: '1px solid var(--hairline)' }}
+            title={name}
           >
-            {t}
-          </span>
+            <Mark className="size-[19px]" stroke={1.6} aria-hidden />
+            <span
+              className="max-w-full truncate text-[10px] font-medium"
+              style={{ color: 'var(--ink-muted)' }}
+            >
+              {name}
+            </span>
+          </li>
         ))}
-        <span className="rounded-full px-3 py-1.5 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-          + qualquer servidor MCP
-        </span>
-      </div>
+      </ul>
+      <p className="text-[12px] leading-relaxed" style={{ color: 'var(--ink-faint)' }}>
+        E também Postgres, Playwright, Brave Search, Higgsfield e Memória — mais qualquer servidor
+        MCP que você apontar.
+      </p>
     </div>
   )
 }
@@ -186,15 +196,14 @@ const QUADRANTS: { title: string; body: string; art: () => React.JSX.Element; ta
     art: PlanArt,
   },
   {
-    title: 'Design',
-    body: 'Crie interfaces, imagens, componentes e materiais visuais utilizando os melhores modelos para cada tarefa.',
-    art: DesignArt,
-    tag: 'Pro · em breve',
+    title: 'Skills',
+    body: 'Ensine um procedimento ao agente escrevendo um arquivo em markdown. Ele passa a seguir a sua regra, do seu jeito, em todo projeto.',
+    art: SkillsArt,
   },
   {
-    title: 'Skills e MCP',
-    body: 'Ensine um procedimento ao agente com uma skill e conecte as ferramentas que você já usa por servidores MCP.',
-    art: ToolsArt,
+    title: 'MCP',
+    body: 'Conecte as ferramentas que você já usa. Os servidores mais comuns vêm prontos — é escolher e autenticar.',
+    art: McpArt,
   },
 ]
 
@@ -204,13 +213,14 @@ export function ProductGrid(): React.JSX.Element {
       <div className="mx-auto max-w-[1200px] px-5 py-20 sm:px-6 sm:py-28 lg:py-32">
         <h2 className="gb-display text-[clamp(2.1rem,4.9vw,3.5rem)]">
           <span className="block">Uma plataforma.</span>
-          <span className="block">Três formas de trabalhar.</span>
+          <span className="block">Aberta em todas as pontas.</span>
         </h2>
         <p
           className="gb-measure mt-6 text-[16.5px] leading-relaxed"
           style={{ color: 'var(--ink-muted)' }}
         >
-          Design, Plan e Code — mais as skills e as ferramentas que você conecta ao agente.
+          Code e Plan para trabalhar. Skills para ensinar o seu jeito ao agente, MCP para conectar
+          as ferramentas que você já usa.
         </p>
 
         <div

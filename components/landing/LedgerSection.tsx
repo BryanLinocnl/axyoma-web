@@ -1,17 +1,16 @@
-/**
- * A passagem densa da página, depois de dois viewports arejados: um extrato de
- * uso de verdade, reto na tela (sem inclinação), do lado dos fatos que ele
- * prova. Números ilustrativos — a mecânica é a real: cada chamada debita pelo
- * custo do modelo, 1 crédito = R$ 0,30.
- */
+import Image from 'next/image'
+import usoShot from '@/public/app/uso.png'
 
-const ROWS: [string, string, string][] = [
-  ['14:02', 'Claude Sonnet 4.5', '1,74'],
-  ['13:47', 'Gemini 3 Flash', '0,06'],
-  ['11:20', 'GPT-5.2', '2,31'],
-  ['10:58', 'Kimi K2', '0,42'],
-  ['09:31', 'Gemini 3 Pro', '0,88'],
-]
+/**
+ * A passagem densa da página, depois de dois viewports arejados: o painel de
+ * limites do app — reto na tela, sem inclinação — do lado dos fatos que ele
+ * prova.
+ *
+ * Aqui o print NÃO leva a máscara de dissolver (`gb-fade-bottom`) que os
+ * painéis inclinados levam: aqueles são objetos grandes saindo de cena, este é
+ * um documento pequeno e inteiro, que precisa ser lido até a última linha.
+ * Só cantos arredondados e sombra.
+ */
 
 const POINTS: [string, string][] = [
   [
@@ -49,47 +48,20 @@ export function LedgerSection(): React.JSX.Element {
         </p>
 
         <div className="mt-14 grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:gap-16">
+          {/* Moldura branca. O fundo do print é cinza (235) e a mesa da página é
+              branco-azulada (244): tons quase idênticos, então a imagem sozinha
+              flutuava sem limite visível. A margem branca com hairline separa —
+              e é o mesmo material dos outros painéis (gb-raised). */}
           <div
-            className="gb-raised self-start overflow-hidden rounded-[16px]"
-            style={{ border: '1px solid var(--hairline)' }}
+            className="gb-raised self-start rounded-[20px] p-2.5"
+            style={{ border: '1px solid var(--hairline)', boxShadow: 'var(--shadow-panel)' }}
           >
-            <div
-              className="flex items-baseline justify-between px-5 py-4"
-              style={{ borderBottom: '1px solid var(--hairline)' }}
-            >
-              <span className="text-[14px] font-semibold">Uso de hoje</span>
-              <span className="gb-mono text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-                5 chamadas
-              </span>
-            </div>
-
-            <ul>
-              {ROWS.map(([hora, modelo, custo], i) => (
-                <li
-                  key={hora}
-                  className="flex items-center gap-3 px-5 py-3"
-                  style={i > 0 ? { borderTop: '1px solid var(--hairline)' } : undefined}
-                >
-                  <span className="gb-mono text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
-                    {hora}
-                  </span>
-                  <span className="flex-1 truncate text-[13px]">{modelo}</span>
-                  <span className="gb-mono text-[12.5px]">{custo}</span>
-                </li>
-              ))}
-            </ul>
-
-            <div
-              className="flex items-baseline justify-between px-5 py-4"
-              style={{ borderTop: '1px solid var(--hairline)', background: 'var(--accent-wash)' }}
-            >
-              <span className="text-[13px] font-medium" style={{ color: 'var(--accent)' }}>
-                Total do dia
-              </span>
-              <span className="gb-mono text-[15px] font-medium" style={{ color: 'var(--accent)' }}>
-                5,41 créditos
-              </span>
-            </div>
+            <Image
+              src={usoShot}
+              alt="Painel de limites do Axyoma: janela de contexto em 45K de 128K, saldo de créditos e o consumo da sessão, com o total de tokens do turno no rodapé."
+              sizes="(max-width: 1024px) 100vw, 45vw"
+              className="block h-auto w-full rounded-[12px]"
+            />
           </div>
 
           <dl className="flex flex-col">

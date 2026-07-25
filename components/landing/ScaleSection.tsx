@@ -47,11 +47,10 @@ export function ScaleSection(): React.JSX.Element {
           </div>
 
           {/* sm+ : o print real do modo Plan.
-              Não vaza da coluna como o do hero. Aquele é largo e baixo (2,8:1)
-              e o transbordo dá a sensação de tela grande demais pra caber;
-              este é quase quadrado (1,55:1) e, no mesmo tamanho, engolia a
-              seção inteira. Fica dentro do container, alinhado à esquerda. */}
-          <div className="hidden sm:block sm:w-[92%] lg:w-[82%]">
+              Ocupa a largura toda; quem controla a altura é o RECORTE da
+              imagem (2,08:1), não a escala do elemento — foi assim que deu pra
+              alargar sem crescer na vertical. */}
+          <div className="hidden sm:-ml-[8%] sm:block sm:w-[116%] lg:-ml-[5%] lg:w-[110%]">
             <div
               className="gb-tilt-right gb-fade-bottom overflow-hidden rounded-[14px]"
               style={{ border: '1px solid var(--hairline)', boxShadow: 'var(--shadow-panel)' }}
@@ -60,7 +59,12 @@ export function ScaleSection(): React.JSX.Element {
                 src={planShot}
                 alt="Axyoma no modo Plan: árvore de arquivos e artefatos à esquerda, o PRD.md aberto no editor e o agente listando os documentos que criou, à direita."
                 sizes="(max-width: 640px) 1px, 120vw"
-                className="block h-auto w-full"
+                // Levemente translúcido de propósito: o fundo do app é um
+                // cinza neutro e a mesa da página é branco-azulada, então o
+                // painel opaco destoava como um bloco cinza colado por cima.
+                // Deixar a mesa transparecer é o mesmo princípio dos materiais
+                // de vidro do resto do design (ver DESIGN.md).
+                className="block h-auto w-full opacity-[0.93]"
               />
             </div>
           </div>

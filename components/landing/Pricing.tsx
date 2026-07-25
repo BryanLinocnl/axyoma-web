@@ -34,9 +34,9 @@ const PLANS: Plan[] = [
     desc: 'Tudo do Free, mais o modo Design e uma franquia de créditos todo mês.',
     perks: [
       'Tudo do plano Free',
-      'Modo Design',
-      'Skills personalizadas',
+      '300 skills personalizadas',
       'Franquia mensal de créditos (Vertex AI)',
+      'Modo Design',
     ],
   },
   {
