@@ -1,4 +1,6 @@
 import { corsHeaders } from '@/lib/cors'
+import { verifyUser } from '@/lib/auth'
+import { checkRateLimit } from '@/lib/supabase-admin'
 
 // Catálogo de modelos — MERGE de duas fontes:
 //   1) catálogo PÚBLICO da OpenRouter (a rota /models não exige chave), como
@@ -11,10 +13,16 @@ import { corsHeaders } from '@/lib/cors'
 // "google/gemini-3-pro-image"), a linha da TABELA vence e aparece uma única
 // vez. Modelo só na tabela ou só na OpenRouter também aparece.
 //
-// NÃO exige login: a lista de modelos é dado público; o que precisa de auth é
-// a SELEÇÃO do usuário (tabela model_selection, sob RLS), feita separadamente
-// no cliente. Proxiamos aqui só para evitar CORS do browser, manter a origem
-// única e nunca expor OPENROUTER_KEY/SERVICE_ROLE_KEY ao cliente.
+// EXIGE LOGIN (auditoria A-3). Antes era aberta, com o argumento de que catálogo
+// é dado público — mas a resposta carrega `input_price_usd_per_mtok` e
+// `output_price_usd_per_mtok` da NOSSA tabela, exatamente as colunas que a
+// migration 0025 tirou do alcance da chave anon. Deixar a rota aberta mantinha a
+// janela ao lado da porta que acabara de ser trancada. Também era a única rota
+// sem auth e sem rate limit que dispara duas chamadas externas (OpenRouter +
+// Supabase) por request — martelar isso queima invocação na nossa conta.
+//
+// Os dois clientes (desktop e site) só montam catálogo depois do login, então
+// exigir o JWT não muda fluxo nenhum.
 //
 // Shape de resposta preservado: { data: RawModel[] } — é o que
 // `lib/openrouter-catalog.ts` espera (ver `RawModel` lá).
@@ -182,12 +190,36 @@ function mergeCatalogs(openrouter: RawModel[], table: ModelsTableRow[]): RawMode
 
 export async function GET(req: Request): Promise<Response> {
   const CORS = corsHeaders(req, 'GET, OPTIONS')
+  const fail = (status: number, message: string, type: string): Response =>
+    new Response(JSON.stringify({ error: { message, type } }), {
+      status,
+      headers: { 'Content-Type': 'application/json', ...CORS },
+    })
+
+  let userId: string
+  try {
+    userId = await verifyUser(req.headers.get('authorization'))
+  } catch {
+    return fail(401, 'não autenticado', 'auth')
+  }
+
+  // Limite folgado: o catálogo é cacheado no cliente, mas várias telas o pedem.
+  // Fail-closed como as demais rotas que custam chamada externa.
+  const rl = await checkRateLimit({
+    userId,
+    bucket: 'models',
+    limit: Number(process.env.MODELS_RATE_LIMIT ?? 60),
+    windowSeconds: 60,
+  })
+  if (!rl.allowed) return fail(429, 'muitas consultas — tente em instantes', 'rate_limit')
 
   const [openrouter, table] = await Promise.all([fetchOpenRouterCatalog(), fetchModelsTable()])
   const data = mergeCatalogs(openrouter, table)
 
   return new Response(JSON.stringify({ data }), {
     status: 200,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300', ...CORS },
+    // `private`: a resposta agora vem de rota autenticada — não pode ficar em
+    // cache compartilhado da CDN.
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=300', ...CORS },
   })
 }

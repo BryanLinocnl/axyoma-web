@@ -98,10 +98,15 @@ function estimateHoldCredits(body: Record<string, unknown>): number {
   return Math.min(HOLD_CREDITS_MAX, Math.max(HOLD_CREDITS_MIN, Math.ceil(est)))
 }
 
-// Cap de gasto diário (§7). DESABILITADO por padrão: env vazia/0 => sem limite
-// (comportamento atual). Quando > 0, o gate pré-request soma o gasto USD do dia
-// (usage_log) e barra com 402. Entregue desabilitado, mas com o código presente.
-const DAILY_SPEND_CAP_USD = Number(process.env.DAILY_SPEND_CAP_USD ?? 0)
+// Cap de gasto diário por usuário (auditoria A-4). Vinha 0 = SEM TETO: depois da
+// reserva atômica ninguém gasta mais do que tem, mas quem compra créditos (ou
+// ganha bônus) podia consumir tudo numa janela curta, e um bug/abuso nosso não
+// tinha nenhum freio de emergência. Um teto generoso é a diferença entre um
+// incidente de US$ 20 e um de US$ 2.000.
+//
+// 20 USD/dia de CUSTO REAL (o que pagamos ao provedor, não o que cobramos) fica
+// muito acima do uso pesado legítimo. Ajustável por env; 0 desliga.
+const DAILY_SPEND_CAP_USD = Number(process.env.DAILY_SPEND_CAP_USD ?? 20)
 
 // Allow-list de modelos (opcional): se `CHAT_MODEL_ALLOWLIST` estiver setado
 // (comma), só esses modelos passam. Caso contrário, política sã: modelo bem

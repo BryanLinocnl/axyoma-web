@@ -285,7 +285,9 @@ async function handleRefresh(req: Request): Promise<Response> {
     })
   }
 
-  // Rate limit global (custo/abuso). Fail-open se a RPC não existir.
+  // Rate limit global (custo/abuso). FAIL-CLOSED: se o limitador cair, o cron
+  // deixa de rodar em vez de martelar as fontes externas — perder uma janela de
+  // notícias é irrelevante perto de martelar a OpenRouter em loop.
   const rl = await checkRateLimit({
     userId: REFRESH_USER,
     bucket: 'news_refresh',

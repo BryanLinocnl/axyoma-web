@@ -1,5 +1,12 @@
 import { verifyUser } from '@/lib/auth'
-import { getBalance, debitUsage, recordPendingCharge, checkRateLimit } from '@/lib/supabase-admin'
+import {
+  getBalance,
+  debitUsage,
+  recordPendingCharge,
+  checkRateLimit,
+  settleHold,
+  releaseHold,
+} from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
 import {
   resolveModel,
@@ -44,7 +51,8 @@ const BUCKET = 'generations'
 // (não deveria — o submit sempre grava): nunca subcobrar → usa o teto.
 const MAX_DURATION_S = 8
 
-// FIX 3 — rate limit FOLGADO no /status (polling legítimo é frequente). Fail-open.
+// FIX 3 — rate limit FOLGADO no /status (polling legítimo é frequente).
+// FAIL-CLOSED como as demais: o client re-polla, então recusar um poll é barato.
 const STATUS_RATE_LIMIT = Number(process.env.VIDEO_STATUS_RATE_LIMIT ?? 120)
 const STATUS_RATE_WINDOW_S = Number(process.env.VIDEO_STATUS_RATE_WINDOW_S ?? 60)
 
@@ -122,6 +130,9 @@ type ChargeRow = {
   credits: number | null
   model: string | null
   durationSeconds: number | null
+  // Reserva feita no submit (auditoria A-1). A liquidação acontece AQUI, noutra
+  // invocação — por isso o ponteiro viaja pelo ledger, não por variável.
+  holdId: string | null
 }
 
 // Leitura ESCOPADA por user_id (FIX 2): um `op` de outro usuário nunca é lido/assinado
@@ -135,7 +146,7 @@ async function getChargeRow(
   const qs = new URLSearchParams({
     op: `eq.${op}`,
     user_id: `eq.${userId}`,
-    select: 'status,path,credits,model,duration_seconds',
+    select: 'status,path,credits,model,duration_seconds,hold_id',
     limit: '1',
   })
   const res = await fetch(`${supaUrl}/rest/v1/video_charges?${qs.toString()}`, {
@@ -148,6 +159,7 @@ async function getChargeRow(
     credits?: number
     model?: string
     duration_seconds?: number
+    hold_id?: string
   }[]
   const row = rows[0]
   if (!row) return null
@@ -157,6 +169,7 @@ async function getChargeRow(
     credits: typeof row.credits === 'number' ? row.credits : null,
     model: typeof row.model === 'string' ? row.model : null,
     durationSeconds: Number.isInteger(row.duration_seconds) ? (row.duration_seconds as number) : null,
+    holdId: typeof row.hold_id === 'string' ? row.hold_id : null,
   }
 }
 
@@ -317,6 +330,8 @@ export async function GET(req: Request): Promise<Response> {
   }
   const durationSeconds = chargeRow.durationSeconds ?? MAX_DURATION_S
   const model = chargeRow.model ?? modelParam
+  // Reserva feita no submit; null só para operações anteriores a esta mudança.
+  const holdId = chargeRow.holdId
   if (!model) {
     console.error('video_charges sem model e sem model no query', op)
     return json(500, { error: { message: 'operação mal configurada', type: 'config' } })
@@ -407,14 +422,19 @@ export async function GET(req: Request): Promise<Response> {
   const b64 = Array.isArray(videos) && typeof videos[0]?.bytesBase64Encoded === 'string' ? videos[0]!.bytesBase64Encoded : null
   const mimeType = Array.isArray(videos) && typeof videos[0]?.mimeType === 'string' && videos[0]!.mimeType ? videos[0]!.mimeType! : 'video/mp4'
   if (!b64) {
+    // Final TERMINAL: a operação concluiu e não há vídeo. Sem liberar aqui, a
+    // reserva do submit ficaria presa até a varredura de 60 min.
     console.error('vertex video done sem bytesBase64Encoded')
+    if (holdId) await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'operação concluída sem vídeo', type: 'upstream' } })
   }
 
   // FIX 4 — cap de tamanho: recusa ANTES de decodificar (atob aloca ~length bytes;
   // um base64 gigante estouraria a memória do isolate edge).
   if (b64.length > VIDEO_MAX_B64_BYTES) {
+    // Terminal também: não vamos conseguir entregar este vídeo em poll nenhum.
     console.error('vertex video base64 acima do cap', b64.length, VIDEO_MAX_B64_BYTES)
+    if (holdId) await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'vídeo grande demais', type: 'upstream' } })
   }
 
@@ -446,7 +466,12 @@ export async function GET(req: Request): Promise<Response> {
     return json(502, { error: { message: 'falha ao decodificar vídeo', type: 'upstream' } })
   }
   const id = crypto.randomUUID()
-  const objectPath = `video/${userId}/${id}.mp4`
+  // Path no MESMO formato das imagens (`<uid>/…`): as policies `gen_*` do bucket
+  // casam `foldername[1] = auth.uid()`, e o prefixo `video/` fazia os vídeos
+  // ficarem fora delas. Hoje funciona só porque a rota assina com service-role —
+  // qualquer leitura futura via RLS falharia sem motivo aparente. Objetos antigos
+  // seguem acessíveis: o path fica gravado no ledger e é ele que assinamos.
+  const objectPath = `${userId}/video/${id}.mp4`
   const up = await uploadToStorage(supaUrl, serviceRole, objectPath, bytes, mimeType)
   if (!up.ok) {
     console.error('vertex video storage upload falhou', up.detail)
@@ -460,11 +485,20 @@ export async function GET(req: Request): Promise<Response> {
   let creditsCharged: number | null = null
   let balanceBefore = 0
   try {
-    balanceBefore = await getBalance(userId).catch(() => 0)
-    await debitUsage({ userId, costUsd, model })
-    const balanceAfter = await getBalance(userId).catch(() => balanceBefore)
-    const delta = balanceBefore - balanceAfter
-    creditsCharged = delta > 0 ? delta : null
+    // Liquida a RESERVA feita no submit: troca a estimativa pelo custo real e
+    // devolve a diferença, retornando o que foi cobrado (M-6 — antes era delta de
+    // saldo, com duas leituras e sujeito a cobrança concorrente). `debitUsage` só
+    // entra como caminho legado, para operações submetidas antes desta mudança.
+    if (holdId) {
+      const charged = await settleHold({ holdId, costUsd, model })
+      creditsCharged = charged > 0 ? charged : null
+    } else {
+      balanceBefore = await getBalance(userId).catch(() => 0)
+      await debitUsage({ userId, costUsd, model })
+      const balanceAfter = await getBalance(userId).catch(() => balanceBefore)
+      const delta = balanceBefore - balanceAfter
+      creditsCharged = delta > 0 ? delta : null
+    }
   } catch (e) {
     // Débito falhou: não descartamos o vídeo já gerado/salvo. Não retenta (evita
     // dupla cobrança) — marca para reconciliação.

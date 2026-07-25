@@ -19,6 +19,9 @@
 // erro carregam apenas status/código e corpo já sanitizado pelo próprio Google
 // (que não ecoa segredos), nunca o token de entrada.
 
+// SEMPRE pelo SUBPATH `/oidc`. O entrypoint raiz de `@vercel/functions` puxa o
+// módulo de websocket (`ws`), que não resolve no build edge — já quebrou o deploy
+// uma vez. Qualquer helper novo desse pacote deve entrar pelo subpath específico.
 import { getVercelOidcToken } from '@vercel/functions/oidc'
 
 // -----------------------------------------------------------------------------
