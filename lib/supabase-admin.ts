@@ -312,7 +312,12 @@ export async function getSpendTodayUsd(userId: string): Promise<number> {
     const res = await fetch(`${url}/rest/v1/usage_log?${qs.toString()}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
     })
-    if (!res.ok) return 0
+    // Também FAIL-CLOSED: um 5xx do PostgREST zerava o gasto do dia e liberava o
+    // cap tão bem quanto uma exceção teria feito.
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      throw new Error(`usage_log select falhou (${res.status}): ${detail.slice(0, 200)}`)
+    }
     const rows = (await res.json()) as { meta?: { cost_usd?: unknown } | null }[]
     let total = 0
     for (const r of rows) {
