@@ -176,18 +176,18 @@ function ToolsArt(): React.JSX.Element {
 
 const QUADRANTS: { title: string; body: string; art: () => React.JSX.Element; tag?: string }[] = [
   {
-    title: 'Modo Code',
-    body: 'O agente lê o projeto, escreve e edita os arquivos, roda comandos no terminal, depura o que quebrou e abre o PR.',
+    title: 'Code',
+    body: 'Leia arquivos, implemente funcionalidades, rode testes e abra Pull Requests automaticamente.',
     art: CodeArt,
   },
   {
-    title: 'Modo Plan',
-    body: 'A feature vira uma lista de tarefas em markdown que você lê, corrige e aprova. Só depois disso alguma coisa executa.',
+    title: 'Plan',
+    body: 'Transforme objetivos em planos revisáveis antes da execução.',
     art: PlanArt,
   },
   {
-    title: 'Modo Design',
-    body: 'Posts, stories e carrosséis para as suas redes: a IA desenha no canvas, você ajusta camada por camada e exporta.',
+    title: 'Design',
+    body: 'Crie interfaces, componentes, imagens e materiais visuais sem sair do projeto.',
     art: DesignArt,
     tag: 'Pro · em breve',
   },
@@ -202,8 +202,19 @@ export function ProductGrid(): React.JSX.Element {
   return (
     <section id="modos" className="relative">
       <div className="mx-auto max-w-[1200px] px-5 py-20 sm:px-6 sm:py-28 lg:py-32">
+        <h2 className="gb-display text-[clamp(2.1rem,4.9vw,3.5rem)]">
+          <span className="block">Um aplicativo.</span>
+          <span className="block">Três formas de trabalhar.</span>
+        </h2>
+        <p
+          className="gb-measure mt-6 text-[16.5px] leading-relaxed"
+          style={{ color: 'var(--ink-muted)' }}
+        >
+          Design, Plan e Code — mais as skills e as ferramentas que você conecta ao agente.
+        </p>
+
         <div
-          className="grid md:grid-cols-2"
+          className="mt-14 grid md:grid-cols-2"
           style={{ borderTop: '1px solid var(--hairline)' }}
         >
           {QUADRANTS.map(({ title, body, art: Art, tag }, i) => (

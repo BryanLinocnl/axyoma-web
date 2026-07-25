@@ -2,16 +2,16 @@ import { AppMock } from './AppMock'
 
 const COLUMNS: [string, string][] = [
   [
-    'Sem chave de API',
-    'Cria a conta e usa. Nenhum painel de provedor, nenhuma chave para colar, nenhuma stack para montar antes da primeira execução.',
+    'Sem configuração complicada',
+    'Crie sua conta e comece a usar. Sem dezenas de painéis, integrações ou configuração manual antes da primeira tarefa.',
   ],
   [
-    'Sem cota diária',
-    'Não existe “você atingiu o limite do plano”. O teto é o crédito que você decidiu gastar — e ele fica visível o tempo todo.',
+    'Sem surpresas',
+    'Antes de executar qualquer tarefa você sabe exatamente qual modelo será usado e quanto aquela execução irá consumir.',
   ],
   [
-    'Só paga o que usa',
-    'O débito segue o custo real do modelo naquela chamada. Modelo barato para tarefa simples custa barato de verdade.',
+    'Você escolhe o modelo',
+    'Use modelos rápidos para tarefas simples e modelos avançados quando precisar da melhor qualidade. A decisão é sempre sua.',
   ],
 ]
 
@@ -20,12 +20,15 @@ export function ScaleSection(): React.JSX.Element {
     <section className="gb-desk-band relative overflow-hidden">
       <div className="mx-auto max-w-[1200px] px-5 pb-0 pt-20 sm:px-6 sm:pt-28 lg:pt-32">
         <h2 className="gb-display text-[clamp(2.1rem,4.9vw,3.5rem)]">
-          <span className="block">Rápido de começar.</span>
-          <span className="block">Sem teto pra crescer.</span>
+          <span className="block">Comece em segundos.</span>
+          <span className="block">Escale sem trocar de ferramenta.</span>
         </h2>
-        <p className="gb-measure mt-6 text-[16.5px] leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
-          Você escreve o que quer, revisa o plano e libera. O Axyoma cuida da chave, do provedor e
-          da conta — e mostra o custo em crédito antes de você gastar.
+        <p
+          className="gb-measure mt-6 text-[16.5px] leading-relaxed"
+          style={{ color: 'var(--ink-muted)' }}
+        >
+          Descreva o objetivo. O Axyoma monta um plano, estima o custo, executa cada etapa e
+          acompanha todo o processo até a entrega.
         </p>
       </div>
 

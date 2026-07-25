@@ -9,16 +9,17 @@ export function Hero(): React.JSX.Element {
             linhas cheias, e deixar o navegador quebrar sozinho dava três
             linhas desalinhadas em 1440. */}
         <h1 className="gb-display gb-lift text-[clamp(2.35rem,5.9vw,4.5rem)]">
-          <span className="block">O agente faz o trabalho.</span>
-          <span className="block">Você aprova cada passo.</span>
+          <span className="block">A IA faz o trabalho.</span>
+          <span className="block">Você mantém o controle.</span>
         </h1>
 
         <p
           className="gb-lift gb-measure mt-7 text-[17px] leading-relaxed sm:text-[18px]"
           style={{ color: 'var(--ink-muted)', animationDelay: '90ms' }}
         >
-          App de desktop que planeja a feature, edita os seus arquivos, roda os comandos e abre o
-          PR — sem chave de API e sem cota diária travando o meio do trabalho.
+          Planeje, revise e execute tarefas com qualquer modelo de IA em um único app. O Axyoma
+          acompanha cada etapa, mostra o custo antes da execução e nunca faz nada sem a sua
+          aprovação.
         </p>
 
         <div
@@ -28,8 +29,8 @@ export function Hero(): React.JSX.Element {
           <Link href="/download" className="gb-btn gb-btn-primary px-6 py-3 text-[15px]">
             Baixar grátis
           </Link>
-          <Link href="#modos" className="gb-btn gb-btn-ghost px-6 py-3 text-[15px]">
-            Ver os três modos
+          <Link href="#controle" className="gb-btn gb-btn-ghost px-6 py-3 text-[15px]">
+            Ver como funciona
           </Link>
         </div>
 
@@ -37,7 +38,7 @@ export function Hero(): React.JSX.Element {
           className="gb-lift mt-5 text-[13.5px]"
           style={{ color: 'var(--ink-faint)', animationDelay: '220ms' }}
         >
-          400 créditos ao criar a conta · sem cartão · macOS, Windows e Linux
+          400 créditos para começar · sem cartão · Windows, macOS e Linux
         </p>
       </div>
 

@@ -60,20 +60,23 @@ export function Pricing(): React.JSX.Element {
         <div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
           {/* Coluna do argumento */}
           <div className="lg:sticky lg:top-28 lg:self-start">
-            <h2 className="gb-display max-w-[11ch] text-[clamp(2.25rem,5.4vw,3.75rem)]">
-              Preço sem letra miúda.
+            <h2 className="gb-display max-w-[13ch] text-[clamp(2.1rem,4.9vw,3.5rem)]">
+              Pague pelo que faz sentido para você.
             </h2>
             <p
               className="gb-measure mt-6 text-[16.5px] leading-relaxed"
               style={{ color: 'var(--ink-muted)' }}
             >
-              Um crédito custa <strong className="font-medium" style={{ color: 'var(--ink)' }}>R$ 0,30</strong> e
-              é debitado pelo custo real do modelo que rodou. Sem assinatura obrigatória, sem cota
-              diária, sem crédito que expira.
+              Comece gratuitamente com créditos inclusos. Quando precisar, escolha um plano ou
+              compre créditos adicionais sem mudar a forma como trabalha.
             </p>
 
             <dl className="mt-8 flex flex-col">
               {[
+                // O preço do crédito saiu do parágrafo de abertura na revisão de
+                // copy; fica aqui para não sumir da página — é o número que o
+                // visitante procura antes de baixar.
+                ['1 crédito', 'R$ 0,30, debitado pelo custo real do modelo'],
                 ['Pagamento', 'PIX ou cartão, no site ou dentro do app'],
                 ['Bônus de cadastro', '400 créditos, sem cartão'],
                 ['Bônus e franquia', 'valem para os modelos da Vertex AI'],

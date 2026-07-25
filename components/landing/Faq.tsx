@@ -1,27 +1,27 @@
 const ITEMS: Array<[string, string]> = [
   [
-    'O que é o Axyoma AI?',
-    'Um app de desktop (macOS, Windows e Linux) com três modos de trabalho: Code, onde um agente lê, escreve e edita o seu projeto, roda comandos e abre o PR no GitHub; Plan, onde a feature vira uma lista de tarefas que você aprova antes de qualquer execução; e Design, onde a IA cria artes para as suas redes.',
+    'O que é o Axyoma?',
+    'O Axyoma é uma plataforma para criar, revisar e executar tarefas com IA utilizando diversos modelos em um único aplicativo. Roda como app de desktop, ao lado do seu editor e do seu terminal.',
   ],
   [
-    'Como funcionam os créditos?',
-    'Não existe chave de API: você usa créditos Axyoma, e 1 crédito custa R$ 0,30. Cada chamada debita pelo custo real do modelo que rodou — modelo barato para tarefa simples custa barato. Toda conta nova ganha 400 créditos de bônus. Bônus e franquia valem para os modelos da Vertex AI; créditos comprados valem para todos.',
+    'Preciso configurar APIs?',
+    'Não para começar. Basta criar sua conta e utilizar os créditos disponíveis.',
   ],
   [
-    'Quais modelos posso usar?',
-    'Os principais, num seletor só: Gemini, Claude, GPT, Grok, Llama, DeepSeek, Kimi, Qwen, Mistral e outros. Dá para trocar de modelo no meio da conversa, sem sair do app e sem cadastrar nada.',
+    'Posso escolher qual modelo usar?',
+    'Sim. Você pode selecionar o modelo mais adequado para cada tarefa conforme custo, velocidade ou qualidade — Gemini, Claude, GPT, Grok, Llama, DeepSeek, Kimi, Qwen, Mistral e outros, num seletor só.',
   ],
   [
-    'Quais são os planos?',
-    'Free está no ar: 400 créditos de bônus ao se cadastrar, e você compra mais quando quiser, sem assinar. Pro e Teams vêm em breve, com franquia mensal de créditos e o modo Design; os valores serão anunciados no lançamento.',
+    'O agente pode executar comandos sozinho?',
+    'Somente quando você permitir. Ações importantes sempre podem exigir aprovação antes da execução.',
   ],
   [
-    'Em quais sistemas roda?',
-    'macOS (Apple Silicon e Intel), Windows e Linux. A atualização é automática no Windows e no Linux; no macOS o app avisa quando há versão nova.',
+    'Como funciona a cobrança?',
+    'Você acompanha o consumo em créditos durante toda a execução. O custo é transparente e aparece antes da confirmação das tarefas. Um crédito custa R$ 0,30 e você paga por PIX ou cartão. Bônus e franquia valem para os modelos da Vertex AI; créditos comprados valem para todos os modelos.',
   ],
   [
-    'Como eu pago?',
-    'Por PIX ou cartão de crédito, no checkout do site ou dentro do próprio app.',
+    'Quais sistemas operacionais são suportados?',
+    'Windows, macOS (Apple Silicon e Intel) e Linux. A atualização é automática no Windows e no Linux; no macOS o app avisa quando há versão nova.',
   ],
 ]
 

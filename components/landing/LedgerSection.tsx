@@ -37,9 +37,16 @@ export function LedgerSection(): React.JSX.Element {
     <section className="relative">
       <div className="mx-auto max-w-[1200px] px-5 py-20 sm:px-6 sm:py-28 lg:py-32">
         <h2 className="gb-display text-[clamp(2.1rem,4.9vw,3.5rem)]">
-          <span className="block">Você vê o que ele faz.</span>
-          <span className="block">E quanto aquilo custou.</span>
+          <span className="block">Você acompanha cada ação.</span>
+          <span className="block">E cada crédito.</span>
         </h2>
+        <p
+          className="gb-measure mt-6 text-[16.5px] leading-relaxed"
+          style={{ color: 'var(--ink-muted)' }}
+        >
+          O Axyoma registra todas as operações realizadas pelo agente, mostra quais modelos foram
+          utilizados e exibe o custo de cada etapa antes e depois da execução.
+        </p>
 
         <div className="mt-14 grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:gap-16">
           <div

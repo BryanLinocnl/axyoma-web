@@ -47,11 +47,12 @@ export function SiteFooter(): React.JSX.Element {
         {/* Fecho da página: a última coisa é a ação, não a lista de links. */}
         <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
-            <h2 className="gb-display max-w-[13ch] text-[clamp(2rem,4.8vw,3.25rem)]">
-              Instale e mande a primeira tarefa hoje.
+            <h2 className="gb-display max-w-[16ch] text-[clamp(2rem,4.4vw,3rem)]">
+              Instale hoje. Execute sua primeira tarefa em minutos.
             </h2>
-            <p className="mt-5 text-[16px]" style={{ color: 'var(--ink-muted)' }}>
-              400 créditos ao criar a conta. Sem cartão, sem chave de API.
+            <p className="gb-measure mt-5 text-[16px]" style={{ color: 'var(--ink-muted)' }}>
+              Crie sua conta, receba créditos para começar e descubra uma forma mais rápida de
+              trabalhar com IA.
             </p>
           </div>
 
@@ -60,7 +61,7 @@ export function SiteFooter(): React.JSX.Element {
               href="/download"
               className="gb-btn gb-btn-primary w-fit px-6 py-3.5 text-[15px]"
             >
-              Baixar o Axyoma
+              Baixar grátis
             </Link>
             <ul className="flex items-center gap-5">
               {SYSTEMS.map((s) => (
@@ -99,7 +100,7 @@ export function SiteFooter(): React.JSX.Element {
               </span>
             </Link>
             <p className="mt-3 max-w-[32ch] text-[14px]" style={{ color: 'var(--ink-muted)' }}>
-              Estúdio de engenharia com IA no seu desktop. Você aprova, o agente entrega.
+              A plataforma para trabalhar com agentes e qualquer modelo de IA, no seu desktop.
             </p>
             <a
               href={`mailto:${EMPRESA.email}`}

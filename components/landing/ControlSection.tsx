@@ -7,34 +7,56 @@
  * controle de verdade, navegável por teclado.
  */
 
-function ModeStack(): React.JSX.Element {
-  const modes: [string, string][] = [
-    ['Design', 'arte pra rede social'],
-    ['Plan', 'tarefas revisáveis'],
-    ['Code', 'agente no seu projeto'],
+function PlanProposal(): React.JSX.Element {
+  const steps: [string, boolean][] = [
+    ['Mapear as faixas de CEP por região', true],
+    ['Trocar o fallback por erro explícito', true],
+    ['Cobrir Nordeste e Norte com teste', false],
   ]
   return (
-    <div className="flex flex-col gap-2 pt-2">
-      {modes.map(([m, d], i) => (
-        <div
-          key={m}
-          className="gb-glass-thick flex items-center gap-2.5 rounded-[10px] px-3 py-2.5"
-          style={{
-            border: '1px solid var(--hairline)',
-            marginLeft: `${i * 14}px`,
-            marginRight: `${(2 - i) * 14}px`,
-          }}
-        >
-          <span
-            className="h-[7px] w-[7px] shrink-0 rounded-full"
-            style={{ background: i === 2 ? 'var(--accent)' : 'var(--hairline-strong)' }}
-          />
-          <span className="text-[12.5px] font-medium">{m}</span>
-          <span className="truncate text-[11px]" style={{ color: 'var(--ink-faint)' }}>
-            {d}
+    <div className="pt-2">
+      <div
+        className="gb-raised rounded-[12px] p-3.5"
+        style={{ border: '1px solid var(--hairline)' }}
+      >
+        <div className="flex items-baseline justify-between">
+          <span className="text-[12px] font-medium">Plano proposto</span>
+          <span className="gb-mono text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>
+            3 tarefas
           </span>
         </div>
-      ))}
+        <div className="mt-2.5 flex flex-col gap-1.5">
+          {steps.map(([t, on]) => (
+            <div key={t} className="flex items-start gap-2">
+              <span
+                className="mt-[3px] grid h-[13px] w-[13px] shrink-0 place-items-center rounded-[4px] text-[8px] font-bold text-white"
+                style={
+                  on
+                    ? { background: 'var(--accent)' }
+                    : { border: '1.5px solid var(--hairline-strong)' }
+                }
+              >
+                {on ? '✓' : ''}
+              </span>
+              <span className="text-[11.5px] leading-snug">{t}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex gap-2">
+          <span
+            className="rounded-[7px] px-2.5 py-1 text-[11px] font-medium text-white"
+            style={{ background: 'var(--accent)' }}
+          >
+            Aprovar
+          </span>
+          <span
+            className="rounded-[7px] px-2.5 py-1 text-[11px] font-medium"
+            style={{ border: '1px solid var(--hairline)', color: 'var(--ink-muted)' }}
+          >
+            Editar plano
+          </span>
+        </div>
+      </div>
     </div>
   )
 }
@@ -107,18 +129,18 @@ const CARDS: {
   art: () => React.JSX.Element
 }[] = [
   {
-    title: 'Três modos, um app só',
-    body: 'Design para as artes, Plan para quebrar a feature em tarefas, Code para o agente executar. A troca é uma aba — não é abrir outro programa.',
-    art: ModeStack,
+    title: 'Planeje antes de executar',
+    body: 'A IA propõe o plano. Você decide o que realmente acontece.',
+    art: PlanProposal,
   },
   {
-    title: 'Do arquivo ao PR, sem sair daqui',
-    body: 'O agente lê o projeto, escreve o código, roda os comandos no terminal e abre o pull request no GitHub. Cada passo fica registrado na trilha.',
+    title: 'Tudo fica visível',
+    body: 'Cada arquivo lido, comando executado e alteração realizada aparece em tempo real.',
     art: RunTrail,
   },
   {
-    title: 'Nada executa sem sua permissão',
-    body: 'Comando de terminal, escrita fora do projeto e ação destrutiva param e pedem autorização. Você libera uma vez ou para o projeto inteiro.',
+    title: 'Nada acontece sem permissão',
+    body: 'Execuções sensíveis sempre pedem confirmação antes de continuar.',
     art: PermissionPrompt,
   },
 ]
@@ -129,15 +151,15 @@ export function ControlSection(): React.JSX.Element {
       <div className="mx-auto max-w-[1200px] px-5 py-20 sm:px-6 sm:py-28 lg:py-32">
         <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
           <h2 className="gb-display max-w-[15ch] text-[clamp(2.1rem,4.6vw,3.25rem)]">
-            Feito pra quem vai rápido e não abre mão do controle.
+            Velocidade quando você precisa. Controle quando importa.
           </h2>
           <p
             className="gb-measure text-[16.5px] leading-relaxed lg:pb-2"
             style={{ color: 'var(--ink-muted)' }}
           >
-            O agente trabalha nos seus arquivos, no seu terminal, no seu repositório. Cada passo é
-            visível, revisável e reversível — e o custo aparece em crédito na hora, não no fim do
-            mês.
+            O Axyoma trabalha nos seus arquivos, no terminal e no seu projeto, mas cada ação
+            importante passa por você. Revise planos, acompanhe o progresso e aprove apenas o que
+            faz sentido.
           </p>
         </div>
 
