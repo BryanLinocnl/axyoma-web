@@ -56,6 +56,17 @@ export function corsHeaders(req: Request, methods = 'GET, POST, OPTIONS'): Recor
   let allowOrigin: string
   if (permissive) {
     allowOrigin = origin || WILDCARD
+  } else if (origin === 'null') {
+    // DESKTOP: o renderer do app empacotado é carregado por `file://`, origem
+    // OPACA — o Chromium manda literalmente `Origin: null`. Não dá para pôr isso
+    // numa allow-list de host, e devolver a origem do site faria o browser
+    // BLOQUEAR (foi o que aconteceu quando o default virou fail-closed: o
+    // catálogo de modelos e o bootstrap de créditos do desktop pararam).
+    //
+    // `*` é seguro aqui: a autenticação destas rotas é Bearer no header, não
+    // cookie — sem `credentials: 'include'`, `*` não expõe sessão de ninguém, e
+    // uma origem web de verdade continua tendo que estar na allow-list.
+    allowOrigin = WILDCARD
   } else if (origin && list.includes(origin)) {
     allowOrigin = origin
   } else {
