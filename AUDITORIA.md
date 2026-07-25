@@ -12,10 +12,13 @@ Escala: 13 rotas, ~3.500 linhas de handler, 15 libs, 25 tabelas com RLS.
 
 | Sev | # | Estado |
 |---|---|---|
-| 🔴 Crítico | 1 | **P-1 corrigido** (PR #26) |
-| 🟠 Alto | 4 | abertos |
-| 🟡 Médio | 6 | abertos |
-| 🔵 Baixo | 5 | abertos |
+| 🔴 Crítico | 1 | corrigido (PR #26) |
+| 🟠 Alto | 4 | **corrigidos** (PR #27) |
+| 🟡 Médio | 6 | 5 corrigidos (PR #27) · M-2 adiado (troca do modelo de sessão) |
+| 🔵 Baixo | 5 | 4 corrigidos (PR #27) · B-2 aceito (timing em segredo aleatório) |
+
+Os webhooks de pagamento (M-4), que estavam fora do escopo por viverem no outro
+repo, foram auditados e corrigidos junto: `axyoma-ai#18`.
 
 O que está **bem resolvido** e não deve ser mexido sem motivo: a federação WIF (`lib/google-auth.ts`) nunca loga token e renova preemptivamente; a allow-list de região (`isRegionAllowed`, fail-closed com lista vazia) fecha o SSRF do Vertex na origem; o ledger de vídeo (`video_charges` com claim condicional `submitted → charging`) é uma solução correta de idempotência de cobrança sob polling, com leitura escopada por `user_id` contra IDOR; o Vault para segredos de integração nunca devolve o valor ao browser; as 25 tabelas têm RLS ligada e as policies conferidas são todas `auth.uid() = user_id`; e os filtros do PostgREST são montados com `URLSearchParams`, que escapa vírgula — sem injeção de filtro.
 
