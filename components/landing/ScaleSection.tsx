@@ -1,4 +1,6 @@
+import Image from 'next/image'
 import { AppMock } from './AppMock'
+import planShot from '@/public/app/plan-mode.png'
 
 const COLUMNS: [string, string][] = [
   [
@@ -36,9 +38,26 @@ export function ScaleSection(): React.JSX.Element {
           pela direita, para o olho não repetir o movimento do primeiro viewport. */}
       <div className="gb-stage relative mt-12 sm:mt-16">
         <div className="mx-auto max-w-[1200px] px-5 sm:px-6">
-          <div className="ml-0 w-full sm:-ml-[10%] sm:w-[116%] lg:-ml-[8%] lg:w-[110%]">
-            <div className="gb-tilt-right gb-fade-bottom">
+          {/* Celular: mock. Mesma razão do hero — um print de 2668px espremido
+              em 390 não se lê, e o mock é layout de verdade. */}
+          <div className="w-full sm:hidden">
+            <div className="gb-fade-bottom">
               <AppMock mode="plan" />
+            </div>
+          </div>
+
+          {/* sm+ : o print real do modo Plan. */}
+          <div className="hidden sm:-ml-[10%] sm:block sm:w-[116%] lg:-ml-[8%] lg:w-[110%]">
+            <div
+              className="gb-tilt-right gb-fade-bottom overflow-hidden rounded-[14px]"
+              style={{ border: '1px solid var(--hairline)', boxShadow: 'var(--shadow-panel)' }}
+            >
+              <Image
+                src={planShot}
+                alt="Axyoma no modo Plan: árvore de arquivos e artefatos à esquerda, o PRD.md aberto no editor e o agente listando os documentos que criou, à direita."
+                sizes="(max-width: 640px) 1px, 120vw"
+                className="block h-auto w-full"
+              />
             </div>
           </div>
         </div>
