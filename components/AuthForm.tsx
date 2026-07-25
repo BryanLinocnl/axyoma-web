@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check, X, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '@/lib/supabase-browser'
 import { AxiomaLogo } from './AxiomaLogo'
+import { Turnstile, isCaptchaEnabled } from './Turnstile'
 
 function checks(pw: string) {
   return {
@@ -52,6 +53,11 @@ export function AuthForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 
   const [err, setErr] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // Token do Turnstile (null enquanto não resolvido, ou quando o captcha está
+  // desligado — sem NEXT_PUBLIC_TURNSTILE_SITE_KEY o widget não renderiza).
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  // Token é de uso único: incrementar isto força o widget a gerar outro.
+  const [captchaNonce, setCaptchaNonce] = useState(0)
 
   const isSignup = mode === 'signup'
   const c = checks(password)
@@ -88,14 +94,18 @@ export function AuthForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 
         const { error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { data: { full_name: name.trim() } },
+          options: { data: { full_name: name.trim() }, ...(captchaToken ? { captchaToken } : {}) },
         })
         if (error) throw error
         const { data } = await supabase.auth.getSession()
         if (data.session) router.push('/conta/visao-geral/visao-geral')
         else setMsg('Conta criada! Confirme o e-mail que enviamos para entrar.')
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+          ...(captchaToken ? { options: { captchaToken } } : {}),
+        })
         if (error) throw error
         router.push('/conta/visao-geral/visao-geral')
       }
@@ -103,6 +113,8 @@ export function AuthForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 
       setErr(e instanceof Error ? e.message : 'Erro ao autenticar.')
     } finally {
       setSubmitting(false)
+      // Um token do Turnstile só vale uma vez — descarta e pede outro.
+      if (isCaptchaEnabled()) setCaptchaNonce((n) => n + 1)
     }
   }
 
@@ -191,6 +203,9 @@ export function AuthForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 
 
           {err && <p className="text-xs text-red-400">{err}</p>}
           {msg && <p className="text-xs text-green-500">{msg}</p>}
+
+          <Turnstile onToken={setCaptchaToken} resetKey={captchaNonce} />
+
 
           <button
             type="submit"

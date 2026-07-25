@@ -1,0 +1,33 @@
+# Smoke de runtime do site/proxy: sobe o build de produção e verifica headers de
+# segurança, gates de autenticação e CORS. As duas regressões recentes do proxy
+# (CORS fail-closed derrubando o desktop, catálogo aberto sem JWT) passaram por
+# type-check e build verdes — só um servidor de pé as pegaria.
+name: smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+        env:
+          # Placeholders: o smoke não fala com Supabase real — as rotas testadas
+          # devem responder 401 ANTES de tocar em qualquer serviço externo.
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      - name: Smoke (headers, gates de auth, CORS)
+        run: npm run smoke
