@@ -260,6 +260,27 @@ export async function settleHold(params: {
 }
 
 /**
+ * Dados de autenticação do usuário direto do GoTrue (service-role).
+ *
+ * Usado no gate do bônus de cadastro: o claim `email_verified` do JWT tem shape
+ * diferente conforme o provedor (OAuth põe em `user_metadata`, e-mail/senha nem
+ * sempre põe), então a confirmação é lida da FONTE — `email_confirmed_at` — em
+ * vez de deduzida do token.
+ */
+export async function getAuthUser(userId: string): Promise<{ email: string | null; emailConfirmed: boolean }> {
+  const { url, key } = assertEnv()
+  const res = await fetch(`${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+  })
+  if (!res.ok) throw new Error(`admin/users falhou (${res.status})`)
+  const u = (await res.json()) as { email?: string; email_confirmed_at?: string | null; confirmed_at?: string | null }
+  return {
+    email: u.email ?? null,
+    emailConfirmed: Boolean(u.email_confirmed_at || u.confirmed_at),
+  }
+}
+
+/**
  * Concede o bônus de cadastro (valor vem do ENV desta app, não do banco).
  * A RPC só credita se `signup_bonus_granted_at is null` — chamar várias vezes é
  * seguro. Retorna o saldo atual (tendo concedido agora ou não).

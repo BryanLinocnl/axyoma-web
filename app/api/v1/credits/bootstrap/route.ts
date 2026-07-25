@@ -1,5 +1,5 @@
 import { verifyUser } from '@/lib/auth'
-import { checkRateLimit, grantSignupBonus } from '@/lib/supabase-admin'
+import { checkRateLimit, grantSignupBonus, getAuthUser } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
 
 // Bônus de cadastro (crédito grátis do primeiro acesso).
@@ -26,6 +26,32 @@ const DEFAULT_BONUS = 1000
 // Teto de sanidade: protege contra um typo na env (ex.: 1000000) virar prejuízo
 // silencioso multiplicado por cada cadastro novo.
 const MAX_BONUS = 100_000
+
+// Provedores de caixa de entrada descartável mais comuns. Curta de propósito:
+// listas gigantes envelhecem mal e bloqueiam usuário legítimo. Complementável
+// via env BLOCKED_EMAIL_DOMAINS (lista separada por vírgula).
+const DISPOSABLE_DOMAINS = new Set([
+  'mailinator.com',
+  'guerrillamail.com',
+  'guerrillamail.info',
+  'sharklasers.com',
+  '10minutemail.com',
+  'tempmail.com',
+  'temp-mail.org',
+  'yopmail.com',
+  'trashmail.com',
+  'getnada.com',
+  'dispostable.com',
+  'maildrop.cc',
+  'throwawaymail.com',
+  'fakeinbox.com',
+  'mohmal.com',
+  'emailondeck.com',
+  'moakt.com',
+  'tempr.email',
+  'mailnesia.com',
+  'inboxkitten.com',
+])
 
 function bonusCredits(): number {
   const raw = process.env.SIGNUP_BONUS_CREDITS
@@ -59,6 +85,47 @@ export async function POST(req: Request): Promise<Response> {
     userId = await verifyUser(req.headers.get('authorization'))
   } catch {
     return json(401, { error: { message: 'não autenticado', type: 'auth' } })
+  }
+
+  let email: string | null
+  let emailConfirmed: boolean
+  try {
+    const u = await getAuthUser(userId)
+    email = u.email
+    emailConfirmed = u.emailConfirmed
+  } catch (e) {
+    // Fail-closed: sem conseguir confirmar quem é, não concede.
+    console.error('getAuthUser falhou:', (e as Error).message)
+    return json(502, { error: { message: 'não foi possível verificar a conta', type: 'upstream' } })
+  }
+
+  // ANTI-FARM (auditoria B-6). Crédito grátis por cadastro é dinheiro nosso: sem
+  // nenhuma barreira, um script cria contas em série e transforma o bônus em
+  // inferência ilimitada. Duas travas, nesta ordem:
+  //
+  // 1. E-MAIL CONFIRMADO — lido de `email_confirmed_at` no GoTrue, não do claim
+  //    do JWT (o shape do `email_verified` muda conforme o provedor). Sem
+  //    confirmação, criar conta custa zero (qualquer string@qualquer.coisa);
+  //    com confirmação, custa uma caixa de entrada real por conta.
+  if (!emailConfirmed || !email) {
+    return json(403, {
+      error: { message: 'confirme seu e-mail para receber os créditos iniciais', type: 'email_unverified' },
+    })
+  }
+
+  // 2. DOMÍNIO DESCARTÁVEL — os serviços de e-mail temporário derrubam a
+  //    barreira acima de volta a zero (inbox instantânea, ilimitada). Lista
+  //    curta dos mais usados; não é exaustiva por natureza, é para elevar o
+  //    custo do farm casual. Ampliar por env sem redeploy de código.
+  const extraBlocked = (process.env.BLOCKED_EMAIL_DOMAINS || '')
+    .split(',')
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean)
+  const domain = email.split('@')[1]?.toLowerCase() ?? ''
+  if (DISPOSABLE_DOMAINS.has(domain) || extraBlocked.includes(domain)) {
+    return json(403, {
+      error: { message: 'use um e-mail permanente para receber os créditos iniciais', type: 'email_disposable' },
+    })
   }
 
   // Chamada a cada login/refresh do app: o limite existe só para evitar loop de
