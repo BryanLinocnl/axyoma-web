@@ -85,9 +85,22 @@ try {
     headers: { Origin: 'null', 'Access-Control-Request-Method': 'GET' },
   })
   add(
-    'CORS aceita Origin: null (desktop)',
+    'CORS aceita Origin: null (desktop empacotado)',
     pre.headers.get('access-control-allow-origin') === '*',
     pre.headers.get('access-control-allow-origin') ?? '(ausente)',
+  )
+
+  // O renderer em DESENVOLVIMENTO roda no dev server do Vite, não em file://.
+  // Sem isto, o app de dev fica sem catálogo de modelos e sem bootstrap de
+  // créditos — e o erro aparece como "Failed to fetch", que não diz nada.
+  const dev = await fetch(BASE + '/api/v1/models', {
+    method: 'OPTIONS',
+    headers: { Origin: 'http://localhost:5173', 'Access-Control-Request-Method': 'GET' },
+  })
+  add(
+    'CORS aceita loopback (desktop em dev)',
+    dev.headers.get('access-control-allow-origin') === 'http://localhost:5173',
+    dev.headers.get('access-control-allow-origin') ?? '(ausente)',
   )
 } catch (e) {
   add('execução do smoke', false, e.message)

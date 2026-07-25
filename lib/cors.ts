@@ -20,6 +20,20 @@
 
 const WILDCARD = '*'
 
+/** `http://localhost:PORT` e `http://127.0.0.1:PORT` (dev do app desktop e do site). */
+function isLoopbackOrigin(origin: string | null): boolean {
+  if (!origin) return false
+  try {
+    const u = new URL(origin)
+    return (
+      (u.protocol === 'http:' || u.protocol === 'https:') &&
+      (u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]')
+    )
+  } catch {
+    return false
+  }
+}
+
 // Default quando `CORS_ORIGIN` não está definida (auditoria B-4).
 //
 // Antes o default era `*`: qualquer site aberto no navegador do usuário podia
@@ -56,6 +70,18 @@ export function corsHeaders(req: Request, methods = 'GET, POST, OPTIONS'): Recor
   let allowOrigin: string
   if (permissive) {
     allowOrigin = origin || WILDCARD
+  } else if (isLoopbackOrigin(origin)) {
+    // DESKTOP EM DESENVOLVIMENTO: o renderer roda no dev server do Vite
+    // (`http://localhost:5173`), não em `file://`. Com o default fail-closed, a
+    // resposta vinha com a origem do site e o browser bloqueava tudo — catálogo
+    // de modelos e bootstrap de créditos morriam com "Failed to fetch", que é
+    // como o Chromium reporta bloqueio de CORS.
+    //
+    // Loopback é seguro pelo mesmo motivo do `null`: estas rotas autenticam por
+    // Bearer no header, não por cookie. Sem `credentials: 'include'`, refletir a
+    // origem não expõe sessão de ninguém — e quem já está em `localhost` da
+    // máquina do usuário tem caminhos bem melhores que CORS.
+    allowOrigin = origin as string
   } else if (origin === 'null') {
     // DESKTOP: o renderer do app empacotado é carregado por `file://`, origem
     // OPACA — o Chromium manda literalmente `Origin: null`. Não dá para pôr isso
