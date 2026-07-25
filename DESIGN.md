@@ -88,7 +88,9 @@ brief pinado nos dois eixos.
 - **Paleta de ilustração** (só dentro dos mocks e das pranchetas, nunca no
   chrome da página): rampa do acento `#3b82f6` / `#1e40af`; diff `#15803d`
   sobre `rgba(21,128,61,.09)` e `#b42318` sobre `rgba(220,38,38,.08)` —
-  vermelho e verde aqui são semântica de diff, não decoração; peças de rede
+  vermelho e verde aqui são semântica de diff, não decoração — os mesmos
+  `#15803d` sobre `#DCFCE7` marcam a etapa concluída na trilha de execução, e
+  `#b42318` as linhas removidas; peças de rede
   social `#0f172a`/`#1e293b` (noturna) e `#f5820b`/`#ea580c` (laranja da marca,
   usada como cor da ARTE, não como acento de UI); semáforo do macOS `#ff5f57`
   `#febc2e` `#28c840`, que são cores do sistema operacional e não nossas.

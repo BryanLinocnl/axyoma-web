@@ -1,15 +1,10 @@
-import Image from 'next/image'
-import usoShot from '@/public/app/uso.png'
+import { RunTimeline } from './RunTimeline'
 
 /**
- * A passagem densa da página, depois de dois viewports arejados: o painel de
- * limites do app — reto na tela, sem inclinação — do lado dos fatos que ele
- * prova.
- *
- * Aqui o print NÃO leva a máscara de dissolver (`gb-fade-bottom`) que os
- * painéis inclinados levam: aqueles são objetos grandes saindo de cena, este é
- * um documento pequeno e inteiro, que precisa ser lido até a última linha.
- * Só cantos arredondados e sombra.
+ * A passagem densa da página, depois de dois viewports arejados: a trilha de
+ * execução do agente — reta na tela, sem inclinação e sem máscara de dissolver
+ * (os painéis inclinados são objetos saindo de cena; este é um documento que
+ * precisa ser lido até a última linha) — do lado dos fatos que ela prova.
  */
 
 const POINTS: [string, string][] = [
@@ -44,21 +39,7 @@ export function LedgerSection(): React.JSX.Element {
         </p>
 
         <div className="mt-14 grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:gap-16">
-          {/* Só um fio de contorno. O fundo do print é cinza (235) e a mesa da
-              página é branco-azulada (244) — tons quase idênticos, então sem
-              contorno a imagem flutua sem limite visível. Usa o hairline forte
-              porque o fraco desaparece nesse par de tons. */}
-          <div
-            className="self-start overflow-hidden rounded-[14px]"
-            style={{ border: '1px solid var(--hairline-strong)', boxShadow: 'var(--shadow-float)' }}
-          >
-            <Image
-              src={usoShot}
-              alt="Painel de limites do Axyoma: janela de contexto em 45K de 128K, saldo de créditos e o consumo da sessão, com o total de tokens do turno no rodapé."
-              sizes="(max-width: 1024px) 100vw, 45vw"
-              className="block h-auto w-full"
-            />
-          </div>
+          <RunTimeline />
 
           <dl className="flex flex-col">
             {POINTS.map(([title, body], i) => (
