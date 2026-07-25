@@ -20,8 +20,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Roda ANTES do build de propósito: falha de tipo tem que aparecer em
+      # segundos, não depois de um build de meio minuto. Funciona num checkout
+      # limpo porque `types/next-assets.d.ts` declara os módulos de imagem —
+      # o `next-env.d.ts`, que faria isso, é gerado pelo build e não é
+      # versionado. Ver o comentário naquele arquivo.
       - name: Type check
-        run: npx tsc --noEmit
+        run: npm run typecheck
       - name: Build
         run: npm run build
         env:
