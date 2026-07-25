@@ -1,99 +1,121 @@
-"use client";
+'use client'
 
-import Link from "next/link";
-import { useState } from "react";
-import { AxiomaLogo } from "@/components/AxiomaLogo";
-import {
-  Navbar,
-  NavBody,
-  NavItems,
-  MobileNav,
-  NavbarLogo,
-  NavbarButton,
-  MobileNavHeader,
-  MobileNavToggle,
-  MobileNavMenu,
-} from "@/components/ui/resizable-navbar";
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { AxiomaLogo } from '@/components/AxiomaLogo'
 
 const NAV_ITEMS = [
-  { name: "Recursos", link: "/recursos" },
-  { name: "Planos", link: "#planos" },
-  { name: "FAQ", link: "#faq" },
-  { name: "Sobre", link: "/contato" },
-  { name: "Docs", link: "/docs" },
-];
+  { name: 'Modos', href: '#modos' },
+  { name: 'Controle', href: '#controle' },
+  { name: 'Planos', href: '#planos' },
+  { name: 'FAQ', href: '#faq' },
+  { name: 'Docs', href: '/docs' },
+]
 
+/**
+ * Toolbar de vidro — o mesmo material da top bar do app. É um dos dois lugares
+ * da página onde o `backdrop-filter` tem função real: existe conteúdo rolando
+ * por baixo pra desfocar.
+ */
 export function SiteNav(): React.JSX.Element {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false)
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    const onScroll = (): void => setScrolled(window.scrollY > 24)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   return (
-    <Navbar>
-      {/* Desktop Navigation */}
-      <NavBody>
-        <NavbarLogo>
-          <AxiomaLogo id="nav" className="h-7 w-7" />
-          <span className="font-brand text-lg tracking-tight text-white">Axyoma</span>
-        </NavbarLogo>
+    <header className="fixed inset-x-0 top-0 z-50 px-4 pt-3 sm:pt-4">
+      <nav
+        className={`gb-glass mx-auto flex items-center gap-3 rounded-[14px] transition-all duration-300 ${
+          scrolled ? 'max-w-[880px] px-3 py-2' : 'max-w-[1160px] px-4 py-2.5'
+        }`}
+        style={{ border: '1px solid var(--hairline)' }}
+        aria-label="Principal"
+      >
+        <Link href="/" className="flex shrink-0 items-center gap-2">
+          <AxiomaLogo id="nav" className="h-[22px] w-[22px]" />
+          <span className="gb-display text-[17px]" style={{ letterSpacing: '-0.025em' }}>
+            Axyoma
+          </span>
+        </Link>
 
-        <NavItems items={NAV_ITEMS} />
-
-        <div className="flex items-center gap-3">
-          <NavbarButton variant="secondary" href="/login">
-            Entrar
-          </NavbarButton>
-          <NavbarButton variant="gradient" href="/download">
-            Baixar grátis
-          </NavbarButton>
-        </div>
-      </NavBody>
-
-      {/* Mobile Navigation */}
-      <MobileNav>
-        <MobileNavHeader>
-          <NavbarLogo>
-            <AxiomaLogo id="nav-mobile" className="h-7 w-7" />
-            <span className="font-brand text-lg tracking-tight text-white">Axyoma</span>
-          </NavbarLogo>
-          <MobileNavToggle
-            isOpen={isMobileMenuOpen}
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          />
-        </MobileNavHeader>
-
-        <MobileNavMenu
-          isOpen={isMobileMenuOpen}
-          onClose={() => setIsMobileMenuOpen(false)}
-        >
-          {NAV_ITEMS.map((item, idx) => (
-            <a
-              key={`mobile-link-${idx}`}
-              href={item.link}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="relative block px-2 py-1 text-white/70 transition-colors hover:text-white"
-            >
-              {item.name}
-            </a>
+        <ul className="mx-auto hidden items-center gap-1 md:flex">
+          {NAV_ITEMS.map((item) => (
+            <li key={item.name}>
+              <Link
+                href={item.href}
+                className="rounded-[8px] px-3 py-1.5 text-[13.5px] transition-colors hover:bg-[color-mix(in_srgb,var(--ink)_6%,transparent)]"
+                style={{ color: 'var(--ink-muted)' }}
+              >
+                {item.name}
+              </Link>
+            </li>
           ))}
-          <div className="flex w-full flex-col gap-3 pt-2">
-            <NavbarButton
-              href="/login"
-              onClick={() => setIsMobileMenuOpen(false)}
-              variant="secondary"
-              className="w-full"
-            >
-              Entrar
-            </NavbarButton>
-            <NavbarButton
-              href="/download"
-              onClick={() => setIsMobileMenuOpen(false)}
-              variant="gradient"
-              className="w-full"
-            >
-              Baixar grátis
-            </NavbarButton>
-          </div>
-        </MobileNavMenu>
-      </MobileNav>
-    </Navbar>
-  );
+        </ul>
+
+        <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0">
+          <Link
+            href="/login"
+            className="hidden px-3 py-1.5 text-[13.5px] transition-colors hover:text-[var(--ink)] sm:block"
+            style={{ color: 'var(--ink-muted)' }}
+          >
+            Entrar
+          </Link>
+          <Link href="/download" className="gb-btn gb-btn-primary px-4 py-2 text-[13.5px]">
+            Baixar grátis
+          </Link>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label={open ? 'Fechar menu' : 'Abrir menu'}
+            className="grid h-8 w-8 place-items-center rounded-[8px] md:hidden"
+            style={{ border: '1px solid var(--hairline)' }}
+          >
+            <span className="flex flex-col gap-[3px]" aria-hidden>
+              <span className="block h-[1.5px] w-[14px]" style={{ background: 'var(--ink)' }} />
+              <span className="block h-[1.5px] w-[14px]" style={{ background: 'var(--ink)' }} />
+            </span>
+          </button>
+        </div>
+      </nav>
+
+      {open && (
+        <div
+          className="gb-glass mx-auto mt-2 max-w-[1160px] rounded-[14px] p-2 md:hidden"
+          style={{ border: '1px solid var(--hairline)' }}
+        >
+          <ul className="flex flex-col">
+            {NAV_ITEMS.map((item) => (
+              <li key={item.name}>
+                <Link
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className="block rounded-[8px] px-3 py-2.5 text-[15px]"
+                  style={{ color: 'var(--ink-muted)' }}
+                >
+                  {item.name}
+                </Link>
+              </li>
+            ))}
+            <li>
+              <Link
+                href="/login"
+                onClick={() => setOpen(false)}
+                className="block rounded-[8px] px-3 py-2.5 text-[15px]"
+                style={{ color: 'var(--ink-muted)' }}
+              >
+                Entrar
+              </Link>
+            </li>
+          </ul>
+        </div>
+      )}
+    </header>
+  )
 }

@@ -22,7 +22,11 @@ import { corsHeaders } from '@/lib/cors'
 
 export const runtime = 'edge'
 
-const DEFAULT_BONUS = 1000
+// Igual ao número publicado na landing (Hero, planos e FAQ dizem 400). O env
+// continua mandando; o default só existe para o caso de ele não estar setado —
+// e nesse caso ele tem que concordar com o que o site promete, senão o proxy
+// entrega um valor e a página anuncia outro.
+const DEFAULT_BONUS = 400
 // Teto de sanidade: protege contra um typo na env (ex.: 1000000) virar prejuízo
 // silencioso multiplicado por cada cadastro novo.
 const MAX_BONUS = 100_000

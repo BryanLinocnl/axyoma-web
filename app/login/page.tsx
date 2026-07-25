@@ -1,9 +1,14 @@
 import { AuthForm } from '@/components/AuthForm'
+import { RedirectIfAuthed } from '@/components/RedirectIfAuthed'
 
 export default function LoginPage(): React.JSX.Element {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-950 px-6 py-12">
-      <AuthForm initialMode="signin" />
-    </main>
+    <div className="glass-site">
+      <main className="gb-desk flex min-h-screen items-center justify-center px-6 py-12">
+        <RedirectIfAuthed>
+          <AuthForm initialMode="signin" />
+        </RedirectIfAuthed>
+      </main>
+    </div>
   )
 }

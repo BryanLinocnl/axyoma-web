@@ -9,7 +9,6 @@ type Plan = {
   desc: string
   perks: string[]
   cta?: { href: string; label: string }
-  highlight?: boolean
 }
 
 const PLANS: Plan[] = [
@@ -17,16 +16,14 @@ const PLANS: Plan[] = [
     id: 'free',
     name: 'Free',
     live: true,
-    price: '0',
+    price: 'R$ 0',
     period: 'para sempre',
-    desc: 'Comece sem cartão: 400 créditos de bônus, como um mês de Pro para testar.',
-    highlight: true,
+    desc: 'Comece sem cartão. 400 créditos de bônus para conhecer o app trabalhando de verdade.',
     perks: [
       '400 créditos de bônus (modelos Vertex AI)',
-      'Code Mode e Plan Mode',
+      'Modo Code e modo Plan completos',
       'Todas as ferramentas do app',
-      'Demais modelos com créditos comprados',
-      'Compre créditos quando quiser',
+      'Compre créditos quando quiser, sem assinar',
     ],
     cta: { href: '/download', label: 'Baixar grátis' },
   },
@@ -34,11 +31,11 @@ const PLANS: Plan[] = [
     id: 'pro',
     name: 'Pro',
     live: false,
-    desc: 'Tudo do Free, com Modo Design e créditos mensais.',
+    desc: 'Tudo do Free, mais o modo Design e uma franquia de créditos todo mês.',
     perks: [
-      'Tudo do Plano Free',
-      'Skills personalizadas',
-      'Créditos de franquia mensais (Vertex AI)',
+      'Tudo do plano Free',
+      '300 skills personalizadas',
+      'Franquia mensal de créditos (Vertex AI)',
       'Modo Design',
     ],
   },
@@ -46,117 +43,139 @@ const PLANS: Plan[] = [
     id: 'teams',
     name: 'Teams',
     live: false,
-    desc: 'Para times que criam juntos.',
+    desc: 'Para times que constroem junto, com crédito compartilhado.',
     perks: [
-      'Tudo do Plano Pro',
-      'Ferramentas Teams Exclusivas',
+      'Tudo do plano Pro',
+      'Créditos compartilhados pelo time',
+      'Ferramentas exclusivas de time',
       'Assessoria Advisor',
-      'Créditos compartilhados pelo time (Vertex AI)',
     ],
   },
 ]
 
 export function Pricing(): React.JSX.Element {
   return (
-    <section id="planos" className="relative border-t border-white/8">
-      <div className="mx-auto max-w-6xl px-5 py-20 sm:px-6 sm:py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--brand-2)]">
-            Planos
-          </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Free agora. Pro e Teams em breve.
-          </h2>
-          <p className="mt-4 text-sm text-[var(--ink-dim)]">
-            1 crédito = R$ 0,30 · pague com PIX · compre créditos quando quiser
-          </p>
-          <p className="mx-auto mt-2 max-w-xl text-xs text-[var(--ink-faint)]">
-            Créditos de bônus e de franquia valem para os modelos da Vertex AI (Google Cloud).
-            Créditos comprados valem para todos os modelos, incluindo os da Vertex.
-          </p>
-        </div>
-
-        <div className="mt-12 grid items-stretch gap-5 md:grid-cols-3">
-          {PLANS.map((plan) => (
-            <article
-              key={plan.id}
-              className={`relative flex flex-col rounded-2xl border p-6 transition-all ${
-                plan.highlight
-                  ? 'border-[var(--brand-2)]/45 bg-white/[0.04] shadow-lg shadow-orange-900/10'
-                  : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.035]'
-              }`}
+    <section id="planos" className="relative">
+      <div className="mx-auto max-w-[1200px] px-5 py-20 sm:px-6 sm:py-28 lg:py-32">
+        <div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
+          {/* Coluna do argumento */}
+          <div className="lg:sticky lg:top-28 lg:self-start">
+            <h2 className="gb-display max-w-[14ch] text-[clamp(2.1rem,4.9vw,3.5rem)]">
+              Escolha como prefere usar o Axyoma.
+            </h2>
+            <p
+              className="gb-measure mt-6 text-[16.5px] leading-relaxed"
+              style={{ color: 'var(--ink-muted)' }}
             >
-              {plan.live ? (
-                plan.highlight && (
-                  <span className="brand-gradient absolute -top-3 left-6 rounded-full px-3 py-1 text-[11px] font-semibold text-black">
-                    Disponível
-                  </span>
-                )
-              ) : (
-                <span className="absolute -top-3 left-6 rounded-full border border-white/15 bg-[#0a0a0c] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-dim)]">
-                  Em breve
-                </span>
-              )}
+              Comece gratuitamente com créditos inclusos. Assine para receber novos créditos todos
+              os meses e desbloquear recursos premium da plataforma, ou conecte sua própria API
+              quando preferir.
+            </p>
 
-              <div className="flex items-center gap-3">
-                <span
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl border text-sm font-semibold ${
-                    plan.highlight
-                      ? 'border-[var(--brand-2)]/30 bg-[var(--brand-2)]/10 text-[var(--brand-1)]'
-                      : 'border-white/10 bg-white/[0.03] text-white'
-                  }`}
-                >
-                  {plan.name[0]}
-                </span>
-                <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
-              </div>
-
-              <p className="mt-3 min-h-[2.5rem] text-sm leading-relaxed text-[var(--ink-faint)]">
-                {plan.desc}
-              </p>
-
-              {plan.live && plan.price !== undefined ? (
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-sm text-[var(--ink-dim)]">R$</span>
-                  <span className="text-4xl font-semibold tracking-tight text-white">{plan.price}</span>
-                  <span className="text-sm text-[var(--ink-dim)]">{plan.period}</span>
-                </div>
-              ) : (
-                <div className="mt-4">
-                  <span className="text-2xl font-semibold tracking-tight text-[var(--ink-dim)]">
-                    Em breve
-                  </span>
-                </div>
-              )}
-
-              <ul className="mt-6 flex flex-1 flex-col gap-3 border-t border-white/8 pt-5 text-sm">
-                {plan.perks.map((perk) => (
-                  <li key={perk} className="flex items-start gap-2.5 text-[var(--ink-dim)]">
-                    <span className="mt-0.5 font-semibold text-[var(--brand-1)]" aria-hidden>
-                      ✓
-                    </span>
-                    <span>{perk}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {plan.cta ? (
-                <Link
-                  href={plan.cta.href}
-                  className="brand-gradient mt-7 block rounded-full py-2.5 text-center text-sm font-semibold text-black transition-transform hover:scale-[1.02]"
-                >
-                  {plan.cta.label}
-                </Link>
-              ) : (
+            <dl className="mt-8 flex flex-col">
+              {[
+                // O preço do crédito saiu do parágrafo de abertura na revisão de
+                // copy; fica aqui para não sumir da página — é o número que o
+                // visitante procura antes de baixar.
+                ['1 crédito', 'R$ 0,30, debitado pelo custo real do modelo'],
+                ['Pagamento', 'PIX ou cartão, no site ou dentro do app'],
+                ['Bônus de cadastro', '400 créditos, sem cartão'],
+                ['Bônus e franquia', 'valem para os modelos da Vertex AI'],
+                ['Créditos comprados', 'valem para todos os modelos'],
+              ].map(([k, v], i) => (
                 <div
-                  className="mt-7 block rounded-full border border-white/10 py-2.5 text-center text-sm font-medium text-[var(--ink-faint)]"
-                  aria-disabled="true"
+                  key={k}
+                  className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3"
+                  style={i > 0 ? { borderTop: '1px solid var(--hairline)' } : undefined}
                 >
-                  Em breve
+                  <dt className="text-[14px] font-medium">{k}</dt>
+                  <dd className="text-[14px]" style={{ color: 'var(--ink-muted)' }}>
+                    {v}
+                  </dd>
                 </div>
-              )}
-            </article>
-          ))}
+              ))}
+            </dl>
+          </div>
+
+          {/* Coluna dos planos */}
+          <div className="flex flex-col gap-4">
+            {PLANS.map((plan) => (
+              <article
+                key={plan.id}
+                className={plan.live ? 'gb-raised rounded-[24px] p-6 sm:p-7' : 'rounded-[24px] p-6 sm:p-7'}
+                style={
+                  plan.live
+                    ? { border: '1px solid var(--accent)' }
+                    : {
+                        border: '1px solid var(--hairline)',
+                        background: 'color-mix(in srgb, var(--ink) 3%, transparent)',
+                      }
+                }
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="text-[19px] font-semibold tracking-[-0.02em]">{plan.name}</h3>
+                      {!plan.live && (
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10.5px] font-medium"
+                          style={{
+                            border: '1px solid var(--hairline-strong)',
+                            color: 'var(--ink-faint)',
+                          }}
+                        >
+                          Em breve
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className="mt-2 max-w-[42ch] text-[14px] leading-relaxed"
+                      style={{ color: 'var(--ink-muted)' }}
+                    >
+                      {plan.desc}
+                    </p>
+                  </div>
+
+                  {plan.live ? (
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="gb-display text-[40px]">{plan.price}</span>
+                      <span className="text-[13px]" style={{ color: 'var(--ink-faint)' }}>
+                        {plan.period}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[14px]" style={{ color: 'var(--ink-faint)' }}>
+                      Preço no lançamento
+                    </span>
+                  )}
+                </div>
+
+                <ul className="mt-6 grid gap-2.5 sm:grid-cols-2">
+                  {plan.perks.map((perk) => (
+                    <li key={perk} className="flex items-start gap-2.5 text-[14px]">
+                      <span
+                        className="mt-[3px] grid h-[15px] w-[15px] shrink-0 place-items-center rounded-full text-[9px] font-bold text-white"
+                        style={{ background: plan.live ? 'var(--accent)' : 'var(--hairline-strong)' }}
+                        aria-hidden
+                      >
+                        ✓
+                      </span>
+                      <span style={{ color: 'var(--ink-muted)' }}>{perk}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {plan.cta && (
+                  <Link
+                    href={plan.cta.href}
+                    className="gb-btn gb-btn-primary mt-7 w-full px-5 py-3 text-[15px]"
+                  >
+                    {plan.cta.label}
+                  </Link>
+                )}
+              </article>
+            ))}
+          </div>
         </div>
       </div>
     </section>
