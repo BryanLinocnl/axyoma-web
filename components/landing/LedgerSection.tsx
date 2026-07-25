@@ -22,10 +22,6 @@ const POINTS: [string, string][] = [
     'O débito aparece na hora, ligado ao modelo que rodou. Nada de fatura surpresa no fim do mês.',
   ],
   [
-    'Checkpoint e desfazer',
-    'O estado do projeto é salvo antes das mudanças. Não gostou do que o agente fez? Volta.',
-  ],
-  [
     'Saldo que é seu',
     'Crédito comprado não vira pó no fim do mês. Você recarrega quando quiser, por PIX ou cartão.',
   ],
@@ -48,19 +44,19 @@ export function LedgerSection(): React.JSX.Element {
         </p>
 
         <div className="mt-14 grid gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:gap-16">
-          {/* Moldura branca. O fundo do print é cinza (235) e a mesa da página é
-              branco-azulada (244): tons quase idênticos, então a imagem sozinha
-              flutuava sem limite visível. A margem branca com hairline separa —
-              e é o mesmo material dos outros painéis (gb-raised). */}
+          {/* Só um fio de contorno. O fundo do print é cinza (235) e a mesa da
+              página é branco-azulada (244) — tons quase idênticos, então sem
+              contorno a imagem flutua sem limite visível. Usa o hairline forte
+              porque o fraco desaparece nesse par de tons. */}
           <div
-            className="gb-raised self-start rounded-[20px] p-2.5"
-            style={{ border: '1px solid var(--hairline)', boxShadow: 'var(--shadow-panel)' }}
+            className="self-start overflow-hidden rounded-[14px]"
+            style={{ border: '1px solid var(--hairline-strong)', boxShadow: 'var(--shadow-float)' }}
           >
             <Image
               src={usoShot}
               alt="Painel de limites do Axyoma: janela de contexto em 45K de 128K, saldo de créditos e o consumo da sessão, com o total de tokens do turno no rodapé."
               sizes="(max-width: 1024px) 100vw, 45vw"
-              className="block h-auto w-full rounded-[12px]"
+              className="block h-auto w-full"
             />
           </div>
 
