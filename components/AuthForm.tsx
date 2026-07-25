@@ -2,10 +2,24 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Check, X, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '@/lib/supabase-browser'
-import { AxiomaLogo } from './AxiomaLogo'
+import { AxiomaMark } from './AxiomaMark'
 import { Turnstile, isCaptchaEnabled } from './Turnstile'
+
+/**
+ * Login do site — PORTE do login do app desktop
+ * (Aplication/src/renderer/src/components/{LoginPage,login-form}.tsx).
+ *
+ * A ordem, os rótulos e a hierarquia são os mesmos de lá, de propósito: quem
+ * entra pelo site e depois instala o app tem que reconhecer a mesma tela. O
+ * que muda é só o material — aqui os tokens do mundo Glass Bench (DESIGN.md)
+ * no lugar dos do shadcn do app.
+ *
+ * Toda a lógica (Supabase, Turnstile, reset de senha, checklist de força) é a
+ * que já existia; esta revisão mexeu apenas na apresentação.
+ */
 
 function checks(pw: string) {
   return {
@@ -42,7 +56,11 @@ function GoogleIcon(): React.JSX.Element {
   )
 }
 
-export function AuthForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 'signup' }): React.JSX.Element {
+export function AuthForm({
+  initialMode = 'signin',
+}: {
+  initialMode?: 'signin' | 'signup'
+}): React.JSX.Element {
   const router = useRouter()
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode)
   const [name, setName] = useState('')
@@ -77,7 +95,10 @@ export function AuthForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 
   }
 
   async function reset(): Promise<void> {
-    if (!email.trim()) { setMsg('Digite seu e-mail acima primeiro.'); return }
+    if (!email.trim()) {
+      setMsg('Digite seu e-mail acima primeiro.')
+      return
+    }
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/login`,
     })
@@ -88,7 +109,9 @@ export function AuthForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 
   async function onSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     if (!canSubmit) return
-    setErr(null); setMsg(null); setSubmitting(true)
+    setErr(null)
+    setMsg(null)
+    setSubmitting(true)
     try {
       if (isSignup) {
         const { error } = await supabase.auth.signUp({
@@ -119,66 +142,148 @@ export function AuthForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 
   }
 
   const inputCls =
-    'w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2.5 text-sm text-neutral-100 outline-none placeholder:text-neutral-500 focus:border-neutral-500'
+    'w-full rounded-[10px] px-3 py-2.5 text-[14px] outline-none transition-colors placeholder:text-[var(--ink-faint)]'
+  const inputStyle: React.CSSProperties = {
+    background: 'var(--raised)',
+    border: '1px solid var(--hairline-strong)',
+    color: 'var(--ink)',
+  }
+  const labelCls = 'text-[13.5px] font-medium'
 
   return (
-    <div className="flex w-full max-w-sm flex-col gap-4">
-      <div className="mb-1 flex items-center justify-center gap-2.5">
-        <AxiomaLogo id="auth" className="h-8 w-8" />
-        <span className="font-brand text-xl italic text-neutral-100">Axyoma</span>
-      </div>
+    <div className="flex w-full max-w-[384px] flex-col gap-6">
+      {/* Cabeçalho igual ao do app: círculo azul com a marca em branco + o
+          wordmark em Playfair itálico. */}
+      <Link href="/" className="flex items-center gap-3 self-center">
+        <span
+          className="grid size-12 place-items-center rounded-full text-white"
+          style={{ background: 'linear-gradient(to top, #1e40af, #2563eb)' }}
+        >
+          <AxiomaMark className="size-7" />
+        </span>
+        <span className="font-brand text-[30px] leading-none tracking-tight" style={{ color: 'var(--ink)' }}>
+          Axyoma
+        </span>
+      </Link>
 
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
-        <div className="mb-5 text-center">
-          <h1 className="text-xl font-semibold text-neutral-50">
+      <div
+        className="gb-glass-thick rounded-[14px] p-6"
+        style={{ border: '1px solid var(--hairline)' }}
+      >
+        <div className="mb-6 text-center">
+          <h1 className="text-[20px] font-semibold tracking-[-0.015em]">
             {isSignup ? 'Criar conta' : 'Bem-vindo de volta'}
           </h1>
-          <p className="mt-1 text-sm text-neutral-400">
-            {isSignup ? 'Preencha os dados para criar sua conta' : 'Entre com sua conta Apple ou Google'}
+          <p className="mt-1 text-[13.5px]" style={{ color: 'var(--ink-muted)' }}>
+            {isSignup
+              ? 'Preencha os dados para criar sua conta'
+              : 'Entre com sua conta Apple ou Google'}
           </p>
         </div>
 
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form onSubmit={onSubmit} className="flex flex-col gap-5">
           {!isSignup && (
             <>
-              <div className="flex flex-col gap-2">
-                <button type="button" onClick={() => oauth('apple')} className="flex items-center justify-center gap-2 rounded-lg border border-neutral-700 py-2.5 text-sm font-medium text-neutral-100 transition-colors hover:bg-neutral-800">
+              <div className="flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => oauth('apple')}
+                  className="gb-btn gb-btn-ghost w-full py-2.5 text-[14px]"
+                >
                   <AppleIcon /> Entrar com Apple
                 </button>
-                <button type="button" onClick={() => oauth('google')} className="flex items-center justify-center gap-2 rounded-lg border border-neutral-700 py-2.5 text-sm font-medium text-neutral-100 transition-colors hover:bg-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => oauth('google')}
+                  className="gb-btn gb-btn-ghost w-full py-2.5 text-[14px]"
+                >
                   <GoogleIcon /> Entrar com Google
                 </button>
               </div>
-              <div className="flex items-center gap-3 text-xs text-neutral-500">
-                <span className="h-px flex-1 bg-neutral-800" /> Ou continue com <span className="h-px flex-1 bg-neutral-800" />
+
+              {/* Separador com o rótulo sobre a linha, como no app. */}
+              <div className="relative text-center">
+                <span
+                  aria-hidden
+                  className="absolute inset-x-0 top-1/2 h-px"
+                  style={{ background: 'var(--hairline-strong)' }}
+                />
+                <span
+                  className="relative px-3 text-[12.5px]"
+                  style={{ background: 'var(--mat-thick)', color: 'var(--ink-muted)' }}
+                >
+                  Ou continue com
+                </span>
               </div>
             </>
           )}
 
           {isSignup && (
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm text-neutral-300">Nome</label>
-              <input className={inputCls} placeholder="Seu nome" value={name} onChange={(e) => setName(e.target.value)} required />
+            <div className="flex flex-col gap-2">
+              <label className={labelCls} htmlFor="name">
+                Nome
+              </label>
+              <input
+                id="name"
+                className={inputCls}
+                style={inputStyle}
+                placeholder="Seu nome"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
             </div>
           )}
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-neutral-300">E-mail</label>
-            <input type="email" className={inputCls} placeholder="voce@exemplo.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <div className="flex flex-col gap-2">
+            <label className={labelCls} htmlFor="email">
+              E-mail
+            </label>
+            <input
+              id="email"
+              type="email"
+              className={inputCls}
+              style={inputStyle}
+              placeholder="voce@exemplo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <div className="flex items-center">
-              <label className="text-sm text-neutral-300">Senha</label>
+              <label className={labelCls} htmlFor="password">
+                Senha
+              </label>
               {!isSignup && (
-                <button type="button" onClick={reset} className="ml-auto text-sm text-neutral-400 underline-offset-4 hover:underline">
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="ml-auto text-[13.5px] underline-offset-4 hover:underline"
+                  style={{ color: 'var(--ink-muted)' }}
+                >
                   Esqueceu a senha?
                 </button>
               )}
             </div>
             <div className="relative">
-              <input type={showPw ? 'text' : 'password'} className={`${inputCls} pr-9`} value={password} onChange={(e) => setPassword(e.target.value)} required />
-              <button type="button" onClick={() => setShowPw((v) => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300">
+              <input
+                id="password"
+                type={showPw ? 'text' : 'password'}
+                className={`${inputCls} pr-10`}
+                style={inputStyle}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw((v) => !v)}
+                aria-label={showPw ? 'Ocultar senha' : 'Mostrar senha'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-[var(--ink)]"
+                style={{ color: 'var(--ink-faint)' }}
+              >
                 {showPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
               </button>
             </div>
@@ -186,14 +291,33 @@ export function AuthForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 
 
           {isSignup && (
             <>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm text-neutral-300">Repetir senha</label>
-                <input type={showPw ? 'text' : 'password'} className={inputCls} value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
-                {confirm.length > 0 && !match && <p className="text-xs text-red-400">As senhas não coincidem.</p>}
+              <div className="flex flex-col gap-2">
+                <label className={labelCls} htmlFor="confirm">
+                  Repetir senha
+                </label>
+                <input
+                  id="confirm"
+                  type={showPw ? 'text' : 'password'}
+                  className={inputCls}
+                  style={inputStyle}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  aria-invalid={confirm.length > 0 && !match}
+                  required
+                />
+                {confirm.length > 0 && !match && (
+                  <p className="text-[12px]" style={{ color: '#b42318' }}>
+                    As senhas não coincidem.
+                  </p>
+                )}
               </div>
               <ul className="flex flex-col gap-1">
                 {(Object.keys(LABELS) as Array<keyof typeof LABELS>).map((k) => (
-                  <li key={k} className={`flex items-center gap-2 text-xs ${c[k] ? 'text-green-500' : 'text-neutral-500'}`}>
+                  <li
+                    key={k}
+                    className="flex items-center gap-2 text-[12px]"
+                    style={{ color: c[k] ? '#15803d' : 'var(--ink-faint)' }}
+                  >
                     {c[k] ? <Check className="size-3.5" /> : <X className="size-3.5" />} {LABELS[k]}
                   </li>
                 ))}
@@ -201,31 +325,62 @@ export function AuthForm({ initialMode = 'signin' }: { initialMode?: 'signin' | 
             </>
           )}
 
-          {err && <p className="text-xs text-red-400">{err}</p>}
-          {msg && <p className="text-xs text-green-500">{msg}</p>}
+          {err && (
+            <p className="text-[12.5px]" style={{ color: '#b42318' }}>
+              {err}
+            </p>
+          )}
+          {msg && (
+            <p className="text-[12.5px]" style={{ color: '#15803d' }}>
+              {msg}
+            </p>
+          )}
 
           <Turnstile onToken={setCaptchaToken} resetKey={captchaNonce} />
 
-
-          <button
-            type="submit"
-            disabled={submitting || !canSubmit}
-            className="brand-gradient rounded-lg py-2.5 text-sm font-semibold text-black transition-transform enabled:hover:scale-[1.01] disabled:opacity-50"
-          >
-            {submitting ? (isSignup ? 'Criando...' : 'Entrando...') : isSignup ? 'Criar conta' : 'Entrar'}
-          </button>
-
-          <p className="text-center text-sm text-neutral-400">
-            {isSignup ? 'Já tem conta? ' : 'Não tem conta? '}
-            <button type="button" className="text-neutral-100 underline underline-offset-4" onClick={() => { setMode(isSignup ? 'signin' : 'signup'); setErr(null); setMsg(null) }}>
-              {isSignup ? 'Entrar' : 'Cadastre-se'}
+          <div className="flex flex-col gap-3">
+            <button
+              type="submit"
+              disabled={submitting || !canSubmit}
+              className="gb-btn gb-btn-primary w-full py-2.5 text-[14px] disabled:opacity-50"
+            >
+              {submitting
+                ? isSignup
+                  ? 'Criando...'
+                  : 'Entrando...'
+                : isSignup
+                  ? 'Criar conta'
+                  : 'Entrar'}
             </button>
-          </p>
+            <p className="text-center text-[13.5px]" style={{ color: 'var(--ink-muted)' }}>
+              {isSignup ? 'Já tem conta? ' : 'Não tem conta? '}
+              <button
+                type="button"
+                className="underline underline-offset-4"
+                style={{ color: 'var(--ink)' }}
+                onClick={() => {
+                  setMode(isSignup ? 'signin' : 'signup')
+                  setErr(null)
+                  setMsg(null)
+                }}
+              >
+                {isSignup ? 'Entrar' : 'Cadastre-se'}
+              </button>
+            </p>
+          </div>
         </form>
       </div>
 
-      <p className="px-6 text-center text-xs text-neutral-500">
-        Ao continuar, você concorda com nossos <a href="/docs" className="underline">Termos de Serviço</a> e <a href="/docs" className="underline">Política de Privacidade</a>.
+      <p className="px-6 text-center text-[12.5px] leading-relaxed" style={{ color: 'var(--ink-faint)' }}>
+        Ao continuar, você concorda com nossos{' '}
+        <Link href="/termos" className="underline underline-offset-2">
+          Termos de Serviço
+        </Link>{' '}
+        e{' '}
+        <Link href="/privacidade" className="underline underline-offset-2">
+          Política de Privacidade
+        </Link>
+        .
       </p>
     </div>
   )

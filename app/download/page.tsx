@@ -3,8 +3,7 @@
 import { useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { AxiomaLogo } from '@/components/AxiomaLogo'
-import { StarField } from '@/components/StarField'
+import { AxiomaMark } from '@/components/AxiomaMark'
 
 // ============================================================
 // COLOQUE AQUI OS LINKS DIRETOS PARA OS INSTALÁVEIS (não o repositório).
@@ -85,22 +84,32 @@ export default function DownloadPage(): React.JSX.Element {
   const os = useOS()
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 text-center">
-      <StarField />
-      <div className="relative z-10 flex flex-col items-center">
-        <Link href="/" className="mb-8 flex items-center gap-2">
-          <AxiomaLogo id="dl" className="h-8 w-8" />
-          <span className="font-brand text-xl italic">Axyoma</span>
+    <div className="glass-site">
+      <main className="gb-desk flex min-h-screen flex-col items-center justify-center px-6 py-16 text-center">
+        <Link href="/" className="mb-9 flex items-center gap-3">
+          <span
+            className="grid size-12 place-items-center rounded-full text-white"
+            style={{ background: 'linear-gradient(to top, #1e40af, #2563eb)' }}
+          >
+            <AxiomaMark className="size-7" />
+          </span>
+          <span className="font-brand text-[30px] leading-none tracking-tight">Axyoma</span>
         </Link>
 
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Baixe o <span className="font-brand italic brand-text">Axyoma IA</span>
+        <h1 className="gb-display max-w-[16ch] text-[clamp(2rem,5vw,3.25rem)]">
+          Instale e comece em minutos.
         </h1>
-        <p className="mt-3 max-w-md text-sm text-[var(--ink-dim)]">
-          Grátis. Crie sua conta e ganhe 400 créditos para começar.
+        <p
+          className="mt-5 max-w-[46ch] text-[16.5px] leading-relaxed"
+          style={{ color: 'var(--ink-muted)' }}
+        >
+          Grátis. Crie sua conta e receba 400 créditos para começar — sem cartão, sem chave de API.
         </p>
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+        {/* O sistema detectado vira o botão primário (azul); os outros ficam
+            como alternativa discreta. Antes os três tinham o mesmo peso e o
+            visitante precisava escolher por conta própria. */}
+        <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
           {BUTTONS.map(({ key, label, icon: Icon }) => {
             const isDetected = os === key
             return (
@@ -109,25 +118,38 @@ export default function DownloadPage(): React.JSX.Element {
                 href={DOWNLOAD_LINKS[key as TargetOS]}
                 target="_blank"
                 rel="noreferrer"
-                className={`brand-gradient inline-flex items-center justify-center gap-2.5 rounded-full px-6 py-3 text-sm font-semibold text-black shadow-lg shadow-orange-600/25 transition-transform hover:scale-[1.03] ${isDetected ? 'ring-2 ring-white/40' : ''}`}
+                className={`gb-btn px-6 py-3 text-[15px] ${isDetected ? 'gb-btn-primary' : 'gb-btn-ghost'}`}
                 aria-label={label}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className={`h-4 w-4 ${isDetected ? 'brightness-0 invert' : ''}`} />
                 {isDetected ? 'Baixar para este dispositivo' : label}
               </a>
             )
           })}
         </div>
 
-        <p className="mt-6 text-xs text-[var(--ink-faint)]">
+        <p className="mt-7 text-[13.5px]" style={{ color: 'var(--ink-faint)' }}>
           Não sabe qual é o seu sistema?{' '}
-          <a href={RELEASES} target="_blank" rel="noreferrer" className="underline">Veja todas as versões</a>
+          <a
+            href={RELEASES}
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-4"
+          >
+            Veja todas as versões
+          </a>
         </p>
 
-        <p className="mt-8 text-xs text-[var(--ink-faint)]">
-          Já tem o app? <Link href="/conta/visao-geral/visao-geral" className="underline">Acesse sua conta</Link>
+        <p
+          className="mt-12 border-t pt-8 text-[13.5px]"
+          style={{ color: 'var(--ink-faint)', borderColor: 'var(--hairline)' }}
+        >
+          Já tem o app?{' '}
+          <Link href="/conta/visao-geral/visao-geral" className="underline underline-offset-4">
+            Acesse sua conta
+          </Link>
         </p>
-      </div>
-    </main>
+      </main>
+    </div>
   )
 }
