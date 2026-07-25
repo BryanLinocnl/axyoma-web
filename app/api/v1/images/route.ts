@@ -1,6 +1,15 @@
 import { z } from 'zod'
 import { verifyUser } from '@/lib/auth'
-import { getBalance, debitUsage, checkRateLimit, recordPendingCharge } from '@/lib/supabase-admin'
+import {
+  getBalance,
+  debitUsage,
+  checkRateLimit,
+  recordPendingCharge,
+  holdCredits,
+  settleHold,
+  releaseHold,
+  InsufficientCreditsError,
+} from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
 import { resolveModel, RegionNotAllowedError, type ResolvedModel } from '@/lib/model-registry'
 import { getAccessToken } from '@/lib/google-auth'
@@ -30,6 +39,14 @@ const MAX_BODY_BYTES = Number(process.env.IMAGE_MAX_BODY_BYTES ?? 32 * 1024) // 
 const RATE_LIMIT = Number(process.env.IMAGE_RATE_LIMIT ?? 10) // req / janela / usuário
 const RATE_WINDOW_S = Number(process.env.IMAGE_RATE_WINDOW_S ?? 60)
 const MIN_CHARGE_USD = Number(process.env.IMAGE_MIN_CHARGE_USD ?? 0.001)
+
+// Créditos reservados ANTES de gerar (auditoria A-1). O gate antigo era só uma
+// LEITURA de saldo (`getBalance > 0`) e o débito vinha depois da geração: N
+// requisições simultâneas liam o mesmo saldo e TODAS passavam — com 1 crédito
+// dava para disparar o rate-limit inteiro (10 imagens/min) e pagar por uma. A
+// reserva é atômica no banco (`where balance >= p_credits`), então a
+// concorrência serializa; o settle troca pelo custo real e devolve a diferença.
+const HOLD_CREDITS = Number(process.env.IMAGE_HOLD_CREDITS ?? 8)
 
 const BodySchema = z
   .object({
@@ -194,7 +211,8 @@ export async function POST(req: Request): Promise<Response> {
     return json(401, { error: { message: 'não autenticado', type: 'auth' } })
   }
 
-  // 2) Rate limit por usuário (custo/abuso). Fail-open se a RPC não existir.
+  // 2) Rate limit por usuário (custo/abuso). FAIL-CLOSED: se a RPC de limite não
+  // responde, a requisição é recusada — esta rota gasta dinheiro nosso.
   const rl = await checkRateLimit({ userId, bucket: 'image', limit: RATE_LIMIT, windowSeconds: RATE_WINDOW_S })
   if (!rl.allowed) {
     const retry = rl.resetAt ? Math.max(1, Math.ceil((Date.parse(rl.resetAt) - Date.now()) / 1000)) : RATE_WINDOW_S
@@ -205,15 +223,14 @@ export async function POST(req: Request): Promise<Response> {
     )
   }
 
-  // 3) Gate de saldo — protege a chave antes de qualquer chamada externa.
+  // 3) Saldo lido só para calcular o delta de créditos exibido ao client. O gate
+  // de verdade é a RESERVA, feita adiante (logo antes de chamar o upstream).
   let balanceBefore: number
   try {
     balanceBefore = await getBalance(userId)
-    if (!(balanceBefore > 0)) {
-      return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })
-    }
   } catch (e) {
-    return json(502, { error: { message: `falha ao checar saldo: ${(e as Error).message}`, type: 'upstream' } })
+    console.error('getBalance (imagem) falhou', (e as Error).message)
+    return json(502, { error: { message: 'falha ao checar saldo', type: 'upstream' } })
   }
 
   // 4) Validação de input (cap de tamanho + zod + allow-list de modelo).
@@ -284,7 +301,19 @@ export async function POST(req: Request): Promise<Response> {
   const key = process.env.OPENROUTER_KEY
   if (!key) return json(500, { error: { message: 'OPENROUTER_KEY ausente', type: 'config' } })
 
-  // 5) Geração via OpenRouter (chave real só existe aqui).
+  // 5) RESERVA antes de qualquer chamada externa (A-1).
+  let holdId: string
+  try {
+    holdId = await holdCredits({ userId, credits: HOLD_CREDITS, kind: 'image', model })
+  } catch (e) {
+    if (e instanceof InsufficientCreditsError) {
+      return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })
+    }
+    console.error('reserva de créditos (imagem) falhou:', (e as Error).message)
+    return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })
+  }
+
+  // 5b) Geração via OpenRouter (chave real só existe aqui).
   const upstream = await fetch(`${OPENROUTER}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -303,14 +332,15 @@ export async function POST(req: Request): Promise<Response> {
 
   if (!upstream.ok) {
     const detail = await upstream.text().catch(() => '')
-    return json(upstream.status || 502, {
-      error: { message: `openrouter: ${detail || upstream.statusText}`, type: 'upstream' },
-    })
+    await releaseHold(holdId).catch(() => {})
+    console.error('openrouter (imagem) não-ok', upstream.status, detail || upstream.statusText)
+    return json(upstream.status || 502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
   }
 
   const data = (await upstream.json().catch(() => null)) as { usage?: Usage } | null
   const dataUrl = data ? extractImageDataUrl(data) : null
   if (!dataUrl) {
+    await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'modelo não retornou imagem', type: 'upstream' } })
   }
 
@@ -319,6 +349,7 @@ export async function POST(req: Request): Promise<Response> {
   try {
     ;({ bytes, contentType } = dataUrlToBytes(dataUrl))
   } catch (e) {
+    await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: (e as Error).message, type: 'upstream' } })
   }
 
@@ -329,6 +360,7 @@ export async function POST(req: Request): Promise<Response> {
   const up = await uploadImageToStorage(supaUrl, serviceRole, objectPath, bytes, contentType)
   if (!up.ok) {
     console.error('storage upload falhou', up.detail)
+    await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'falha ao salvar imagem', type: 'upstream' } })
   }
 
@@ -341,16 +373,17 @@ export async function POST(req: Request): Promise<Response> {
   const costUsd =
     usage && typeof usage.cost === 'number' && usage.cost >= 0 ? usage.cost : MIN_CHARGE_USD
   try {
-    await debitUsage({
-      userId,
+    // O valor cobrado vem da própria liquidação (M-6). Inferir por delta de saldo
+    // custava duas leituras e errava quando outra cobrança do mesmo usuário
+    // acontecia no meio.
+    const charged = await settleHold({
+      holdId,
       costUsd,
       model,
       promptTokens: usage?.prompt_tokens,
       completionTokens: usage?.completion_tokens,
     })
-    const balanceAfter = await getBalance(userId).catch(() => balanceBefore)
-    const delta = balanceBefore - balanceAfter
-    creditsCharged = delta > 0 ? delta : null
+    creditsCharged = charged > 0 ? charged : null
   } catch (e) {
     // Falha no débito não descarta a imagem já gerada/salva. Não retenta (evita
     // dupla cobrança) — registra marcador de reconciliação.
@@ -433,6 +466,18 @@ async function generateVertexImage(args: {
 
   const url = buildGenerateContentUrl(region, projectId, resolved.upstream_model_id, resolved.vertex_publisher ?? 'google')
 
+  // RESERVA antes de gastar no upstream (A-1) — mesma proteção do ramo OpenRouter.
+  let holdId: string
+  try {
+    holdId = await holdCredits({ userId, credits: HOLD_CREDITS, kind: 'image', model })
+  } catch (e) {
+    if (e instanceof InsufficientCreditsError) {
+      return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })
+    }
+    console.error('reserva de créditos (imagem vertex) falhou:', (e as Error).message)
+    return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })
+  }
+
   let upstream: Response
   try {
     upstream = await fetch(url, {
@@ -448,12 +493,14 @@ async function generateVertexImage(args: {
     })
   } catch (e) {
     console.error('vertex generateContent rede', (e as Error).message)
+    await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
   }
 
   if (!upstream.ok) {
     const detail = await upstream.text().catch(() => '')
     console.error('vertex generateContent não-ok', upstream.status, detail || upstream.statusText)
+    await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
   }
 
@@ -461,6 +508,7 @@ async function generateVertexImage(args: {
   const images = data ? extractInlineImages(data) : []
   if (images.length === 0) {
     console.error('vertex generateContent sem imagem nas parts')
+    await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'modelo não retornou imagem', type: 'upstream' } })
   }
 
@@ -487,6 +535,7 @@ async function generateVertexImage(args: {
     uploaded.push({ id, objectPath })
   }
   if (uploaded.length === 0) {
+    await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'falha ao salvar imagem', type: 'upstream' } })
   }
 
@@ -496,10 +545,8 @@ async function generateVertexImage(args: {
   const costUsd = uploaded.length * priceUsd
   let creditsCharged: number | null = null
   try {
-    await debitUsage({ userId, costUsd, model })
-    const balanceAfter = await getBalance(userId).catch(() => balanceBefore)
-    const delta = balanceBefore - balanceAfter
-    creditsCharged = delta > 0 ? delta : null
+    const charged = await settleHold({ holdId, costUsd, model })
+    creditsCharged = charged > 0 ? charged : null
   } catch (e) {
     // Falha no débito não descarta as imagens já salvas. Não retenta (evita dupla
     // cobrança) — registra marcador de reconciliação.

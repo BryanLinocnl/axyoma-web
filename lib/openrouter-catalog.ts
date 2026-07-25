@@ -1,12 +1,15 @@
 // Catálogo público de modelos (mesma forma de dados do app desktop). O catálogo
-// é servido pela rota interna `/api/v1/models` — um proxy do catálogo público
-// (sem chave, sem login). A SELEÇÃO do usuário (ligar/desligar) mora na tabela
+// é servido pela rota interna `/api/v1/models` — proxy do catálogo público da
+// OpenRouter com overlay da nossa tabela. Exige sessão (a resposta traz preços
+// nossos; ver auditoria A-3). A SELEÇÃO do usuário (ligar/desligar) mora na tabela
 // `model_selection` sob RLS e é tratada no componente, não aqui.
 //
 // Porte 1:1 de `src/renderer/src/lib/openrouter-catalog.ts` do desktop: mesma
 // forma de `CatalogModel`, mesma extração de campos, mesma ordenação por
 // relevância, mesmas capacidades/tipos e formatação de contexto. A única
 // diferença é a origem do fetch (proxy interno em vez do endpoint externo).
+
+import { supabase } from '@/lib/supabase-browser'
 
 export interface CatalogModel {
   id: string // ex.: "anthropic/claude-opus-4.8"
@@ -46,7 +49,12 @@ function parseParamSize(name: string): string | undefined {
 const CATALOG_URL = '/api/v1/models'
 
 export async function fetchCatalog(): Promise<CatalogModel[]> {
-  const res = await fetch(CATALOG_URL)
+  // A rota passou a exigir JWT (auditoria A-3): ela devolve os preços da nossa
+  // tabela, que não são dado público.
+  const { data: sess } = await supabase.auth.getSession()
+  const token = sess.session?.access_token
+  if (!token) throw new Error('sem sessão')
+  const res = await fetch(CATALOG_URL, { headers: { Authorization: `Bearer ${token}` } })
   if (!res.ok) throw new Error(`Catálogo HTTP ${res.status}`)
   const json = (await res.json()) as { data?: RawModel[] }
   const list = (json.data ?? [])

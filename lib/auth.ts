@@ -82,7 +82,15 @@ export async function verifyAccessToken(token: string): Promise<{ userId: string
   const payload = await verifyRawToken(token)
   const sub = payload.sub
   if (!sub || typeof sub !== 'string') throw new Error('sub ausente')
-  const email = typeof payload.email === 'string' ? payload.email : null
+  // Mesma regra do `verifyUserWithEmail` (auditoria M-13, estendida em M-3): o
+  // e-mail só sai daqui se for confirmado, porque quem consome isto é o gate de
+  // admin do middleware. Sem a checagem, um provedor OAuth que devolva e-mail não
+  // confirmado permitiria abrir o painel com o e-mail de um admin.
+  const claims = payload as Record<string, unknown>
+  const verified =
+    claims.email_verified === true ||
+    (claims.user_metadata as Record<string, unknown> | undefined)?.email_verified === true
+  const email = verified && typeof payload.email === 'string' ? payload.email : null
   return { userId: sub, email }
 }
 

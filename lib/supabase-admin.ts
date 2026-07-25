@@ -105,10 +105,11 @@ export async function getAdminMetrics(): Promise<AdminMetrics> {
 // A contagem vive no Postgres (sem Redis/Upstash). A RPC é atômica e devolve se
 // o request está dentro do limite. Ver migration `..._rate_limit.sql`.
 //
-// FAIL-OPEN: se a RPC/tabela ainda não foi aplicada (deploy do código antes da
-// migration) ou o banco falha, NÃO bloqueamos o usuário — apenas logamos. Assim
-// o rollout do código não derruba o proxy; o limite passa a valer quando a
-// migration for aplicada.
+// FAIL-CLOSED por padrão (mudou na auditoria A-14): se a RPC não responde, a
+// requisição é NEGADA. O fail-open anterior significava que uma migration não
+// aplicada ou uma instabilidade do banco removia o único limite de gasto do
+// produto — em todas as rotas ao mesmo tempo. Quem precisar do comportamento
+// antigo passa `failOpen: true`, e só para buckets sem custo direto.
 // -----------------------------------------------------------------------------
 export type RateLimitResult = {
   allowed: boolean
@@ -236,14 +237,20 @@ export async function holdCredits(params: {
   }
 }
 
-/** Troca a reserva pelo custo real (devolve a diferença) e registra o uso. */
+/**
+ * Troca a reserva pelo custo real (devolve a diferença) e registra o uso.
+ * Retorna quantos CRÉDITOS foram cobrados — o valor exato, direto da função que
+ * fez a conta. Antes as rotas de imagem/vídeo inferiam isso por diferença de
+ * saldo (duas leituras extras, e qualquer cobrança concorrente do mesmo usuário
+ * contaminava o número).
+ */
 export async function settleHold(params: {
   holdId: string
   costUsd: number
   model?: string | null
   promptTokens?: number
   completionTokens?: number
-}): Promise<void> {
+}): Promise<number> {
   const args: Record<string, unknown> = {
     p_hold: params.holdId,
     p_cost_usd: params.costUsd,
@@ -256,7 +263,8 @@ export async function settleHold(params: {
     const margin = Number(rawMargin)
     if (Number.isFinite(margin)) args.p_margin_override = margin
   }
-  await rpc('settle_hold', args)
+  const v = await rpc<number>('settle_hold', args)
+  return typeof v === 'number' ? v : Number(v ?? 0)
 }
 
 /**

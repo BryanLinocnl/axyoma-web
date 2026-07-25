@@ -1,6 +1,13 @@
 import { z } from 'zod'
 import { verifyUser } from '@/lib/auth'
-import { getBalance, checkRateLimit, getBillingConfig } from '@/lib/supabase-admin'
+import {
+  getBalance,
+  checkRateLimit,
+  getBillingConfig,
+  holdCredits,
+  releaseHold,
+  InsufficientCreditsError,
+} from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
 import { resolveModel, RegionNotAllowedError, isRegionAllowed, healModelRegion, videoPricePerSecondUsd } from '@/lib/model-registry'
 import { getAccessToken } from '@/lib/google-auth'
@@ -26,6 +33,8 @@ const MAX_PROMPT = 2000
 const MAX_BODY_BYTES = Number(process.env.VIDEO_MAX_BODY_BYTES ?? 10 * 1024 * 1024) // 10 MB
 const RATE_LIMIT = Number(process.env.VIDEO_RATE_LIMIT ?? 5) // req / janela / usuário
 const RATE_WINDOW_S = Number(process.env.VIDEO_RATE_WINDOW_S ?? 60)
+// Teto conservador de reserva quando não dá para estimar pelo preço/segundo.
+const HOLD_CREDITS_FALLBACK = Number(process.env.VIDEO_HOLD_CREDITS ?? 120)
 const DEFAULT_DURATION_S = 8
 const MIN_DURATION_S = 4
 const MAX_DURATION_S = 8
@@ -74,7 +83,8 @@ export async function POST(req: Request): Promise<Response> {
     return json(401, { error: { message: 'não autenticado', type: 'auth' } })
   }
 
-  // 2) Rate limit por usuário (custo/abuso). Fail-open se a RPC não existir.
+  // 2) Rate limit por usuário (custo/abuso). FAIL-CLOSED: vídeo é a geração mais
+  // cara do produto; sem limitador confiável, não passa.
   const rl = await checkRateLimit({ userId, bucket: 'video', limit: RATE_LIMIT, windowSeconds: RATE_WINDOW_S })
   if (!rl.allowed) {
     const retry = rl.resetAt ? Math.max(1, Math.ceil((Date.parse(rl.resetAt) - Date.now()) / 1000)) : RATE_WINDOW_S
@@ -219,12 +229,49 @@ export async function POST(req: Request): Promise<Response> {
       body: JSON.stringify(submitBody),
     })
 
+  // 8b) RESERVA de créditos (auditoria A-1). O gate acima é uma LEITURA de saldo:
+  // N submits simultâneos liam o mesmo valor e todos passavam, enquanto o débito
+  // real só acontece quando o polling vê `done` — minutos e vários vídeos depois.
+  // A reserva é atômica no banco e vira o gate de verdade. Como a liquidação
+  // acontece em OUTRA invocação (o /status), o id da reserva é gravado no ledger.
+  //
+  // A estimativa usa o preço real por segundo quando disponível (via billing
+  // config); sem isso, cai num teto conservador — reservar de menos reabriria a
+  // corrida que esta mudança fecha.
+  let holdCreditsAmount = HOLD_CREDITS_FALLBACK
+  if (pricePerSecond != null) {
+    try {
+      const cfg = await getBillingConfig()
+      const envMargin = Number(process.env.CREDIT_MARGIN_MULTIPLIER)
+      const margin =
+        Number.isFinite(envMargin) && envMargin > 0 ? envMargin : cfg.margin_multiplier > 0 ? cfg.margin_multiplier : 1
+      if (cfg.usd_brl_rate > 0 && cfg.credit_brl > 0) {
+        const est = (durationSeconds * pricePerSecond * margin * cfg.usd_brl_rate) / cfg.credit_brl
+        if (est > 0) holdCreditsAmount = Math.ceil(est)
+      }
+    } catch (e) {
+      console.error('estimativa de reserva (video) indisponível — usando fallback', (e as Error).message)
+    }
+  }
+
+  let holdId: string
+  try {
+    holdId = await holdCredits({ userId, credits: holdCreditsAmount, kind: 'video', model: resolved.id })
+  } catch (e) {
+    if (e instanceof InsufficientCreditsError) {
+      return json(402, { error: { message: 'créditos insuficientes para esta geração', type: 'insufficient_credits' } })
+    }
+    console.error('reserva de créditos (video) falhou:', (e as Error).message)
+    return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })
+  }
+
   const regionUsed = region
   let upstream: Response
   try {
     upstream = await submit(regionUsed)
   } catch (e) {
     console.error('vertex predictLongRunning rede', (e as Error).message)
+    await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
   }
 
@@ -243,14 +290,17 @@ export async function POST(req: Request): Promise<Response> {
         } else {
           const rdetail = await retry.text().catch(() => '')
           console.error('vertex video submit retry global não-ok', retry.status, rdetail || retry.statusText)
+          await releaseHold(holdId).catch(() => {})
           return json(retry.status || 502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
         }
       } catch (e) {
         console.error('vertex video submit retry global falhou', (e as Error).message)
+        await releaseHold(holdId).catch(() => {})
         return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
       }
     } else {
       console.error('vertex video submit não-ok', upstream.status, detail || upstream.statusText)
+      await releaseHold(holdId).catch(() => {})
       return json(upstream.status || 502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
     }
   }
@@ -262,6 +312,7 @@ export async function POST(req: Request): Promise<Response> {
   const operationId = typeof data?.name === 'string' ? data.name : null
   if (!operationId) {
     console.error('vertex video submit sem operation name')
+    await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'provedor não retornou operação', type: 'upstream' } })
   }
 
@@ -275,6 +326,7 @@ export async function POST(req: Request): Promise<Response> {
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supaUrl || !serviceRole) {
     console.error('video_charges submit insert: SUPABASE_URL/SERVICE_ROLE_KEY ausentes')
+    await releaseHold(holdId).catch(() => {})
     return json(500, { error: { message: 'config de billing ausente', type: 'config' } })
   }
   try {
@@ -292,14 +344,17 @@ export async function POST(req: Request): Promise<Response> {
         model: resolved.id,
         duration_seconds: durationSeconds,
         status: 'submitted',
+        hold_id: holdId,
       }),
     })
     if (!ins.ok && ins.status !== 409) {
       console.error('video_charges submit insert falhou', ins.status, await ins.text().catch(() => ''))
+      await releaseHold(holdId).catch(() => {})
       return json(502, { error: { message: 'falha ao registrar operação de vídeo', type: 'upstream' } })
     }
   } catch (e) {
     console.error('video_charges submit insert rede', (e as Error).message)
+    await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'falha ao registrar operação de vídeo', type: 'upstream' } })
   }
 
