@@ -1,10 +1,25 @@
 import './globals.css'
 import type { Metadata } from 'next'
-import { Bricolage_Grotesque, Playfair_Display, JetBrains_Mono, Geist } from 'next/font/google'
+import {
+  Bricolage_Grotesque,
+  Playfair_Display,
+  JetBrains_Mono,
+  Geist,
+  Schibsted_Grotesk,
+} from 'next/font/google'
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from '@/components/theme-provider'
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+
+// Schibsted Grotesk é a face de UI do app desktop (ver Aplication/DESIGN.md).
+// A landing usa a mesma para que o site e o produto tenham a mesma voz.
+const schibsted = Schibsted_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-schibsted',
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+})
 
 const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
@@ -60,7 +75,18 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <html lang="pt-BR" suppressHydrationWarning className={cn(bricolage.variable, playfair.variable, jetbrains.variable, "font-sans", geist.variable)}>
+    <html
+      lang="pt-BR"
+      suppressHydrationWarning
+      className={cn(
+        bricolage.variable,
+        playfair.variable,
+        jetbrains.variable,
+        schibsted.variable,
+        'font-sans',
+        geist.variable,
+      )}
+    >
       <body>
         <ThemeProvider>{children}</ThemeProvider>
       </body>

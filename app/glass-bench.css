@@ -1,0 +1,340 @@
+/* ── Glass Bench — mundo visual da landing (ver DESIGN.md) ──────────────────
+ *
+ * Porte do mundo macOS Glass do app desktop para a web: mesa clara, painéis de
+ * vidro, azul profundo como único acento. TUDO fica sob `.glass-site` de
+ * propósito — as demais páginas públicas ainda usam a pele escura antiga, e um
+ * token solto em :root as quebraria em silêncio.
+ * ------------------------------------------------------------------------- */
+
+.glass-site {
+  --ground: #f4f6f9;
+  --ground-deep: #eaeef4;
+  --raised: #ffffff;
+
+  --ink: #14161a;
+  --ink-muted: #5b6070; /* 5,79:1 sobre a mesa */
+  /* 4,68:1 sobre a mesa. O cinza claro anterior (#8A8F9E) dava 2,98:1 e
+     reprovava — e ele carrega texto de verdade: a linha de confiança do hero,
+     os rótulos dos mocks e a linha legal do rodapé. */
+  --ink-faint: #696e80;
+
+  --accent: #1d4ed8;
+  --accent-hover: #2563eb;
+  --accent-wash: #eef2ff;
+  --accent-ink: #ffffff;
+
+  --hairline: rgba(16, 22, 34, 0.1);
+  --hairline-strong: rgba(16, 22, 34, 0.16);
+  --glass-highlight: rgba(255, 255, 255, 0.62);
+
+  --mat-thick: rgba(252, 252, 254, 0.86);
+  --mat-regular: rgba(250, 251, 253, 0.68);
+  --mat-thin: rgba(248, 250, 252, 0.46);
+
+  --shadow-panel: 0 24px 60px -28px rgba(16, 22, 34, 0.34);
+  --shadow-float: 0 10px 30px -12px rgba(16, 22, 34, 0.24);
+  --shadow-press: 0 1px 2px rgba(16, 22, 34, 0.16);
+
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-schibsted), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Dark: materiais OPACOS. No escuro a translucidez lava a imagem — é a mesma
+ * decisão que o app tomou (glass.css: "sem translucidez no escuro"). */
+.dark .glass-site {
+  --ground: oklch(0.202 0.006 264);
+  --ground-deep: oklch(0.175 0.006 264);
+  --raised: oklch(0.245 0.005 264);
+
+  --ink: oklch(0.94 0 0);
+  --ink-muted: oklch(0.76 0.004 264);
+  --ink-faint: oklch(0.7 0.004 264);
+
+  --accent: #3b7dff;
+  --accent-hover: #5b93ff;
+  --accent-wash: oklch(0.29 0.045 264);
+
+  --hairline: rgba(255, 255, 255, 0.12);
+  --hairline-strong: rgba(255, 255, 255, 0.2);
+  --glass-highlight: rgba(255, 255, 255, 0.07);
+
+  --mat-thick: oklch(0.245 0.005 264);
+  --mat-regular: oklch(0.235 0.005 264);
+  --mat-thin: oklch(0.225 0.005 264);
+
+  --shadow-panel: 0 24px 60px -28px rgba(0, 0, 0, 0.72);
+  --shadow-float: 0 12px 34px -12px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Tipografia ─────────────────────────────────────────────────────────── */
+
+/* Display: Bricolage Grotesque apertada. `balance` evita a viúva de uma palavra
+ * na segunda linha, que é onde títulos grandes normalmente quebram feio. */
+.gb-display {
+  font-family: var(--font-bricolage), var(--font-schibsted), sans-serif;
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  font-variation-settings: 'wdth' 100, 'opsz' 40;
+}
+
+.gb-mono {
+  font-family: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-ligatures: none;
+}
+
+/* Medida de leitura: 62ch. Acima disso o olho perde a linha de volta. */
+.gb-measure {
+  max-width: 62ch;
+}
+
+/* ── Materiais ──────────────────────────────────────────────────────────── */
+
+/* Vidro DE VERDADE: só usar onde existe algo atrás para desfocar (navbar sobre
+ * o conteúdo que rola, painéis do mock sobre a mesa azul). Vidro sobre branco
+ * chapado não é material, é enfeite. */
+.gb-glass {
+  background: var(--mat-regular);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    var(--shadow-float);
+}
+
+.gb-glass-thick {
+  background: var(--mat-thick);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: inset 0 1px 0 0 var(--glass-highlight);
+}
+
+.gb-glass-thin {
+  background: var(--mat-thin);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+
+/* Painel opaco (planos, FAQ): conteúdo denso pede leitura, não translucidez. */
+.gb-raised {
+  background: var(--raised);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    var(--shadow-float);
+}
+
+/* ── Palco 3D dos mocks ─────────────────────────────────────────────────── */
+
+/* A inclinação vem do palco, não do painel — assim o mock por dentro continua
+ * sendo layout normal (e um <Image> de print real entra no lugar sem mexer
+ * em nada aqui).
+ *
+ * A `perspective` mora DENTRO do transform, não numa propriedade `perspective`
+ * do pai: aquela só vale para filhos DIRETOS, e aqui existe um wrapper de
+ * animação no meio. A animação de entrada (`.gb-settle`) também precisa ficar
+ * em outro elemento — o keyframe final dela escreve `transform` e apagaria a
+ * inclinação inteira. */
+.gb-stage {
+  position: relative;
+}
+
+.gb-tilt {
+  transform: perspective(2200px) rotateX(13deg) rotateZ(-8deg);
+  transform-origin: 50% 0%;
+  box-shadow: var(--shadow-panel);
+}
+
+.gb-tilt-right {
+  transform: perspective(2400px) rotateX(11deg) rotateZ(5deg);
+  transform-origin: 0% 0%;
+  box-shadow: var(--shadow-panel);
+}
+
+/* Em telas estreitas a inclinação come metade da leitura — o painel fica reto. */
+@media (max-width: 640px) {
+  .gb-tilt,
+  .gb-tilt-right {
+    transform: none;
+  }
+}
+
+/* A borda que sai da tela dissolve na mesa em vez de ser cortada em seco. */
+.gb-fade-bottom {
+  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+}
+
+/* Superfície que o vidro desfoca: campo azul lavado, do azul do acento. Sem
+ * isso o backdrop-filter dos mocks não teria o que borrar. */
+.gb-desk {
+  background:
+    radial-gradient(72% 62% at 18% 4%, rgba(29, 78, 216, 0.09), transparent 62%),
+    radial-gradient(58% 54% at 92% 26%, rgba(29, 78, 216, 0.055), transparent 66%),
+    linear-gradient(180deg, var(--ground-deep) 0%, var(--ground) 46%);
+}
+
+/* Mesa NO MEIO da página: precisa nascer e morrer na cor do entorno, senão a
+ * borda superior vira uma faixa de cor com emenda visível atravessando a tela. */
+.gb-desk-band {
+  background:
+    radial-gradient(66% 46% at 20% 34%, rgba(29, 78, 216, 0.08), transparent 64%),
+    radial-gradient(54% 40% at 90% 52%, rgba(29, 78, 216, 0.05), transparent 68%),
+    linear-gradient(
+      180deg,
+      var(--ground) 0%,
+      var(--ground-deep) 26%,
+      var(--ground-deep) 68%,
+      var(--ground) 100%
+    );
+}
+
+/* ── Movimento ──────────────────────────────────────────────────────────── */
+
+/* O momento autorizado: os painéis assentam na inclinação no primeiro paint.
+ * Ease-out exponencial, saindo de um estado JÁ VISÍVEL (opacity 0 só nos
+ * 120ms iniciais) — nada de conteúdo dependendo de JS pra aparecer. */
+/* Vai SEMPRE num wrapper por fora do `.gb-tilt` — os dois escrevem `transform`
+ * e o último a assentar venceria o outro. */
+@keyframes gb-settle {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.985);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.gb-settle {
+  animation: gb-settle 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes gb-lift {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.gb-lift {
+  animation: gb-lift 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Cursor do agente "digitando" no mock — o único loop da página. */
+@keyframes gb-caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.gb-caret {
+  animation: gb-caret 1.1s steps(1) infinite;
+}
+
+@keyframes gb-pulse-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.gb-dot {
+  animation: gb-pulse-dot 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gb-settle,
+  .gb-lift,
+  .gb-caret,
+  .gb-dot {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* Acessibilidade: sem transparência → materiais opacos, igual ao app. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass-site {
+    --mat-thick: #fcfcfe;
+    --mat-regular: #fafbfd;
+    --mat-thin: #f8fafc;
+  }
+
+  .gb-glass,
+  .gb-glass-thick,
+  .gb-glass-thin {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ── Controles ──────────────────────────────────────────────────────────── */
+
+.gb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 10px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.gb-btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-press);
+}
+
+.gb-btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.gb-btn-primary:active {
+  transform: translateY(1px);
+}
+
+.gb-btn-ghost {
+  background: var(--mat-thin);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.gb-btn-ghost:hover {
+  background: var(--raised);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.glass-site :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
