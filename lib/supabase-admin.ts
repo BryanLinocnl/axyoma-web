@@ -259,6 +259,16 @@ export async function settleHold(params: {
   await rpc('settle_hold', args)
 }
 
+/**
+ * Concede o bônus de cadastro (valor vem do ENV desta app, não do banco).
+ * A RPC só credita se `signup_bonus_granted_at is null` — chamar várias vezes é
+ * seguro. Retorna o saldo atual (tendo concedido agora ou não).
+ */
+export async function grantSignupBonus(userId: string, credits: number): Promise<number> {
+  const v = await rpc<number>('grant_signup_bonus', { p_user: userId, p_credits: credits })
+  return typeof v === 'number' ? v : Number(v ?? 0)
+}
+
 /** Devolve a reserva inteira (falha antes de gerar qualquer coisa). */
 export async function releaseHold(holdId: string): Promise<void> {
   await rpc('release_hold', { p_hold: holdId })
