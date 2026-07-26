@@ -123,8 +123,12 @@ function ErrorBanner({
         <AlertCircle className="size-4 shrink-0" />
         <div className="flex-1">
           <p className="font-medium">{isCredits ? 'Saldo insuficiente' : 'Não foi possível responder'}</p>
+          {/* O servidor já explica POR QUE recusou — inclusive o caso em que
+              sobra franquia mas o modelo escolhido não a aceita. Trocar isso
+              por um texto fixo dizia "você ficou sem créditos" a quem tem 400
+              na tela, e mandava o usuário comprar o que ele já tem. */}
           <p className="opacity-90">
-            {isCredits ? 'Você ficou sem créditos. Recarregue para continuar conversando.' : message}
+            {message || 'Você ficou sem créditos. Recarregue para continuar conversando.'}
           </p>
         </div>
         {isCredits ? (

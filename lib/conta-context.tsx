@@ -15,6 +15,15 @@ type ContaState = {
   balance: number
   /** Franquia de cadastro (só vale nos modelos Vertex). Parte do `balance`. */
   bonus: number
+  /**
+   * Saldo COMPRADO disponível — `balance` menos a franquia.
+   *
+   * Existe porque "quanto já consumi" só fecha contra o que foi comprado:
+   * `purchased - balance` passou a subtrair a franquia de uma compra que nunca
+   * a incluiu, e o consumido aparecia menor do que é (zero, no caso de quem
+   * ainda tem franquia sobrando).
+   */
+  purchasedBalance: number
   /** Total comprado na vida (não é saldo). */
   purchased: number
   plan: string
@@ -139,7 +148,7 @@ export function ContaProvider({ children }: { children: React.ReactNode }): Reac
   }
 
   return (
-    <ContaContext.Provider value={{ authReady, loading, userId, email, name, balance, bonus, purchased, plan, isAdmin, token, creditBrl, reload: load, signOut }}>
+    <ContaContext.Provider value={{ authReady, loading, userId, email, name, balance, bonus, purchasedBalance: Math.max(0, balance - bonus), purchased, plan, isAdmin, token, creditBrl, reload: load, signOut }}>
       {children}
     </ContaContext.Provider>
   )

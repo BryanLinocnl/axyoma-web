@@ -14,7 +14,7 @@ function fmt(n: number): string {
 }
 
 export default function FaturamentoPage(): React.JSX.Element {
-  const { balance, plan, token, creditBrl } = useConta()
+  const { balance, bonus, purchasedBalance, plan, token, creditBrl } = useConta()
 
   return (
     <div className="flex flex-col gap-6">
@@ -29,6 +29,16 @@ export default function FaturamentoPage(): React.JSX.Element {
             <div>
               <p className="text-xl font-semibold">{fmt(balance)} créditos</p>
               <p className="text-muted-foreground text-xs">≈ R$ {fmt(creditsToBRL(balance, creditBrl))} · saldo atual</p>
+              {/* A divisão só aparece quando HÁ franquia: quem não tem não
+                  precisa aprender um conceito a mais para ler o próprio saldo.
+                  E somar os dois num número só sem dizer o que é seria mentir
+                  por omissão — a franquia não vale em todo modelo. */}
+              {bonus > 0 && (
+                <p className="text-muted-foreground mt-1 text-xs">
+                  <span className="text-foreground">{fmt(bonus)}</span> de franquia (só modelos Vertex) ·{' '}
+                  <span className="text-foreground">{fmt(purchasedBalance)}</span> comprados
+                </p>
+              )}
             </div>
           </div>
         </Card>

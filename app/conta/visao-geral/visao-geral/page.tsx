@@ -38,7 +38,7 @@ function buildChartData(rows: Row[]): UsageChartPoint[] {
 }
 
 export default function ContaOverviewPage(): React.JSX.Element {
-  const { userId, balance, purchased, token, creditBrl } = useConta()
+  const { userId, balance, bonus, purchased, token, creditBrl } = useConta()
   const [rows, setRows] = useState<Row[]>([])
   const [loadingRows, setLoadingRows] = useState(true)
   const [now, setNow] = useState(0)
@@ -72,6 +72,14 @@ export default function ContaOverviewPage(): React.JSX.Element {
   const spentToday = rows.filter((r) => dayKey(r.ts) === today).reduce((a, r) => a + Number(r.credits), 0)
   const spent30 = rows.filter((r) => now - new Date(r.ts).getTime() < 30 * 864e5).reduce((a, r) => a + Number(r.credits), 0)
   const avgDaily30 = spent30 / 30
+  // Saldo TOTAL sobre o consumo total: responde "quando acaba tudo".
+  //
+  // Com dois potes existe um bloqueio ANTES desse: se o crédito comprado zerar
+  // enquanto ainda há franquia, os modelos não-Vertex param — a franquia não os
+  // atende. O inverso não trava nada (franquia zerada, o Vertex passa a sair do
+  // comprado), então o total continua sendo a resposta certa para a pergunta
+  // que o KPI faz. O `sub` avisa da ressalva em vez de fingir uma precisão que
+  // um número só não tem.
   const daysLeft = avgDaily30 > 0 ? balance / avgDaily30 : null
 
   return (
@@ -82,7 +90,20 @@ export default function ContaOverviewPage(): React.JSX.Element {
       </section>
 
       <section className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <Kpi icon={<Wallet className="size-4" />} label="Saldo" value={fmt(balance)} sub={`≈ R$ ${fmt(creditsToBRL(balance, creditBrl))}`} accent />
+        {/* O saldo é a SOMA dos dois potes; o subtítulo diz quanto dele é
+            franquia. Um número agregado sem essa ressalva esconde que parte
+            dele só vale nos modelos Vertex. */}
+        <Kpi
+          icon={<Wallet className="size-4" />}
+          label="Saldo"
+          value={fmt(balance)}
+          sub={
+            bonus > 0
+              ? `≈ R$ ${fmt(creditsToBRL(balance, creditBrl))} · ${fmt(bonus)} de franquia`
+              : `≈ R$ ${fmt(creditsToBRL(balance, creditBrl))}`
+          }
+          accent
+        />
         <Kpi icon={<CalendarDays className="size-4" />} label="Gasto hoje" value={fmt(spentToday)} sub="créditos" />
         <Kpi icon={<TrendingUp className="size-4" />} label="Gasto (30d)" value={fmt(spent30)} sub="créditos" />
         <Kpi icon={<Receipt className="size-4" />} label="Total comprado" value={fmt(purchased)} sub="créditos" />
@@ -91,7 +112,7 @@ export default function ContaOverviewPage(): React.JSX.Element {
           icon={<Hourglass className="size-4" />}
           label="Autonomia estimada"
           value={daysLeft === null ? '—' : daysLeft > 999 ? '999+' : fmt(daysLeft)}
-          sub="dias no ritmo atual"
+          sub={bonus > 0 ? 'dias no ritmo atual · inclui a franquia' : 'dias no ritmo atual'}
         />
       </section>
 
