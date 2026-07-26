@@ -9,7 +9,18 @@ const ITEMS: Array<[string, string]> = [
   ],
   [
     'Posso usar minha própria OpenRouter?',
-    'Sim. O Axyoma permite conectar sua própria infraestrutura sempre que você desejar.',
+    'Sim. Em Configurações → Modelos você cola a sua chave da OpenRouter e escolhe os modelos que quer usar com ela. O que roda por essa chave é cobrado pela OpenRouter, direto de você, e não consome crédito Axyoma.',
+  ],
+  // Onde a chave mora é a primeira pergunta de quem cola uma chave num app de
+  // terceiro, e a resposta é um diferencial nosso — não guardamos. Vale a
+  // pergunta explícita em vez de uma linha escondida no meio de outra resposta.
+  [
+    'Onde fica guardada a minha chave de API?',
+    'Na sua máquina, cifrada, junto com as outras credenciais do app. Ela nunca é gravada nos nossos servidores: vai cifrada em cada requisição, é usada em memória para falar com o provedor e descartada em seguida — não fica em log, banco nem backup. Para remover, apague o campo em Configurações → Modelos; ela some do seu computador e não existe cópia em outro lugar.',
+  ],
+  [
+    'Dá para rodar modelos na minha própria máquina?',
+    'Sim, e sem custo. O Axyoma conversa com o Ollama: instale pelo próprio app, baixe o modelo que quiser da biblioteca e ele fica disponível no seletor como qualquer outro. Roda offline, não passa pelos nossos servidores e não gasta crédito. O app avisa quando um modelo não cabe na memória da sua máquina.',
   ],
   [
     'Posso escolher qual modelo será utilizado?',
