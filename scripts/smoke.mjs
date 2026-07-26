@@ -140,6 +140,14 @@ try {
   })
   add('BYOK não é recusado por modelo do Google', byokGemini.status !== 400, `HTTP ${byokGemini.status}`)
 
+  // Entitlements: a rota que decide o que cada um pode usar. Sem JWT tem que
+  // ser 401 — nunca um objeto de recursos. Se um dia responder 200 com features
+  // para requisição anônima, é produto pago liberado de graça.
+  const ent = await fetch(BASE + '/api/v1/entitlements')
+  add('entitlements exige autenticação', ent.status === 401, `HTTP ${ent.status}`)
+  const entBody = await ent.text()
+  add('entitlements não vaza features sem auth', !entBody.includes('design'), entBody.slice(0, 100))
+
   // 4. e 5. A chave não pode voltar ao cliente nem parar no log.
   const corpoByok = await byokSemJwt.text()
   add('chave BYOK não ecoa no corpo da resposta', !corpoByok.includes(CHAVE_FALSA), corpoByok.slice(0, 100))
