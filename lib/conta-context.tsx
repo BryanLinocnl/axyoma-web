@@ -11,7 +11,11 @@ type ContaState = {
   userId: string
   email: string
   name: string
+  /** Saldo GASTÁVEL: comprado + franquia. */
   balance: number
+  /** Franquia de cadastro (só vale nos modelos Vertex). Parte do `balance`. */
+  bonus: number
+  /** Total comprado na vida (não é saldo). */
   purchased: number
   plan: string
   isAdmin: boolean
@@ -50,6 +54,7 @@ export function ContaProvider({ children }: { children: React.ReactNode }): Reac
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [balance, setBalance] = useState(0)
+  const [bonus, setBonus] = useState(0)
   const [purchased, setPurchased] = useState(0)
   const [plan, setPlan] = useState('Free')
   const [isAdmin, setIsAdmin] = useState(false)
@@ -86,7 +91,9 @@ export function ContaProvider({ children }: { children: React.ReactNode }): Reac
 
     const [profileRes, credRes, subRes, statusRes, billingRes] = await Promise.all([
       supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
-      supabase.from('credits').select('balance, total_purchased').eq('user_id', user.id).maybeSingle(),
+      // `bonus_balance` = franquia de cadastro (só Vertex). O saldo exibido é a
+      // SOMA dos dois: quem tem 400 de franquia e 0 comprado tem 400, não 0.
+      supabase.from('credits').select('balance, bonus_balance, total_purchased').eq('user_id', user.id).maybeSingle(),
       supabase.from('subscriptions').select('status, plans(name)').eq('owner_user_id', user.id).eq('status', 'active').maybeSingle(),
       fetch('/api/admin/status', { headers: { Authorization: `Bearer ${accessToken}` } }).then((r) => r.json()).catch(() => ({ isAdmin: false })),
       fetch('/api/billing/config', { headers: { Authorization: `Bearer ${accessToken}` } }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
@@ -94,7 +101,9 @@ export function ContaProvider({ children }: { children: React.ReactNode }): Reac
     setName(profileRes.data?.full_name ?? '')
     // O saldo do bootstrap é o mais recente (a leitura em paralelo pode ter
     // saído antes da concessão).
-    setBalance(bootstrapBalance ?? Number(credRes.data?.balance ?? 0))
+    const bonusBalance = Number(credRes.data?.bonus_balance ?? 0)
+    setBalance(bootstrapBalance ?? Number(credRes.data?.balance ?? 0) + bonusBalance)
+    setBonus(bonusBalance)
     setPurchased(Number(credRes.data?.total_purchased ?? 0))
     setPlan((subRes.data as { plans?: { name?: string } } | null)?.plans?.name ?? 'Free')
     setIsAdmin(Boolean(statusRes?.isAdmin))
@@ -130,7 +139,7 @@ export function ContaProvider({ children }: { children: React.ReactNode }): Reac
   }
 
   return (
-    <ContaContext.Provider value={{ authReady, loading, userId, email, name, balance, purchased, plan, isAdmin, token, creditBrl, reload: load, signOut }}>
+    <ContaContext.Provider value={{ authReady, loading, userId, email, name, balance, bonus, purchased, plan, isAdmin, token, creditBrl, reload: load, signOut }}>
       {children}
     </ContaContext.Provider>
   )
