@@ -38,7 +38,7 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 export async function getBillingConfig(): Promise<BillingConfig> {
   const { url, key } = assertEnv()
   const res = await fetch(
-    `${url}/rest/v1/billing_config?select=credit_brl,usd_brl_rate,margin_multiplier,rate_updated_at&limit=1`,
+    `${url}/rest/v1/billing_config?select=credit_brl,usd_brl_rate,margin_multiplier,rate_updated_at,byok_route&limit=1`,
     { headers: { apikey: key, Authorization: `Bearer ${key}` } },
   )
   if (!res.ok) {
@@ -52,6 +52,9 @@ export async function getBillingConfig(): Promise<BillingConfig> {
     usd_brl_rate: Number(row.usd_brl_rate ?? 0),
     margin_multiplier: Number(row.margin_multiplier ?? 0),
     rate_updated_at: row.rate_updated_at ?? null,
+    // Valor desconhecido cai em 'proxy': é o caminho conhecido e com telemetria.
+    // Um typo no banco não pode virar comportamento indefinido no cliente.
+    byok_route: row.byok_route === 'direct' ? 'direct' : 'proxy',
   }
 }
 
