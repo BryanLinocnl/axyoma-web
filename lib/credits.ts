@@ -8,6 +8,8 @@ export type BillingConfig = {
   usd_brl_rate: number
   margin_multiplier: number
   rate_updated_at: string | null
+  /** Por onde o tráfego BYOK passa: 'proxy' (padrão) ou 'direct'. */
+  byok_route: 'proxy' | 'direct'
 }
 
 /** Último recurso quando a config do banco não carrega. Não é a fonte oficial. */

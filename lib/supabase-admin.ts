@@ -38,7 +38,7 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 export async function getBillingConfig(): Promise<BillingConfig> {
   const { url, key } = assertEnv()
   const res = await fetch(
-    `${url}/rest/v1/billing_config?select=credit_brl,usd_brl_rate,margin_multiplier,rate_updated_at&limit=1`,
+    `${url}/rest/v1/billing_config?select=credit_brl,usd_brl_rate,margin_multiplier,rate_updated_at,byok_route&limit=1`,
     { headers: { apikey: key, Authorization: `Bearer ${key}` } },
   )
   if (!res.ok) {
@@ -52,6 +52,9 @@ export async function getBillingConfig(): Promise<BillingConfig> {
     usd_brl_rate: Number(row.usd_brl_rate ?? 0),
     margin_multiplier: Number(row.margin_multiplier ?? 0),
     rate_updated_at: row.rate_updated_at ?? null,
+    // Valor desconhecido cai em 'proxy': é o caminho conhecido e com telemetria.
+    // Um typo no banco não pode virar comportamento indefinido no cliente.
+    byok_route: row.byok_route === 'direct' ? 'direct' : 'proxy',
   }
 }
 
@@ -98,6 +101,75 @@ export async function getBalances(userId: string): Promise<CreditBalances> {
   } catch {
     const total = await getBalance(userId)
     return { balance: total, bonus: 0, total }
+  }
+}
+
+/** Recursos efetivos de um usuário. Objeto SEMPRE completo — ver `getEntitlements`. */
+export type Entitlements = {
+  /** Id no banco: 'free' | 'solo' | 'teams'. O app compara por aqui. */
+  planId: string
+  /** Nome de exibição: 'Free' | 'Pro' | 'Teams'. O site mostra este. */
+  planName: string
+  features: {
+    design: boolean
+    skillsCatalog: boolean
+    skillTiers: string[]
+    maxMembers: number
+  }
+}
+
+/** O que TODO usuário tem, inclusive quando nada carrega. Nunca liberar daqui. */
+const FREE_ENTITLEMENTS: Entitlements = {
+  planId: 'free',
+  planName: 'Free',
+  features: { design: false, skillsCatalog: false, skillTiers: [], maxMembers: 1 },
+}
+
+/**
+ * Recursos efetivos do usuário: assinatura ativa → plano → `features`.
+ *
+ * DEVOLVE SEMPRE O OBJETO COMPLETO, nunca um patch e nunca `{}`. Um objeto
+ * parcial no cliente vira `features.design === undefined`, que por sorte é
+ * falsy — e segurança por sorte deixa de funcionar no dia em que alguém inverte
+ * uma condição.
+ *
+ * Sem assinatura ativa, ou qualquer falha: FREE. Nunca o contrário. Este é o
+ * único lugar do sistema que decide o que alguém pode usar; errar para o lado
+ * generoso aqui é dar produto de graça, e errar em silêncio.
+ */
+export async function getEntitlements(userId: string): Promise<Entitlements> {
+  try {
+    const { url, key } = assertEnv()
+    const qs = new URLSearchParams({
+      select: 'plans(id,name,features)',
+      owner_user_id: `eq.${userId}`,
+      status: 'eq.active',
+      limit: '1',
+    })
+    const res = await fetch(`${url}/rest/v1/subscriptions?${qs.toString()}`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+    if (!res.ok) throw new Error(`subscriptions falhou (${res.status})`)
+    const rows = (await res.json()) as { plans?: { id?: string; name?: string; features?: Record<string, unknown> } }[]
+    const plano = rows[0]?.plans
+    if (!plano?.id) return FREE_ENTITLEMENTS
+
+    const f = (plano.features ?? {}) as Record<string, unknown>
+    return {
+      planId: String(plano.id),
+      planName: String(plano.name ?? 'Free'),
+      // Cada campo normalizado contra o default do Free: um plano cuja coluna
+      // `features` esteja vazia ou malformada entrega o mínimo, não o máximo.
+      features: {
+        design: f.design === true,
+        skillsCatalog: f.skillsCatalog === true,
+        skillTiers: Array.isArray(f.skillTiers) ? f.skillTiers.map(String) : [],
+        maxMembers: Number.isFinite(Number(f.maxMembers)) ? Number(f.maxMembers) : 1,
+      },
+    }
+  } catch (e) {
+    console.error('getEntitlements falhou (degradando para Free):', (e as Error).message)
+    return FREE_ENTITLEMENTS
   }
 }
 

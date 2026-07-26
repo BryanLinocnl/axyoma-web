@@ -11,6 +11,21 @@ type Plan = {
   cta?: { href: string; label: string }
 }
 
+/*
+ * O Pro NÃO é vendido como pacote de token.
+ *
+ * Com chave própria (BYOK) o usuário roda qualquer modelo pagando direto ao
+ * provedor — ou seja, quem quer só token não precisa de assinatura nenhuma. Se
+ * a assinatura vendesse token, o funil seria "traz a chave e nunca paga". O
+ * que o Pro vende é o que a chave dele não compra: o que o agente já sabe
+ * (skills), o que ele lembra (memória de projeto), o que ele repete (workflows)
+ * e o que roda sem ninguém olhando (automações, nuvem). A franquia de créditos
+ * fica onde é: no fim da lista, como conveniência.
+ *
+ * Tudo que ainda não está no ar vive sob o selo "Em breve", que é o que torna a
+ * lista honesta — plano futuro, recursos futuros, e nenhum botão que cobre por
+ * eles.
+ */
 const PLANS: Plan[] = [
   {
     id: 'free',
@@ -22,7 +37,9 @@ const PLANS: Plan[] = [
     perks: [
       '400 créditos de bônus (modelos Vertex AI)',
       'Modo Code e modo Plan completos',
-      'Todas as ferramentas do app',
+      'Modelos locais pelo Ollama, sem gastar crédito',
+      'Ou conecte a sua chave da OpenRouter',
+      'MCP, skills, busca na web e terminal',
       'Compre créditos quando quiser, sem assinar',
     ],
     cta: { href: '/download', label: 'Baixar grátis' },
@@ -31,23 +48,27 @@ const PLANS: Plan[] = [
     id: 'pro',
     name: 'Pro',
     live: false,
-    desc: 'Tudo do Free, mais o modo Design e uma franquia de créditos todo mês.',
+    desc: 'O agente que lembra do projeto, repete o que já deu certo e trabalha enquanto você faz outra coisa.',
     perks: [
       'Tudo do plano Free',
-      '300 skills personalizadas',
-      'Franquia mensal de créditos (Vertex AI)',
+      '300 skills prontas para instalar',
+      'Workflows salvos e reutilizáveis',
+      'Memória de projeto entre sessões',
+      'Automações agendadas e execução em nuvem',
       'Modo Design',
+      'Franquia mensal de créditos (Vertex AI)',
     ],
   },
   {
     id: 'teams',
     name: 'Teams',
     live: false,
-    desc: 'Para times que constroem junto, com crédito compartilhado.',
+    desc: 'O mesmo agente para o time inteiro, com as regras, o histórico e a conta compartilhados.',
     perks: [
       'Tudo do plano Pro',
+      'As mesmas skills do Pro, mais as de dinâmica de time',
+      'Workflows e memória compartilhados',
       'Créditos compartilhados pelo time',
-      'Ferramentas exclusivas de time',
       'Assessoria Advisor',
     ],
   },
@@ -67,9 +88,9 @@ export function Pricing(): React.JSX.Element {
               className="gb-measure mt-6 text-[16.5px] leading-relaxed"
               style={{ color: 'var(--ink-muted)' }}
             >
-              Comece gratuitamente com créditos inclusos. Assine para receber novos créditos todos
-              os meses e desbloquear recursos premium da plataforma, ou conecte sua própria API
-              quando preferir.
+              Comece grátis, com créditos inclusos e sem cartão. Se preferir pagar o provedor
+              direto, conecte a sua própria chave — ou rode modelos locais, que não custam nada.
+              A assinatura não é sobre token: é sobre o que o agente aprende, lembra e repete.
             </p>
 
             <dl className="mt-8 flex flex-col">
@@ -82,6 +103,11 @@ export function Pricing(): React.JSX.Element {
                 ['Bônus de cadastro', '400 créditos, sem cartão'],
                 ['Bônus e franquia', 'valem para os modelos da Vertex AI'],
                 ['Créditos comprados', 'valem para todos os modelos'],
+                // As duas saídas sem crédito. Ficam aqui, e não em destaque no
+                // topo: "comece agora" continua sendo o caminho principal —
+                // quem chega na página não quer escolher provedor, quer baixar.
+                ['Chave própria', 'OpenRouter: você paga o provedor, sem crédito Axyoma'],
+                ['Modelos locais', 'pelo Ollama, na sua máquina, sem custo'],
               ].map(([k, v], i) => (
                 <div
                   key={k}

@@ -20,25 +20,44 @@ const PLANS: PlanCard[] = [
     title: 'Free',
     price: 'Grátis',
     items: [
-      '100 créditos de bônus (não renováveis)',
+      // Dizia "100 créditos" — o bônus é 400 e vale só nos modelos da Vertex AI.
+      // Anunciar número errado na tela de faturamento é o pior lugar possível
+      // para errar: é onde o usuário confere se a conta bate.
+      '400 créditos de bônus (modelos Vertex AI, não renováveis)',
       'Code Mode e Plan Mode',
       'Navegador Inteligente',
       'Editor de Código Integrado',
       'MCPs',
       'Busca na Web',
       'Criador de Skills',
+      'Modelos locais pelo Ollama, sem crédito',
+      'Chave própria da OpenRouter, se preferir',
       'Todos os modelos do catálogo (pay per use)',
     ],
   },
   {
     title: 'Pro',
     comingSoon: true,
-    items: ['Tudo do Plano Free', '300 Skills Personalizadas', '400 créditos mensais', 'Modo Design'],
+    items: [
+      'Tudo do Plano Free',
+      '300 Skills Personalizadas',
+      'Workflows salvos e reutilizáveis',
+      'Memória de projeto entre sessões',
+      'Automações agendadas e execução em nuvem',
+      'Modo Design',
+      'Franquia mensal de créditos (Vertex AI)',
+    ],
   },
   {
     title: 'Teams',
     comingSoon: true,
-    items: ['Tudo do Plano Pro', 'Ferramentas Teams Exclusivas', 'Assessoria Advisor', '1.000 créditos mensais'],
+    items: [
+      'Tudo do Plano Pro',
+      'As mesmas Skills do Pro, mais as de dinâmica de time',
+      'Workflows e memória compartilhados',
+      'Créditos compartilhados pelo time',
+      'Assessoria Advisor',
+    ],
   },
 ]
 

@@ -68,11 +68,16 @@ export default function PlaygroundImagensPage(): React.JSX.Element {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ prompt: p, model }),
       })
+      const data = await res.json().catch(() => null)
       if (res.status === 402) {
-        setError('Seus créditos acabaram. Compre créditos para continuar gerando imagens.')
+        // Mensagem do servidor primeiro: ele distingue "acabou" de "sua franquia
+        // não vale neste modelo", e a segunda é a que o usuário com 400 na tela
+        // precisa ler. O texto fixo mandava comprar o que ele já tinha.
+        setError(
+          data?.error?.message ?? 'Seus créditos acabaram. Compre créditos para continuar gerando imagens.',
+        )
         return
       }
-      const data = await res.json().catch(() => null)
       if (!res.ok || !data?.image) {
         setError(data?.error?.message ?? 'Falha ao gerar a imagem. Tente novamente.')
         return

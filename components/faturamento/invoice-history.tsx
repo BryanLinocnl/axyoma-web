@@ -64,7 +64,7 @@ function StatusBadge({ status }: { status: string | null }): React.JSX.Element {
 }
 
 export function InvoiceHistory(): React.JSX.Element {
-  const { userId, purchased, balance, creditBrl } = useConta()
+  const { userId, purchased, purchasedBalance, creditBrl } = useConta()
   const [rows, setRows] = useState<PurchaseRow[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -130,7 +130,10 @@ export function InvoiceHistory(): React.JSX.Element {
   // Consumo total = comprado − saldo atual. Reaproveita `credits`/`credit_purchases`
   // já carregados pelo ContaProvider em vez de somar `usage_log` linha a linha
   // de novo (a tabela detalhada de uso/consumo já vive na página "Uso").
-  const totalSpent = Math.max(0, purchased - balance)
+  // Contra o saldo COMPRADO, não contra o total: a franquia de cadastro nunca
+  // fez parte de uma compra, então subtraí-la aqui fazia o consumido encolher —
+  // e zerava para quem ainda tem franquia sobrando.
+  const totalSpent = Math.max(0, purchased - purchasedBalance)
 
   return (
     <Card className="p-6">
