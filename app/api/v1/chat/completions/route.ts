@@ -916,9 +916,17 @@ export async function POST(req: Request): Promise<Response> {
   // (o caminho ATUAL, 100% intacto, logo abaixo). A tabela é overlay, não a
   // allow-list única: o que não estiver nela (incl. Claude na Fase 1) vai pra
   // OpenRouter, que valida os próprios modelos.
+  //
+  // EM BYOK NÃO RESOLVEMOS NADA. `public.models` é a fonte de verdade do NOSSO
+  // roteamento — de qual das NOSSAS credenciais usar. Com a chave do usuário
+  // existe um destino só, a OpenRouter, e um Gemini pedido aqui é um Gemini
+  // servido por ela. Consultar a tabela faria o modelo ser classificado como
+  // "vertex" e recusado, negando ao usuário um modelo que a chave dele atende
+  // perfeitamente — a nossa curadoria decidindo sobre um dinheiro que não é
+  // nosso. Se o modelo não existir na OpenRouter, ela mesma responde o erro.
   let resolved: ResolvedModel | null = null
   try {
-    resolved = await resolveModel(model)
+    if (!byokKey) resolved = await resolveModel(model)
   } catch (e) {
     if (e instanceof RegionNotAllowedError) {
       // Recusa de segurança (anti-SSRF), não um "não encontrado".
@@ -927,21 +935,9 @@ export async function POST(req: Request): Promise<Response> {
     return json(502, { error: { message: `falha ao resolver modelo: ${(e as Error).message}`, type: 'upstream' } })
   }
 
-  // BYOK NÃO destrava a Vertex. A infra é nossa, a conta do Google é nossa e o
-  // custo é nosso — uma chave de terceiro não tem como pagar por ela. Recusa
-  // explícita em vez de ignorar o header em silêncio: o cliente precisa saber
-  // que a escolha dele não vale aqui, senão vira "por que meu crédito caiu?".
-  if (byokKey && resolved && resolved.provider === 'vertex') {
-    return json(400, {
-      error: {
-        message:
-          'este modelo roda na infraestrutura AXYOMA e é pago com créditos — sua chave própria não se aplica a ele. ' +
-          'Use um modelo da OpenRouter ou desligue a chave própria para este turno.',
-        type: 'byok_not_supported',
-      },
-    })
-  }
-
+  // Com `resolved` nulo em BYOK, os dois ramos Vertex abaixo ficam inalcançáveis
+  // por construção — a nossa infraestrutura Vertex nunca é acionada por uma
+  // credencial de terceiro, e não é preciso um guard extra para garantir isso.
   if (resolved && resolved.provider === 'vertex' && resolved.api_flavor === 'gemini_image') {
     return proxyVertexImage(userId, resolved, body, CORS)
   }
