@@ -12,6 +12,7 @@ import {
   InsufficientCreditsError,
 } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
+import { insufficientCreditsError } from '@/lib/credit-errors'
 import {
   resolveModel,
   RegionNotAllowedError,
@@ -442,6 +443,10 @@ async function proxyVertexImage(
       model: model.id,
       promptTokens: tokens.prompt,
       completionTokens: tokens.completion,
+      // Modelo Vertex: a franquia de bônus paga. Esta rota é o único caminho de
+      // cobrança sem reserva (gera a imagem e debita depois), então a decisão de
+      // pote vive aqui, e não num hold.
+      allowBonus: true,
     })
   } catch (e) {
     console.error('debit chat (vertex image) falhou', (e as Error).message)
@@ -572,6 +577,9 @@ async function proxyVertex(
       credits: estimateHoldCredits(body),
       kind: 'vertex',
       model: model.id,
+      // Caminho VERTEX por definição (só chegamos aqui com provider 'vertex'):
+      // a franquia de cadastro pode pagar.
+      allowBonus: true,
     })
   } catch (e) {
     if (e instanceof InsufficientCreditsError) {
@@ -932,10 +940,14 @@ export async function POST(req: Request): Promise<Response> {
       credits: estimateHoldCredits(body),
       kind: 'openrouter',
       model,
+      // SEM bônus: este caminho atende tudo que NÃO é Vertex (a tabela é overlay,
+      // não allow-list, então cai aqui todo modelo fora dela). A franquia de
+      // cadastro não vale aqui — é o ponto inteiro da restrição.
+      allowBonus: false,
     })
   } catch (e) {
     if (e instanceof InsufficientCreditsError) {
-      return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })
+      return json(402, await insufficientCreditsError(userId))
     }
     console.error('reserva de créditos falhou:', (e as Error).message)
     return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })

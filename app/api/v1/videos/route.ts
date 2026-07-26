@@ -256,7 +256,8 @@ export async function POST(req: Request): Promise<Response> {
 
   let holdId: string
   try {
-    holdId = await holdCredits({ userId, credits: holdCreditsAmount, kind: 'video', model: resolved.id })
+    // Vídeo é Veo, na Vertex: a franquia de cadastro paga.
+    holdId = await holdCredits({ userId, credits: holdCreditsAmount, kind: 'video', model: resolved.id, allowBonus: true })
   } catch (e) {
     if (e instanceof InsufficientCreditsError) {
       return json(402, { error: { message: 'créditos insuficientes para esta geração', type: 'insufficient_credits' } })

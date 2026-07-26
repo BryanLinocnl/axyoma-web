@@ -494,7 +494,9 @@ export async function GET(req: Request): Promise<Response> {
       creditsCharged = charged > 0 ? charged : null
     } else {
       balanceBefore = await getBalance(userId).catch(() => 0)
-      await debitUsage({ userId, costUsd, model })
+      // Caminho legado (operação submetida antes do ledger ganhar hold_id).
+      // Também é Vertex/Veo — a franquia paga.
+      await debitUsage({ userId, costUsd, model, allowBonus: true })
       const balanceAfter = await getBalance(userId).catch(() => balanceBefore)
       const delta = balanceBefore - balanceAfter
       creditsCharged = delta > 0 ? delta : null
