@@ -18,6 +18,8 @@
 // logo CORS não se aplica a eles. Só o renderer envia `Origin` — inclua a origem
 // do renderer na allow-list se ele bater direto no proxy.
 
+import { PROVIDER_KEY_HEADER } from '@/lib/byok'
+
 const WILDCARD = '*'
 
 /** `http://localhost:PORT` e `http://127.0.0.1:PORT` (dev do app desktop e do site). */
@@ -102,7 +104,9 @@ export function corsHeaders(req: Request, methods = 'GET, POST, OPTIONS'): Recor
   }
 
   const headers: Record<string, string> = {
-    'Access-Control-Allow-Headers': 'authorization, content-type',
+    // O header da chave BYOK precisa estar aqui, senão o preflight do browser
+    // derruba a requisição inteira antes de ela sair.
+    'Access-Control-Allow-Headers': `authorization, content-type, ${PROVIDER_KEY_HEADER}`,
     'Access-Control-Allow-Methods': methods,
     Vary: 'Origin',
   }

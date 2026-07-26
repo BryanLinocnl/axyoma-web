@@ -195,6 +195,49 @@ export async function checkRateLimit(params: {
 }
 
 /**
+ * Registra um turno pago pela chave DO USUÁRIO (BYOK). `credits = 0` — não há
+ * nada a cobrar: o dinheiro é dele e o custo em USD é entre ele e o fornecedor.
+ *
+ * Guardamos tokens/modelo/latência porque é o que sustenta as telas de uso e o
+ * diagnóstico ("por que este modelo está lento/errando"). NÃO guardamos custo:
+ * seria inventar um número, já que a fatura não passa por nós.
+ *
+ * Best-effort: falhar aqui não pode afetar a resposta de um turno que já foi
+ * entregue e que não nos custou nada.
+ */
+export async function logByokUsage(params: {
+  userId: string
+  provider: string
+  model?: string | null
+  promptTokens?: number
+  completionTokens?: number
+}): Promise<void> {
+  try {
+    const { url, key } = assertEnv()
+    await fetch(`${url}/rest/v1/usage_log`, {
+      method: 'POST',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        user_id: params.userId,
+        kind: 'byok',
+        model: params.model ?? null,
+        prompt_tokens: params.promptTokens ?? 0,
+        completion_tokens: params.completionTokens ?? 0,
+        credits: 0,
+        meta: { via: 'proxy', source: 'byok', provider: params.provider },
+      }),
+    })
+  } catch (e) {
+    console.error('logByokUsage falhou:', (e as Error).message)
+  }
+}
+
+/**
  * Marcador de reconciliação: registra uma geração que NÃO pôde ser debitada de
  * forma confiável (débito lançou exceção) para conciliação posterior — sem risco
  * de cobrança dupla. Best-effort (nunca quebra a resposta). Ver tabela
