@@ -129,7 +129,18 @@ try {
   })
   add('chave BYOK não substitui o JWT', byokSemJwt.status === 401, `HTTP ${byokSemJwt.status}`)
 
-  // 3. e 4. A chave não pode voltar ao cliente nem parar no log.
+  // 3. BYOK não pode ser barrado por modelo: a tabela `public.models` é sobre o
+  //    NOSSO roteamento, e um Gemini pedido com a chave do usuário é servido
+  //    pela OpenRouter. Se voltar a resolver a tabela em BYOK, este teste cai
+  //    (o 400 de "byok_not_supported" apareceria antes do 401 de auth).
+  const byokGemini = await fetch(BASE + '/api/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Axyoma-Provider-Key': CHAVE_FALSA },
+    body: JSON.stringify({ model: 'google/gemini-2.5-pro', messages: [{ role: 'user', content: 'oi' }] }),
+  })
+  add('BYOK não é recusado por modelo do Google', byokGemini.status !== 400, `HTTP ${byokGemini.status}`)
+
+  // 4. e 5. A chave não pode voltar ao cliente nem parar no log.
   const corpoByok = await byokSemJwt.text()
   add('chave BYOK não ecoa no corpo da resposta', !corpoByok.includes(CHAVE_FALSA), corpoByok.slice(0, 100))
   await new Promise((r) => setTimeout(r, 500))
