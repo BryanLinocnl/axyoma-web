@@ -14,12 +14,13 @@
 --     para Vertex; deixá-la parada enquanto o crédito comprado é queimado seria
 --     desperdiçar o dinheiro do usuário.
 --
--- ⚠️ ORDEM DE IMPLANTAÇÃO: aplicar ESTA migration ANTES de subir o código que
--- lê `bonus_balance`. O `getBalance` do web foi escrito tolerante (bônus ausente
--- = 0), então os dois lados sobrevivem à janela entre um e outro — mas o proxy
--- só passa a respeitar a restrição depois que as duas pontas estiverem no ar.
+-- ⚠️ ORDEM DE IMPLANTAÇÃO: esta migration vem ANTES do código que lê
+-- `bonus_balance` e que passa `p_allow_bonus`. O `getBalances` do web foi
+-- escrito tolerante (RPC ausente → bônus 0), então a janela entre um e outro não
+-- derruba tela; mas o proxy só passa a respeitar a restrição com as duas pontas
+-- no ar.
 --
--- Idempotente. NÃO aplicar automaticamente — revisar e aplicar manualmente.
+-- Idempotente. APLICADA em 2026-07-25.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
