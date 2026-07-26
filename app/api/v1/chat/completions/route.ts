@@ -5,6 +5,7 @@ import {
   debitUsage,
   checkRateLimit,
   recordPendingCharge,
+  logByokUsage,
   getSpendTodayUsd,
   holdCredits,
   settleHold,
@@ -12,6 +13,8 @@ import {
   InsufficientCreditsError,
 } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
+import { insufficientCreditsError } from '@/lib/credit-errors'
+import { readProviderKey, scrubSecret } from '@/lib/byok'
 import {
   resolveModel,
   RegionNotAllowedError,
@@ -163,15 +166,22 @@ const VERTEX_FALLBACK_REGION = 'global'
 // todo 4xx do provedor virava caixa-preta e obrigava a adivinhar a causa. Só a
 // `error.message` do provedor (validação/limite) — cap de tamanho; nunca o corpo
 // cru inteiro (que pode ter ruído/infra).
-function upstreamErrorMessage(detail: string): string {
+// Mensagem de erro do upstream para o CLIENTE.
+//
+// O scrub é feito AQUI DENTRO, não em cada chamador: esta função é o único
+// caminho pelo qual corpo de upstream vira texto voltado ao usuário, e um call
+// site novo não pode ter a chance de esquecer. `secret` cobre a chave BYOK desta
+// requisição; o padrão genérico dentro de `scrubSecret` cobre o resto.
+function upstreamErrorMessage(detail: string, secret?: string | null): string {
   const fallback = 'falha no provedor de modelo'
   if (!detail) return fallback
+  const clean = scrubSecret(detail, secret)
   try {
-    const j = JSON.parse(detail)
+    const j = JSON.parse(clean)
     const msg = j?.error?.message ?? (Array.isArray(j) ? j[0]?.error?.message : undefined)
-    if (typeof msg === 'string' && msg.trim()) return `provedor: ${msg.trim().slice(0, 300)}`
+    if (typeof msg === 'string' && msg.trim()) return `provedor: ${scrubSecret(msg.trim(), secret).slice(0, 300)}`
   } catch { /* não é JSON */ }
-  const t = detail.trim()
+  const t = clean.trim()
   return t ? `provedor: ${t.slice(0, 300)}` : fallback
 }
 
@@ -377,7 +387,7 @@ async function proxyVertexImage(
           healedRegion = VERTEX_FALLBACK_REGION
         } else {
           const rdetail = await retry.text().catch(() => '')
-          console.error('vertex image retry global não-ok', retry.status, rdetail || retry.statusText)
+          console.error('vertex image retry global não-ok', retry.status, scrubSecret(rdetail || retry.statusText))
           return json(retry.status || 502, {
             error: { message: 'falha no provedor de modelo', type: 'upstream' },
           })
@@ -387,7 +397,7 @@ async function proxyVertexImage(
         return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
       }
     } else {
-      console.error('vertex image upstream não-ok', upstream.status, detail || upstream.statusText)
+      console.error('vertex image upstream não-ok', upstream.status, scrubSecret(detail || upstream.statusText))
       return json(upstream.status || 502, {
         error: { message: 'falha no provedor de modelo', type: 'upstream' },
       })
@@ -442,6 +452,10 @@ async function proxyVertexImage(
       model: model.id,
       promptTokens: tokens.prompt,
       completionTokens: tokens.completion,
+      // Modelo Vertex: a franquia de bônus paga. Esta rota é o único caminho de
+      // cobrança sem reserva (gera a imagem e debita depois), então a decisão de
+      // pote vive aqui, e não num hold.
+      allowBonus: true,
     })
   } catch (e) {
     console.error('debit chat (vertex image) falhou', (e as Error).message)
@@ -572,6 +586,9 @@ async function proxyVertex(
       credits: estimateHoldCredits(body),
       kind: 'vertex',
       model: model.id,
+      // Caminho VERTEX por definição (só chegamos aqui com provider 'vertex'):
+      // a franquia de cadastro pode pagar.
+      allowBonus: true,
     })
   } catch (e) {
     if (e instanceof InsufficientCreditsError) {
@@ -620,7 +637,7 @@ async function proxyVertex(
           healedRegion = VERTEX_FALLBACK_REGION
         } else {
           const rdetail = await retry.text().catch(() => '')
-          console.error('vertex retry global não-ok', retry.status, rdetail || retry.statusText)
+          console.error('vertex retry global não-ok', retry.status, scrubSecret(rdetail || retry.statusText))
           if (holdId) await releaseHold(holdId).catch(() => {})
           return json(retry.status || 502, {
             error: { message: upstreamErrorMessage(rdetail), type: 'upstream' },
@@ -633,7 +650,7 @@ async function proxyVertex(
       }
     } else {
       // Não é caso de fallback (ou 'global' não permitido): tratamento atual.
-      console.error('vertex upstream não-ok', upstream.status, detail || upstream.statusText)
+      console.error('vertex upstream não-ok', upstream.status, scrubSecret(detail || upstream.statusText))
       if (holdId) await releaseHold(holdId).catch(() => {})
       return json(upstream.status || 502, {
         error: { message: upstreamErrorMessage(detail), type: 'upstream' },
@@ -817,26 +834,40 @@ export async function POST(req: Request): Promise<Response> {
     )
   }
 
+  // 2b) BYOK: chave do PRÓPRIO usuário. Presente = ele paga o fornecedor direto;
+  // não tocamos no saldo dele nem no nosso. Fica em memória durante a requisição
+  // e é descartada — ver `lib/byok.ts`.
+  const byokKey = readProviderKey(req)
+
   // 3) Gate de saldo. ATENÇÃO: isto é só um atalho para responder 402 cedo — a
   // proteção real é a RESERVA atômica (hold) feita logo antes de chamar o
   // upstream. Um `balance > 0` sozinho não segura nada: N requisições
   // simultâneas leem o mesmo saldo e todas passam.
-  try {
-    const balance = await getBalance(userId)
-    if (!(balance > 0)) {
-      return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })
+  //
+  // PULADO em BYOK: cobrar saldo de quem trouxe a própria chave seria negar o
+  // serviço por uma conta que não é a que vai pagar.
+  if (!byokKey) {
+    try {
+      const balance = await getBalance(userId)
+      if (!(balance > 0)) {
+        return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })
+      }
+    } catch (e) {
+      // Sem detalhe do PostgREST no corpo (vazava nome de RPC/coluna/constraint).
+      console.error('checar saldo falhou:', (e as Error).message)
+      return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })
     }
-  } catch (e) {
-    // Sem detalhe do PostgREST no corpo (vazava nome de RPC/coluna/constraint).
-    console.error('checar saldo falhou:', (e as Error).message)
-    return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })
   }
 
   // 3b) Cap de gasto diário (§7) — DESABILITADO por padrão. Só ativo quando
   // DAILY_SPEND_CAP_USD > 0. Soma o gasto USD do dia (usage_log) e barra com 402
   // se já atingiu/excedeu o teto. FAIL-OPEN: erro de infra não bloqueia (a soma
   // já devolve 0 nesse caso), pois é uma feature opcional.
-  if (Number.isFinite(DAILY_SPEND_CAP_USD) && DAILY_SPEND_CAP_USD > 0) {
+  // Também pulado em BYOK: o cap existe para limitar o que NÓS pagamos ao
+  // provedor num incidente. Com a chave do usuário não pagamos nada — o teto
+  // dele é o da conta dele. O rate limit por usuário continua valendo (ver 2),
+  // porque duração de função é custo nosso mesmo em BYOK.
+  if (!byokKey && Number.isFinite(DAILY_SPEND_CAP_USD) && DAILY_SPEND_CAP_USD > 0) {
     try {
       const spentTodayUsd = await getSpendTodayUsd(userId)
       if (spentTodayUsd >= DAILY_SPEND_CAP_USD) {
@@ -896,6 +927,21 @@ export async function POST(req: Request): Promise<Response> {
     return json(502, { error: { message: `falha ao resolver modelo: ${(e as Error).message}`, type: 'upstream' } })
   }
 
+  // BYOK NÃO destrava a Vertex. A infra é nossa, a conta do Google é nossa e o
+  // custo é nosso — uma chave de terceiro não tem como pagar por ela. Recusa
+  // explícita em vez de ignorar o header em silêncio: o cliente precisa saber
+  // que a escolha dele não vale aqui, senão vira "por que meu crédito caiu?".
+  if (byokKey && resolved && resolved.provider === 'vertex') {
+    return json(400, {
+      error: {
+        message:
+          'este modelo roda na infraestrutura AXYOMA e é pago com créditos — sua chave própria não se aplica a ele. ' +
+          'Use um modelo da OpenRouter ou desligue a chave própria para este turno.',
+        type: 'byok_not_supported',
+      },
+    })
+  }
+
   if (resolved && resolved.provider === 'vertex' && resolved.api_flavor === 'gemini_image') {
     return proxyVertexImage(userId, resolved, body, CORS)
   }
@@ -917,28 +963,37 @@ export async function POST(req: Request): Promise<Response> {
   // plugin de busca, ~US$ 4/1000 resultados) não passam vindos do cliente.
   delete (body as Record<string, unknown>).plugins
 
-  // 5) Encaminha à OpenRouter com a chave real (só existe aqui).
-  const key = process.env.OPENROUTER_KEY
+  // 5) Encaminha à OpenRouter. Em BYOK, com a chave do USUÁRIO; senão, com a
+  // nossa (que só existe do lado servidor).
+  const key = byokKey ?? process.env.OPENROUTER_KEY
   if (!key) return json(500, { error: { message: 'OPENROUTER_KEY ausente', type: 'config' } })
 
   // RESERVA (auditoria C-7): debita uma estimativa ANTES de gastar dinheiro no
   // upstream. É atômica no banco (`where balance >= …`), então requisições
   // concorrentes serializam em vez de todas passarem pelo mesmo saldo lido.
   // No fim, settleHold troca a estimativa pelo custo real (devolve a diferença).
+  // Em BYOK não há reserva: não existe saldo nosso em risco, e reservar crédito
+  // de quem trouxe a própria chave seria cobrar duas vezes pelo mesmo turno.
   let holdId: string | null = null
-  try {
-    holdId = await holdCredits({
-      userId,
-      credits: estimateHoldCredits(body),
-      kind: 'openrouter',
-      model,
-    })
-  } catch (e) {
-    if (e instanceof InsufficientCreditsError) {
-      return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })
+  if (!byokKey) {
+    try {
+      holdId = await holdCredits({
+        userId,
+        credits: estimateHoldCredits(body),
+        kind: 'openrouter',
+        model,
+        // SEM bônus: este caminho atende tudo que NÃO é Vertex (a tabela é overlay,
+        // não allow-list, então cai aqui todo modelo fora dela). A franquia de
+        // cadastro não vale aqui — é o ponto inteiro da restrição.
+        allowBonus: false,
+      })
+    } catch (e) {
+      if (e instanceof InsufficientCreditsError) {
+        return json(402, await insufficientCreditsError(userId))
+      }
+      console.error('reserva de créditos falhou:', (e as Error).message)
+      return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })
     }
-    console.error('reserva de créditos falhou:', (e as Error).message)
-    return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })
   }
 
   const upstream = await fetch(`${OPENROUTER}/chat/completions`, {
@@ -956,11 +1011,14 @@ export async function POST(req: Request): Promise<Response> {
     const detail = await upstream.text().catch(() => '')
     // Corpo cru do upstream só server-side; preservamos o status HTTP e devolvemos
     // ao client uma mensagem genérica (o corpo cru pode vazar detalhes de infra).
-    console.error('openrouter upstream não-ok', upstream.status, detail || upstream.statusText)
+    // SCRUB OBRIGATÓRIO: `detail` é o corpo CRU do upstream e, num erro de
+    // autenticação, é exatamente onde uma credencial pode ecoar de volta. Este
+    // log vai para o painel da Vercel em texto puro.
+    console.error('openrouter upstream não-ok', upstream.status, scrubSecret(detail || upstream.statusText, byokKey))
     // Nada foi gerado → devolve a reserva inteira.
     if (holdId) await releaseHold(holdId).catch(() => {})
     return json(upstream.status || 502, {
-      error: { message: upstreamErrorMessage(detail), type: 'upstream' },
+      error: { message: upstreamErrorMessage(detail, byokKey), type: 'upstream' },
     })
   }
 
@@ -991,6 +1049,19 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const settle = async (): Promise<void> => {
+    // BYOK: nada a cobrar — o dinheiro é do usuário e a fatura não passa por
+    // nós. Registramos o uso com credits = 0 para as telas de consumo e o
+    // diagnóstico continuarem funcionando, sem inventar um custo.
+    if (byokKey) {
+      await logByokUsage({
+        userId,
+        provider: 'openrouter',
+        model,
+        promptTokens: lastUsage?.prompt_tokens,
+        completionTokens: lastUsage?.completion_tokens,
+      })
+      return
+    }
     try {
       const hasCost = lastUsage && typeof lastUsage.cost === 'number' && lastUsage.cost >= 0
       // Liquida a RESERVA: cobra o custo real e devolve a diferença. Se por

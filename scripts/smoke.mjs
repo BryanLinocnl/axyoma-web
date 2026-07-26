@@ -17,8 +17,12 @@ const server = spawn('npx', ['next', 'start', '-p', PORT], {
   stdio: ['ignore', 'pipe', 'pipe'],
   env: { ...process.env, NODE_ENV: 'production' },
 })
-server.stdout.on('data', (b) => process.env.SMOKE_VERBOSE && process.stdout.write(b))
-server.stderr.on('data', (b) => process.env.SMOKE_VERBOSE && process.stderr.write(b))
+// O log do servidor é ACUMULADO (não só ecoado): é nele que a checagem de
+// vazamento da chave BYOK procura. Um segredo que aparece aqui apareceria no
+// painel da Vercel em texto puro.
+let serverLog = ''
+server.stdout.on('data', (b) => { serverLog += b; if (process.env.SMOKE_VERBOSE) process.stdout.write(b) })
+server.stderr.on('data', (b) => { serverLog += b; if (process.env.SMOKE_VERBOSE) process.stderr.write(b) })
 
 async function waitUp() {
   for (let i = 0; i < 60; i++) {
@@ -102,6 +106,34 @@ try {
     dev.headers.get('access-control-allow-origin') === 'http://localhost:5173',
     dev.headers.get('access-control-allow-origin') ?? '(ausente)',
   )
+  // ── BYOK: a chave do usuário trafega por header a cada requisição ─────────
+  // O risco do BYOK não é o fio (HTTPS), é o NOSSO log e o NOSSO corpo de erro.
+  // Estas checagens existem porque nenhuma delas falha em type-check ou build.
+  const CHAVE_FALSA = 'sk-or-v1-CHAVEDESMOKE00000000000000000000'
+
+  // 1. Sem isto o preflight do browser derruba a requisição antes de ela sair.
+  const preByok = await fetch(BASE + '/api/v1/chat/completions', {
+    method: 'OPTIONS',
+    headers: { Origin: 'null', 'Access-Control-Request-Method': 'POST' },
+  })
+  const allowHdr = (preByok.headers.get('access-control-allow-headers') || '').toLowerCase()
+  add('CORS libera o header da chave BYOK', allowHdr.includes('x-axyoma-provider-key'), allowHdr || '(ausente)')
+
+  // 2. A chave do fornecedor NÃO é credencial de acesso ao proxy. Se um dia
+  //    passar a valer como autenticação, qualquer um com uma chave da OpenRouter
+  //    entra na conta de outro.
+  const byokSemJwt = await fetch(BASE + '/api/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Axyoma-Provider-Key': CHAVE_FALSA },
+    body: JSON.stringify({ model: 'anthropic/claude-opus-4.8', messages: [{ role: 'user', content: 'oi' }] }),
+  })
+  add('chave BYOK não substitui o JWT', byokSemJwt.status === 401, `HTTP ${byokSemJwt.status}`)
+
+  // 3. e 4. A chave não pode voltar ao cliente nem parar no log.
+  const corpoByok = await byokSemJwt.text()
+  add('chave BYOK não ecoa no corpo da resposta', !corpoByok.includes(CHAVE_FALSA), corpoByok.slice(0, 100))
+  await new Promise((r) => setTimeout(r, 500))
+  add('chave BYOK não aparece no log do servidor', !serverLog.includes(CHAVE_FALSA), '(rode com SMOKE_VERBOSE=1)')
 } catch (e) {
   add('execução do smoke', false, e.message)
 } finally {

@@ -2,6 +2,21 @@ import { corsHeaders } from '@/lib/cors'
 import { verifyUser } from '@/lib/auth'
 import { checkRateLimit } from '@/lib/supabase-admin'
 
+// Catálogo de modelos, PARAMETRIZADO POR FONTE (`?source=`).
+//
+//   • source=axyoma (default) — o merge descrito abaixo. É TUDO o que os
+//     créditos AXYOMA cobrem: `public.models` é overlay de roteamento/preço, não
+//     allow-list; o que não está na tabela cai no fallback OpenRouter com a
+//     NOSSA chave e debita crédito igual (ver chat/completions/route.ts).
+//   • source=openrouter — catálogo público CRU da OpenRouter, para quem usa a
+//     PRÓPRIA chave. Aqui NÃO tiramos os modelos que também estão na tabela: a
+//     chave do usuário atende esses modelos tanto quanto a nossa. Esconder um
+//     Gemini desta lista só porque ele também é vendido por nós seria decidir
+//     pelo usuário de que bolso ele paga.
+//
+// Não há dedup ENTRE fontes — é de propósito. O mesmo modelo aparecer nas duas
+// listas é a informação, não o defeito: cada uma cobra de um lugar diferente.
+//
 // Catálogo de modelos — MERGE de duas fontes:
 //   1) catálogo PÚBLICO da OpenRouter (a rota /models não exige chave), como
 //      "piso" da lista — traz todo o universo de modelos disponíveis;
@@ -213,8 +228,18 @@ export async function GET(req: Request): Promise<Response> {
   })
   if (!rl.allowed) return fail(429, 'muitas consultas — tente em instantes', 'rate_limit')
 
-  const [openrouter, table] = await Promise.all([fetchOpenRouterCatalog(), fetchModelsTable()])
-  const data = mergeCatalogs(openrouter, table)
+  // Fonte pedida. Desconhecida → `axyoma` (o comportamento de sempre): um
+  // parâmetro errado não pode virar catálogo vazio no cliente.
+  const source = new URL(req.url).searchParams.get('source') === 'openrouter' ? 'openrouter' : 'axyoma'
+
+  // `openrouter` não precisa da tabela: aquela lista é o catálogo do fornecedor,
+  // sem a nossa curadoria (e sem os nossos preços, que ali não se aplicam — quem
+  // paga é a chave do usuário).
+  const [openrouter, table] = await Promise.all([
+    fetchOpenRouterCatalog(),
+    source === 'axyoma' ? fetchModelsTable() : Promise.resolve([] as ModelsTableRow[]),
+  ])
+  const data = source === 'axyoma' ? mergeCatalogs(openrouter, table) : openrouter
 
   return new Response(JSON.stringify({ data }), {
     status: 200,

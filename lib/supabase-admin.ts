@@ -55,10 +55,50 @@ export async function getBillingConfig(): Promise<BillingConfig> {
   }
 }
 
-/** Saldo atual do usuário (gate pré-request). Retorna número (créditos). */
+/**
+ * Saldo TOTAL do usuário (gate pré-request): comprado + franquia de bônus.
+ *
+ * Continua devolvendo um número só de propósito — é o que todo gate de 402 usa
+ * (`balance > 0`). Quem decide se o bônus pode ser gasto NAQUELA requisição é o
+ * `hold_credits`, pelo `allowBonus`. O gate só precisa saber se há dinheiro.
+ */
 export async function getBalance(userId: string): Promise<number> {
   const v = await rpc<number>('get_balance_admin', { p_user: userId })
   return typeof v === 'number' ? v : Number(v ?? 0)
+}
+
+/** Saldo discriminado, para telas que mostram os dois potes separados. */
+export type CreditBalances = {
+  /** Crédito comprado. Vale em qualquer modelo. */
+  balance: number
+  /** Franquia de cadastro. Só sai em modelo Vertex. */
+  bonus: number
+  total: number
+}
+
+/**
+ * Leitura discriminada dos dois potes.
+ *
+ * TOLERANTE À JANELA DE IMPLANTAÇÃO: se a migration do bônus ainda não foi
+ * aplicada, a RPC não existe e caímos em `getBalance`, reportando tudo como
+ * comprado e bônus 0. É o degrade certo — mostra um número verdadeiro (o total)
+ * em vez de derrubar a tela.
+ */
+export async function getBalances(userId: string): Promise<CreditBalances> {
+  try {
+    const v = await rpc<{ balance?: number; bonus?: number; total?: number }>(
+      'get_credit_balances_admin',
+      { p_user: userId },
+    )
+    return {
+      balance: Number(v?.balance ?? 0),
+      bonus: Number(v?.bonus ?? 0),
+      total: Number(v?.total ?? 0),
+    }
+  } catch {
+    const total = await getBalance(userId)
+    return { balance: total, bonus: 0, total }
+  }
 }
 
 /**
@@ -155,6 +195,49 @@ export async function checkRateLimit(params: {
 }
 
 /**
+ * Registra um turno pago pela chave DO USUÁRIO (BYOK). `credits = 0` — não há
+ * nada a cobrar: o dinheiro é dele e o custo em USD é entre ele e o fornecedor.
+ *
+ * Guardamos tokens/modelo/latência porque é o que sustenta as telas de uso e o
+ * diagnóstico ("por que este modelo está lento/errando"). NÃO guardamos custo:
+ * seria inventar um número, já que a fatura não passa por nós.
+ *
+ * Best-effort: falhar aqui não pode afetar a resposta de um turno que já foi
+ * entregue e que não nos custou nada.
+ */
+export async function logByokUsage(params: {
+  userId: string
+  provider: string
+  model?: string | null
+  promptTokens?: number
+  completionTokens?: number
+}): Promise<void> {
+  try {
+    const { url, key } = assertEnv()
+    await fetch(`${url}/rest/v1/usage_log`, {
+      method: 'POST',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        user_id: params.userId,
+        kind: 'byok',
+        model: params.model ?? null,
+        prompt_tokens: params.promptTokens ?? 0,
+        completion_tokens: params.completionTokens ?? 0,
+        credits: 0,
+        meta: { via: 'proxy', source: 'byok', provider: params.provider },
+      }),
+    })
+  } catch (e) {
+    console.error('logByokUsage falhou:', (e as Error).message)
+  }
+}
+
+/**
  * Marcador de reconciliação: registra uma geração que NÃO pôde ser debitada de
  * forma confiável (débito lançou exceção) para conciliação posterior — sem risco
  * de cobrança dupla. Best-effort (nunca quebra a resposta). Ver tabela
@@ -223,6 +306,14 @@ export async function holdCredits(params: {
   credits: number
   kind?: string
   model?: string | null
+  /**
+   * A franquia de bônus pode pagar esta requisição? SÓ para modelo Vertex.
+   *
+   * Default `false` — fail-closed de propósito: um chamador esquecido cobra do
+   * pote comprado, o que no máximo é generoso com a gente e nunca libera a
+   * franquia num modelo que não é Vertex. O erro barato é o que a gente escolhe.
+   */
+  allowBonus?: boolean
 }): Promise<string> {
   try {
     return await rpc<string>('hold_credits', {
@@ -230,6 +321,7 @@ export async function holdCredits(params: {
       p_credits: params.credits,
       p_kind: params.kind ?? 'chat',
       p_model: params.model ?? null,
+      p_allow_bonus: params.allowBonus === true,
     })
   } catch (e) {
     if (/saldo insuficiente/i.test((e as Error).message)) throw new InsufficientCreditsError()
@@ -309,6 +401,14 @@ export async function debitUsage(params: {
   model?: string | null
   promptTokens?: number
   completionTokens?: number
+  /**
+   * Mesma regra do `holdCredits`: só modelo Vertex pode consumir a franquia.
+   * Importa aqui porque este é o caminho SEM reserva, e o caso principal dele é
+   * justamente Vertex — a geração de imagem do `proxyVertexImage`, que gera
+   * primeiro e debita depois. Sem isto a imagem queimaria crédito comprado com
+   * a franquia parada ao lado.
+   */
+  allowBonus?: boolean
 }): Promise<void> {
   const args: Record<string, unknown> = {
     p_user: params.userId,
@@ -316,6 +416,7 @@ export async function debitUsage(params: {
     p_model: params.model ?? null,
     p_prompt_tokens: params.promptTokens ?? 0,
     p_completion_tokens: params.completionTokens ?? 0,
+    p_allow_bonus: params.allowBonus === true,
   }
 
   const rawMargin = process.env.CREDIT_MARGIN_MULTIPLIER

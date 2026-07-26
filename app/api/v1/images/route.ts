@@ -11,6 +11,7 @@ import {
   InsufficientCreditsError,
 } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
+import { insufficientCreditsError } from '@/lib/credit-errors'
 import { resolveModel, RegionNotAllowedError, type ResolvedModel } from '@/lib/model-registry'
 import { getAccessToken } from '@/lib/google-auth'
 import { buildGenerateContentUrl, extractInlineImages } from '@/lib/vertex'
@@ -304,10 +305,11 @@ export async function POST(req: Request): Promise<Response> {
   // 5) RESERVA antes de qualquer chamada externa (A-1).
   let holdId: string
   try {
-    holdId = await holdCredits({ userId, credits: HOLD_CREDITS, kind: 'image', model })
+    // Ramo OPENROUTER: a franquia de cadastro não vale aqui.
+    holdId = await holdCredits({ userId, credits: HOLD_CREDITS, kind: 'image', model, allowBonus: false })
   } catch (e) {
     if (e instanceof InsufficientCreditsError) {
-      return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })
+      return json(402, await insufficientCreditsError(userId))
     }
     console.error('reserva de créditos (imagem) falhou:', (e as Error).message)
     return json(502, { error: { message: 'serviço indisponível', type: 'upstream' } })
@@ -469,7 +471,8 @@ async function generateVertexImage(args: {
   // RESERVA antes de gastar no upstream (A-1) — mesma proteção do ramo OpenRouter.
   let holdId: string
   try {
-    holdId = await holdCredits({ userId, credits: HOLD_CREDITS, kind: 'image', model })
+    // Ramo VERTEX: a franquia paga.
+    holdId = await holdCredits({ userId, credits: HOLD_CREDITS, kind: 'image', model, allowBonus: true })
   } catch (e) {
     if (e instanceof InsufficientCreditsError) {
       return json(402, { error: { message: 'créditos esgotados', type: 'insufficient_credits' } })

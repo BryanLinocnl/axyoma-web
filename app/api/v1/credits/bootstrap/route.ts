@@ -1,5 +1,5 @@
 import { verifyUser } from '@/lib/auth'
-import { checkRateLimit, grantSignupBonus, getAuthUser } from '@/lib/supabase-admin'
+import { checkRateLimit, grantSignupBonus, getAuthUser, getBalances } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
 
 // Bônus de cadastro (crédito grátis do primeiro acesso).
@@ -149,8 +149,13 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
-    const balance = await grantSignupBonus(userId, bonusCredits())
-    return json(200, { balance })
+    await grantSignupBonus(userId, bonusCredits())
+    // `grantSignupBonus` devolve só o pote de BÔNUS. Devolver aquilo como
+    // `balance` esconderia o crédito comprado de quem já comprou — e mostraria
+    // 0 para quem tem saldo. O contrato desta rota é o saldo GASTÁVEL, que é a
+    // soma; os dois potes vão à parte para quem quiser discriminar.
+    const { balance: purchased, bonus, total } = await getBalances(userId)
+    return json(200, { balance: total, purchased, bonus, total })
   } catch (e) {
     // Nunca quebra o login: o app segue lendo o saldo direto do Supabase e
     // tenta de novo no próximo carregamento.
