@@ -1,0 +1,22 @@
+-- =============================================================================
+-- Fecha o bucket `skills` para o público autenticado.
+--
+-- A policy abaixo tinha `qual: bucket_id = 'skills'` e role `authenticated`, ou
+-- seja: qualquer conta logada assinava a URL de qualquer skill. O gate de plano
+-- vivia só na UI do desktop — escondia os cards do catálogo e nada mais. Uma
+-- conta Free (que por `plans.features.skillTiers = []` não deveria enxergar
+-- skill nenhuma) baixava as 207, incluindo as 41 de tier `teams`.
+--
+-- Quem emite o link agora é `POST /api/v1/skills/download`, que cruza
+-- `public.skills.tier` com os entitlements do usuário e assina com a service
+-- role. A service role não passa por RLS, então o bucket pode ficar sem
+-- nenhuma policy de leitura.
+--
+-- ORDEM DE APLICAÇÃO: a rota tem que estar no ar ANTES desta migration.
+-- Depois dela, versões antigas do desktop (que pediam a signed URL direto ao
+-- Storage) passam a receber erro ao baixar do catálogo — o que é aceitável
+-- porque, nessas versões, quem enxerga o catálogo é apenas plano pago, e não há
+-- assinatura ativa em produção.
+-- =============================================================================
+
+drop policy if exists "skills objects read authenticated" on storage.objects;

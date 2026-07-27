@@ -65,6 +65,7 @@ try {
     ['/api/v1/videos', 'POST'],
     ['/api/v1/search', 'POST'],
     ['/api/v1/credits/bootstrap', 'POST'],
+    ['/api/v1/skills/download', 'POST'],
     ['/api/translate', 'POST'],
     ['/api/billing/config', 'GET'],
     ['/api/admin/metrics', 'GET'],
