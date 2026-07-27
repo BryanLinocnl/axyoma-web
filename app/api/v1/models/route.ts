@@ -88,6 +88,37 @@ interface ModelsTableRow {
 const MODELS_TABLE_SELECT =
   'id,display_name,context_length,input_modalities,output_modalities,supported_parameters,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order,max_reference_images'
 
+// `public.byok_models` — catálogo dos provedores em que a chave é DO USUÁRIO.
+//
+// Tabela separada de `public.models` de propósito. As duas descrevem modelos,
+// mas respondem perguntas diferentes:
+//
+//   • `models`      → o que NÓS servimos. Carrega roteamento (`upstream_model_id`,
+//                     `region`, `vertex_publisher`) e o preço que entra na NOSSA
+//                     margem. Mexer nela mexe em cobrança.
+//   • `byok_models` → só descrição de catálogo. Não roteia nada e o preço é o
+//                     PÚBLICO do fornecedor, usado apenas para estimar custo na
+//                     tela. Ninguém é cobrado por nós aqui.
+//
+// Juntar as duas obrigaria a filtrar por `provider` em todo lugar que hoje lê a
+// tabela inteira — e esquecer um filtro colocaria um GPT na lista de créditos
+// AXYOMA, onde ele falharia por não existir chave da OpenAI no servidor.
+interface ByokModelRow {
+  id: string
+  provider: string
+  display_name: string
+  context_length: number
+  input_modalities: string[]
+  output_modalities: string[]
+  supported_parameters: string[]
+  input_price_usd_per_mtok: number | string
+  output_price_usd_per_mtok: number | string
+  sort_order: number
+}
+
+const BYOK_MODELS_SELECT =
+  'id,provider,display_name,context_length,input_modalities,output_modalities,supported_parameters,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order'
+
 export function OPTIONS(req: Request): Response {
   return new Response(null, { status: 204, headers: corsHeaders(req, 'GET, OPTIONS') })
 }
@@ -149,6 +180,51 @@ async function fetchModelsTable(): Promise<ModelsTableRow[]> {
 function usdPerMtokToPerToken(v: number | string): string {
   const n = Number(v)
   return Number.isFinite(n) ? String(n / 1e6) : '0'
+}
+
+// Busca o catálogo BYOK de UMA fonte. Falha -> [] (degrada com graça: o app
+// mostra "nenhum modelo" em vez de um catálogo pela metade).
+async function fetchByokModels(provider: string): Promise<ByokModelRow[]> {
+  if (!SUPABASE_URL || !SERVICE_ROLE) {
+    console.error('SUPABASE_URL/SERVICE_ROLE_KEY ausentes — catálogo BYOK indisponível')
+    return []
+  }
+  try {
+    const qs = new URLSearchParams({
+      select: BYOK_MODELS_SELECT,
+      provider: `eq.${provider}`,
+      enabled: 'eq.true',
+      order: 'sort_order.asc',
+    })
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/byok_models?${qs.toString()}`, {
+      headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` },
+    })
+    if (!res.ok) {
+      console.error(`byok_models select falhou (${res.status}): ${await res.text().catch(() => '')}`)
+      return []
+    }
+    return (await res.json()) as ByokModelRow[]
+  } catch (e) {
+    console.error('byok_models indisponível:', (e as Error).message)
+    return []
+  }
+}
+
+function byokRowToRawModel(row: ByokModelRow): RawModel {
+  return {
+    id: row.id,
+    name: row.display_name,
+    context_length: row.context_length ?? 0,
+    pricing: {
+      prompt: usdPerMtokToPerToken(row.input_price_usd_per_mtok),
+      completion: usdPerMtokToPerToken(row.output_price_usd_per_mtok),
+    },
+    architecture: {
+      input_modalities: row.input_modalities ?? [],
+      output_modalities: row.output_modalities ?? [],
+    },
+    supported_parameters: row.supported_parameters ?? [],
+  }
 }
 
 // Linha da tabela -> mesmo shape RawModel da OpenRouter (só campos seguros).
@@ -230,7 +306,30 @@ export async function GET(req: Request): Promise<Response> {
 
   // Fonte pedida. Desconhecida → `axyoma` (o comportamento de sempre): um
   // parâmetro errado não pode virar catálogo vazio no cliente.
-  const source = new URL(req.url).searchParams.get('source') === 'openrouter' ? 'openrouter' : 'axyoma'
+  const pedida = new URL(req.url).searchParams.get('source')
+  const source: 'axyoma' | 'openrouter' | 'openai' =
+    pedida === 'openrouter' ? 'openrouter' : pedida === 'openai' ? 'openai' : 'axyoma'
+
+  // `openai` sai por um caminho próprio: não consulta a OpenRouter (o catálogo
+  // dela não lista modelos da OpenAI sob os ids que a API da OpenAI usa —
+  // `gpt-5`, não `openai/gpt-5`) nem `public.models` (que é a nossa curadoria de
+  // roteamento e cobrança, e aqui não cobramos nada).
+  //
+  // A curadoria vem de `byok_models` porque o `/v1/models` da OpenAI devolve
+  // apenas `id`, `object`, `created` e `owned_by` — sem preço, sem janela de
+  // contexto, sem capacidades. Uma busca ao vivo daria uma lista de ids que o
+  // app não sabe precificar nem filtrar por suporte a tools/visão. Em tabela,
+  // preço se corrige sem release, o que importa num catálogo que muda sozinho.
+  if (source === 'openai') {
+    // Sem merge e sem fallback: aqui a tabela é a allow-list, não overlay. Zero
+    // linhas devolve lista vazia de propósito — melhor "nenhum modelo" do que um
+    // catálogo que a chave do usuário pode não atender.
+    const byok = await fetchByokModels('openai')
+    return new Response(JSON.stringify({ data: byok.map(byokRowToRawModel) }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=300', ...CORS },
+    })
+  }
 
   // `openrouter` não precisa da tabela: aquela lista é o catálogo do fornecedor,
   // sem a nossa curadoria (e sem os nossos preços, que ali não se aplicam — quem
