@@ -287,17 +287,41 @@ export function buildInteractionsUrl(projectId: string): string {
 /**
  * URL de uma interaction específica — o alvo do POLL.
  *
- * `name` é o nome COMPLETO devolvido pelo submit
- * (`projects/…/locations/global/interactions/…`). Ele é validado pelo chamador
- * antes de chegar aqui; interpolá-lo no path sem checagem daria SSRF de graça.
+ * O submit devolve um id NU (`video-c598b4c6-…`), não um caminho de recurso.
+ * A primeira versão assumiu que a Interactions seguisse a convenção do resto do
+ * Vertex, onde a operação volta como `name: "projects/…/operations/…"` e se
+ * concatena direto no host — assumir isso levava a montar
+ * `…/v1beta1/video-c598b4c6-…`, que não é recurso nenhum. O id é o ÚLTIMO
+ * segmento; o resto do caminho vem daqui.
  */
-export function buildInteractionUrl(name: string): string {
-  return `https://aiplatform.googleapis.com/v1beta1/${name}`
+export function buildInteractionUrl(projectId: string, id: string): string {
+  return `${buildInteractionsUrl(projectId)}/${id}`
 }
 
-/** Formato do nome de uma interaction, para validar o que volta do client. */
-export const INTERACTION_NAME_RE =
-  /^projects\/[A-Za-z0-9._-]+\/locations\/[A-Za-z0-9-]+\/interactions\/[A-Za-z0-9._-]+$/
+/**
+ * Formato do id de uma interaction.
+ *
+ * Ele é interpolado no PATH da URL de poll (diferente do Veo, onde o op vai no
+ * corpo), então a restrição é o que impede um `../` de virar SSRF. Só o
+ * alfabeto que o Google usa de fato: prefixo, hífens e o UUID.
+ */
+export const INTERACTION_ID_RE = /^[A-Za-z0-9._-]{1,128}$/
+
+/**
+ * Tira o prefixo do publisher do id do modelo.
+ *
+ * Na tabela ele é guardado como `google/gemini-omni-flash-preview` — a forma do
+ * endpoint OpenAI-compat. A Interactions recusa isso:
+ *
+ *     400 Unsupported model interaction: google/gemini-omni-flash-preview
+ *
+ * Também recusa o caminho completo (`publishers/google/models/…`). Ela quer o
+ * id cru, e só ele.
+ */
+export function bareModelId(upstreamModelId: string, publisher = 'google'): string {
+  const prefix = `${publisher}/`
+  return upstreamModelId.startsWith(prefix) ? upstreamModelId.slice(prefix.length) : upstreamModelId
+}
 
 /** Uma etapa da resposta da Interactions API. */
 type InteractionStep = {

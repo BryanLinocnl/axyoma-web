@@ -20,7 +20,7 @@ import { getAccessToken } from '@/lib/google-auth'
 import {
   buildLongRunningUrl,
   buildInteractionUrl,
-  INTERACTION_NAME_RE,
+  INTERACTION_ID_RE,
   videoFromInteraction,
 } from '@/lib/vertex'
 
@@ -77,7 +77,7 @@ const OP_MAX_LEN = 512
 // interaction do Omni — e, mais abaixo, exigimos que a forma case com a flavor
 // do modelo resolvido. Aceitar as duas sem esse segundo passo deixaria um `op`
 // de interaction ser interpolado numa URL de operação, e vice-versa.
-const opShapeOk = (op: string): boolean => OP_RE.test(op) || INTERACTION_NAME_RE.test(op)
+const opShapeOk = (op: string): boolean => OP_RE.test(op) || INTERACTION_ID_RE.test(op)
 
 export function OPTIONS(req: Request): Response {
   return new Response(null, { status: 204, headers: corsHeaders(req, 'GET, OPTIONS') })
@@ -374,7 +374,7 @@ export async function GET(req: Request): Promise<Response> {
   // Segundo passo da validação do `op`: a forma tem que casar com a flavor. Um
   // `op` só entra em URL depois de passar por aqui.
   const isOmni = resolved.api_flavor === 'interactions'
-  if (isOmni ? !INTERACTION_NAME_RE.test(op) : !OP_RE.test(op)) {
+  if (isOmni ? !INTERACTION_ID_RE.test(op) : !OP_RE.test(op)) {
     console.error('op incompatível com a flavor do modelo', resolved.api_flavor)
     return json(400, { error: { message: 'operação inválida', type: 'bad_request' } })
   }
@@ -405,7 +405,7 @@ export async function GET(req: Request): Promise<Response> {
   // montada por nós — o client nunca fornece host.
   const poll = (reg: string): Promise<Response> =>
     isOmni
-      ? fetch(buildInteractionUrl(op), {
+      ? fetch(buildInteractionUrl(projectId, op), {
           method: 'GET',
           headers: { Authorization: `Bearer ${accessToken}` },
         })
