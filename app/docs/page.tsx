@@ -10,7 +10,10 @@ export const metadata: Metadata = {
 const INSTALACAO: Array<[string, string]> = [
   ['macOS', 'Baixe o .dmg (Apple Silicon ou Intel) na página de download, arraste o Axyoma para a pasta Aplicativos e abra. Quando houver atualização, o app avisa para você baixar a nova versão.'],
   ['Windows', 'Baixe o instalador .exe, execute e siga o assistente. O app se atualiza sozinho em segundo plano.'],
-  ['Linux', 'Baixe o AppImage (ou o pacote da sua distro), dê permissão de execução e abra. Atualização automática incluída.'],
+  // LINUX: instruções de instalação para um arquivo que não está publicado são
+  // pior que ausência — mandam a pessoa procurar um download que não existe.
+  // Devolver esta linha quando o AppImage voltar.
+  ['Linux', 'O instalador para Linux está temporariamente indisponível e volta em breve. Enquanto isso, o Axyoma roda em macOS e Windows.'],
 ]
 
 const MODOS: Array<[string, string]> = [

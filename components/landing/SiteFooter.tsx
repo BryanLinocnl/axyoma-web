@@ -31,10 +31,11 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
   },
 ]
 
+// LINUX: o ícone aqui funciona como promessa de download — devolver junto com o
+// AppImage, não antes.
 const SYSTEMS: { label: string; icon: string | null }[] = [
   { label: 'macOS', icon: '/apple-logo-svgrepo-com.svg' },
   { label: 'Windows', icon: null },
-  { label: 'Linux', icon: '/linux-svgrepo-com.svg' },
 ]
 
 export function SiteFooter(): React.JSX.Element {
