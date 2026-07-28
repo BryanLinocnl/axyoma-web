@@ -14,9 +14,15 @@ import {
   isRegionAllowed,
   videoPricePerSecondUsd,
   healModelRegion,
+  VIDEO_FLAVORS,
 } from '@/lib/model-registry'
 import { getAccessToken } from '@/lib/google-auth'
-import { buildLongRunningUrl } from '@/lib/vertex'
+import {
+  buildLongRunningUrl,
+  buildInteractionUrl,
+  INTERACTION_NAME_RE,
+  videoFromInteraction,
+} from '@/lib/vertex'
 
 // Geração de VÍDEO (Veo) — POLL/STATUS assíncrono. O client chama isto em loop com
 // o `operationId` devolvido por POST /api/v1/videos. Fluxo por chamada:
@@ -65,6 +71,13 @@ const VIDEO_MAX_B64_BYTES = Number(process.env.VIDEO_MAX_B64_BYTES ?? 24 * 1024 
 // vira host (montamos a URL do registry) — a validação é defesa em profundidade.
 const OP_RE = /^projects\/[A-Za-z0-9._/-]*\/operations\/[A-Za-z0-9._-]+$/
 const OP_MAX_LEN = 512
+
+// O `op` é validado ANTES de sabermos a flavor (a flavor sai do ledger, que só
+// é lido depois). Por isso aceitamos aqui as DUAS formas — operação do Veo ou
+// interaction do Omni — e, mais abaixo, exigimos que a forma case com a flavor
+// do modelo resolvido. Aceitar as duas sem esse segundo passo deixaria um `op`
+// de interaction ser interpolado numa URL de operação, e vice-versa.
+const opShapeOk = (op: string): boolean => OP_RE.test(op) || INTERACTION_NAME_RE.test(op)
 
 export function OPTIONS(req: Request): Response {
   return new Response(null, { status: 204, headers: corsHeaders(req, 'GET, OPTIONS') })
@@ -287,7 +300,7 @@ export async function GET(req: Request): Promise<Response> {
   const op = (url.searchParams.get('op') ?? '').trim()
   const modelParam = (url.searchParams.get('model') ?? '').trim()
 
-  if (!op || op.length > OP_MAX_LEN || !OP_RE.test(op)) {
+  if (!op || op.length > OP_MAX_LEN || !opShapeOk(op)) {
     return json(400, { error: { message: 'operação inválida', type: 'bad_request' } })
   }
 
@@ -349,13 +362,21 @@ export async function GET(req: Request): Promise<Response> {
     console.error('resolveModel (video status) falhou', (e as Error).message)
     return json(502, { error: { message: 'falha ao resolver o modelo', type: 'upstream' } })
   }
-  if (!resolved || resolved.provider !== 'vertex' || resolved.api_flavor !== 'veo') {
+  if (!resolved || resolved.provider !== 'vertex' || !VIDEO_FLAVORS.has(resolved.api_flavor)) {
     return json(400, { error: { message: 'modelo de vídeo não disponível', type: 'bad_request' } })
   }
   const region = resolved.region
   if (!region) {
-    console.error('modelo veo sem region', model)
+    console.error('modelo de vídeo sem region', model)
     return json(500, { error: { message: 'modelo mal configurado', type: 'config' } })
+  }
+
+  // Segundo passo da validação do `op`: a forma tem que casar com a flavor. Um
+  // `op` só entra em URL depois de passar por aqui.
+  const isOmni = resolved.api_flavor === 'interactions'
+  if (isOmni ? !INTERACTION_NAME_RE.test(op) : !OP_RE.test(op)) {
+    console.error('op incompatível com a flavor do modelo', resolved.api_flavor)
+    return json(400, { error: { message: 'operação inválida', type: 'bad_request' } })
   }
 
   // GUARD de preço: sem price_per_second_usd (>0) NÃO cobramos → recusa de config.
@@ -374,27 +395,50 @@ export async function GET(req: Request): Promise<Response> {
     return json(502, { error: { message: 'falha de autenticação com o provedor', type: 'upstream' } })
   }
 
-  // 6) POST :fetchPredictOperation { operationName: op }. URL do registry; op só no corpo.
+  // 6) POLL. Duas APIs, dois verbos:
+  //
+  //   veo          POST …:fetchPredictOperation { operationName }  (op no CORPO)
+  //   interactions GET  v1beta1/{name}                             (op no PATH)
+  //
+  // No caminho do Omni o `op` VAI para a URL, e é por isso que ele passou por
+  // duas validações de formato antes de chegar aqui. A URL continua sendo
+  // montada por nós — o client nunca fornece host.
   const poll = (reg: string): Promise<Response> =>
-    fetch(buildLongRunningUrl(reg, projectId, resolved.upstream_model_id, 'fetchPredictOperation', resolved.vertex_publisher ?? 'google'), {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ operationName: op }),
-    })
+    isOmni
+      ? fetch(buildInteractionUrl(op), {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+      : fetch(
+          buildLongRunningUrl(
+            reg,
+            projectId,
+            resolved.upstream_model_id,
+            'fetchPredictOperation',
+            resolved.vertex_publisher ?? 'google',
+          ),
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ operationName: op }),
+          },
+        )
 
   let upstream: Response
   try {
     upstream = await poll(region)
   } catch (e) {
-    console.error('vertex fetchPredictOperation rede', (e as Error).message)
+    console.error('vertex poll de vídeo rede', (e as Error).message)
     return json(502, { error: { message: 'falha no provedor de modelo', type: 'upstream' } })
   }
   // Fallback de região (404) → 'global' UMA vez (best-effort; a operação pode ter
   // sido submetida em 'global' via auto-heal). Sem auto-heal aqui (o submit já cuida).
-  if (!upstream.ok && region !== VERTEX_FALLBACK_REGION && isRegionAllowed(VERTEX_FALLBACK_REGION) && upstream.status === 404) {
+  // Não se aplica ao Omni: a URL da interaction não carrega região, então retentar
+  // seria repetir a mesma chamada.
+  if (!isOmni && !upstream.ok && region !== VERTEX_FALLBACK_REGION && isRegionAllowed(VERTEX_FALLBACK_REGION) && upstream.status === 404) {
     try {
       const retry = await poll(VERTEX_FALLBACK_REGION)
       if (retry.ok) upstream = retry
@@ -409,22 +453,56 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   const data = (await upstream.json().catch(() => null)) as
-    | { done?: unknown; response?: { videos?: { bytesBase64Encoded?: unknown; mimeType?: unknown }[] } }
+    | {
+        done?: unknown
+        status?: unknown
+        error?: unknown
+        response?: { videos?: { bytesBase64Encoded?: unknown; mimeType?: unknown }[] }
+      }
     | null
   if (!data) return json(502, { error: { message: 'resposta inválida do provedor', type: 'upstream' } })
 
-  // 7) Ainda rodando? (done ausente/null/false). Devolve running — o client re-polla.
-  if (data.done !== true) {
-    return json(200, { status: 'running' })
+  // 7) Concluiu? Cada API sinaliza de um jeito:
+  //
+  //   veo          `done: true`
+  //   interactions `status: "completed"`  (e "failed" para fracasso terminal)
+  //
+  // O `failed` do Omni precisa de tratamento próprio: sem ele, um fracasso viraria
+  // "running" para sempre e a reserva de créditos só sairia na varredura horária.
+  let b64: string | null
+  let mimeType = 'video/mp4'
+
+  if (isOmni) {
+    const status = typeof data.status === 'string' ? data.status.toLowerCase() : ''
+    if (status === 'failed' || status === 'cancelled' || data.error) {
+      console.error('interaction terminou sem sucesso', status)
+      if (holdId) await releaseHold(holdId).catch(() => {})
+      return json(502, { error: { message: 'a geração falhou no provedor', type: 'upstream' } })
+    }
+    if (status !== 'completed' && status !== 'succeeded') {
+      return json(200, { status: 'running' })
+    }
+    const found = videoFromInteraction(data)
+    b64 = found?.base64 ?? null
+    if (found?.mimeType) mimeType = found.mimeType
+  } else {
+    if (data.done !== true) {
+      return json(200, { status: 'running' })
+    }
+    const videos = data.response?.videos
+    b64 =
+      Array.isArray(videos) && typeof videos[0]?.bytesBase64Encoded === 'string'
+        ? videos[0]!.bytesBase64Encoded
+        : null
+    if (Array.isArray(videos) && typeof videos[0]?.mimeType === 'string' && videos[0]!.mimeType) {
+      mimeType = videos[0]!.mimeType!
+    }
   }
 
-  const videos = data.response?.videos
-  const b64 = Array.isArray(videos) && typeof videos[0]?.bytesBase64Encoded === 'string' ? videos[0]!.bytesBase64Encoded : null
-  const mimeType = Array.isArray(videos) && typeof videos[0]?.mimeType === 'string' && videos[0]!.mimeType ? videos[0]!.mimeType! : 'video/mp4'
   if (!b64) {
     // Final TERMINAL: a operação concluiu e não há vídeo. Sem liberar aqui, a
     // reserva do submit ficaria presa até a varredura de 60 min.
-    console.error('vertex video done sem bytesBase64Encoded')
+    console.error('geração de vídeo concluiu sem bytes', resolved.api_flavor)
     if (holdId) await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'operação concluída sem vídeo', type: 'upstream' } })
   }

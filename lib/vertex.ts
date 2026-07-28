@@ -258,6 +258,77 @@ export function buildLongRunningUrl(
   return `https://${host}/v1/projects/${projectId}/locations/${loc}/publishers/${publisher}/models/${modelId}:${method}`
 }
 
+// ---------------------------------------------------------------------------
+// INTERACTIONS API (Gemini Omni Flash)
+//
+// Vídeo no Vertex tem DUAS APIs incompatíveis:
+//
+//   Veo   → POST publishers/google/models/{id}:predictLongRunning
+//           poll  POST …:fetchPredictOperation { operationName }
+//           saída response.videos[0].bytesBase64Encoded
+//
+//   Omni  → POST v1beta1/projects/{p}/locations/global/interactions
+//           poll  GET  v1beta1/{name}
+//           saída steps[type=model_output].content[type=video].data
+//
+// Não dá para reaproveitar `buildLongRunningUrl`: o recurso nem é um modelo — é
+// uma "interaction", que não tem publisher nem `:method` no path. Daí a função
+// separada em vez de mais um parâmetro.
+//
+// `v1beta1` e `global` são fixos porque é onde o modelo existe hoje (sondado em
+// 2026-07-21). Quando sair do preview isto vira configuração.
+// ---------------------------------------------------------------------------
+
+/** Coleção de interactions do projeto — o alvo do SUBMIT. */
+export function buildInteractionsUrl(projectId: string): string {
+  return `https://aiplatform.googleapis.com/v1beta1/projects/${projectId}/locations/global/interactions`
+}
+
+/**
+ * URL de uma interaction específica — o alvo do POLL.
+ *
+ * `name` é o nome COMPLETO devolvido pelo submit
+ * (`projects/…/locations/global/interactions/…`). Ele é validado pelo chamador
+ * antes de chegar aqui; interpolá-lo no path sem checagem daria SSRF de graça.
+ */
+export function buildInteractionUrl(name: string): string {
+  return `https://aiplatform.googleapis.com/v1beta1/${name}`
+}
+
+/** Formato do nome de uma interaction, para validar o que volta do client. */
+export const INTERACTION_NAME_RE =
+  /^projects\/[A-Za-z0-9._-]+\/locations\/[A-Za-z0-9-]+\/interactions\/[A-Za-z0-9._-]+$/
+
+/** Uma etapa da resposta da Interactions API. */
+type InteractionStep = {
+  type?: unknown
+  content?: { type?: unknown; data?: unknown; mime_type?: unknown }[]
+}
+
+/**
+ * Extrai o vídeo (base64 cru + mime) de uma interaction concluída.
+ *
+ * O vídeo vem INLINE, dentro do primeiro `content` do tipo `video` de algum
+ * step `model_output`. Devolve `null` quando a interaction concluiu sem vídeo —
+ * caso terminal que o chamador precisa distinguir de "ainda rodando", senão a
+ * reserva de créditos fica presa até a varredura horária.
+ */
+export function videoFromInteraction(
+  payload: unknown,
+): { base64: string; mimeType: string } | null {
+  const steps = (payload as { steps?: unknown })?.steps
+  if (!Array.isArray(steps)) return null
+  for (const raw of steps as InteractionStep[]) {
+    if (raw?.type !== 'model_output' || !Array.isArray(raw.content)) continue
+    for (const c of raw.content) {
+      if (c?.type !== 'video' || typeof c.data !== 'string' || !c.data) continue
+      const mime = typeof c.mime_type === 'string' && c.mime_type ? c.mime_type : 'video/mp4'
+      return { base64: c.data, mimeType: mime }
+    }
+  }
+  return null
+}
+
 /** Uma imagem inline extraída da resposta generateContent. `data` é base64 cru. */
 export type InlineImage = {
   mimeType: string
