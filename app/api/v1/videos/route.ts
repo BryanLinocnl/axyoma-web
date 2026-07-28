@@ -18,7 +18,7 @@ import {
   VIDEO_FLAVORS,
 } from '@/lib/model-registry'
 import { getAccessToken } from '@/lib/google-auth'
-import { buildLongRunningUrl, buildInteractionsUrl, INTERACTION_NAME_RE } from '@/lib/vertex'
+import { buildLongRunningUrl, buildInteractionsUrl, INTERACTION_ID_RE, bareModelId } from '@/lib/vertex'
 
 // Geração de VÍDEO (Veo) — SUBMIT assíncrono. Mesmo modelo de segurança das outras
 // rotas de proxy: verifica JWT → rate-limit → gate de saldo → resolve o modelo na
@@ -275,7 +275,10 @@ export async function POST(req: Request): Promise<Response> {
     }
     input.push({ type: 'text', text: prompt })
     return {
-      model: resolved.upstream_model_id,
+      // Sem o prefixo do publisher — a Interactions responde
+      // "400 Unsupported model interaction" tanto para `google/…` quanto para
+      // o caminho completo `publishers/google/models/…`.
+      model: bareModelId(resolved.upstream_model_id, resolved.vertex_publisher ?? 'google'),
       input,
       response_format: { type: 'video', aspect_ratio: aspectRatio },
       background: true,
@@ -387,19 +390,28 @@ export async function POST(req: Request): Promise<Response> {
   // Auto-heal fire-and-forget (grava a região vencedora; não bloqueia a resposta).
   if (healedRegion) healModelRegion(resolved.id, healedRegion)
 
-  const data = (await upstream.json().catch(() => null)) as { name?: unknown } | null
-  const operationId = typeof data?.name === 'string' ? data.name : null
+  // Cada API nomeia o identificador do seu jeito:
+  //
+  //   veo          { name: "projects/…/operations/…" }
+  //   interactions { id:   "video-c598b4c6-…", status: "in_progress" }
+  //
+  // A primeira versão lia `name` nos dois casos. No Omni isso dava `null` e a
+  // rota respondia "provedor não retornou operação" — depois de já ter
+  // submetido e reservado crédito.
+  const data = (await upstream.json().catch(() => null)) as { name?: unknown; id?: unknown } | null
+  const bruto = isOmni ? data?.id : data?.name
+  const operationId = typeof bruto === 'string' && bruto ? bruto : null
   if (!operationId) {
-    console.error('vertex video submit sem operation name')
+    console.error('submit de vídeo sem identificador', resolved.api_flavor)
     await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'provedor não retornou operação', type: 'upstream' } })
   }
-  // O nome volta do UPSTREAM, não do client, mas é ele que o /status vai
-  // interpolar numa URL. Conferir o formato aqui é mais barato que descobrir no
-  // poll que a operação é impollável — e mantém a mesma postura das outras
-  // rotas: nada entra em URL sem passar por uma regex.
-  if (isOmni && !INTERACTION_NAME_RE.test(operationId)) {
-    console.error('interactions submit com name fora do formato', operationId.slice(0, 120))
+  // O id volta do UPSTREAM, não do client, mas é ele que o /status vai
+  // interpolar no PATH da URL de poll. Conferir o formato aqui é mais barato
+  // que descobrir no poll que a operação é impollável — e mantém a postura das
+  // outras rotas: nada entra em URL sem passar por uma regex.
+  if (isOmni && !INTERACTION_ID_RE.test(operationId)) {
+    console.error('interactions submit com id fora do formato', operationId.slice(0, 120))
     await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'provedor não retornou operação', type: 'upstream' } })
   }
