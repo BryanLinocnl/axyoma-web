@@ -21,7 +21,14 @@ export type ModelProvider = 'vertex' | 'openrouter' | 'openai' | 'groq'
  * - 'veo'          → endpoint nativo :predictLongRunning do Vertex (geração de
  *                    VÍDEO, assíncrona: submit → poll → fetchPredictOperation).
  */
-export type ApiFlavor = 'openai' | 'anthropic' | 'gemini_image' | 'veo'
+// `interactions` = Interactions API do Vertex (Gemini Omni Flash). Gera vídeo
+// como o `veo`, mas por um endpoint e um formato de resposta totalmente outros
+// (ver lib/vertex.ts). É flavor própria porque o roteamento depende disso: a
+// rota de vídeo escolhe o adapter por aqui.
+export type ApiFlavor = 'openai' | 'anthropic' | 'gemini_image' | 'veo' | 'interactions'
+
+/** Flavors que a rota /api/v1/videos atende. */
+export const VIDEO_FLAVORS: ReadonlySet<ApiFlavor> = new Set<ApiFlavor>(['veo', 'interactions'])
 
 /**
  * Linha resolvida de `public.models` — TIPO SERVER-ONLY. Contém colunas de

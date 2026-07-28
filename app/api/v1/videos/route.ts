@@ -9,9 +9,16 @@ import {
   InsufficientCreditsError,
 } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
-import { resolveModel, RegionNotAllowedError, isRegionAllowed, healModelRegion, videoPricePerSecondUsd } from '@/lib/model-registry'
+import {
+  resolveModel,
+  RegionNotAllowedError,
+  isRegionAllowed,
+  healModelRegion,
+  videoPricePerSecondUsd,
+  VIDEO_FLAVORS,
+} from '@/lib/model-registry'
 import { getAccessToken } from '@/lib/google-auth'
-import { buildLongRunningUrl } from '@/lib/vertex'
+import { buildLongRunningUrl, buildInteractionsUrl, INTERACTION_NAME_RE } from '@/lib/vertex'
 
 // Geração de VÍDEO (Veo) — SUBMIT assíncrono. Mesmo modelo de segurança das outras
 // rotas de proxy: verifica JWT → rate-limit → gate de saldo → resolve o modelo na
@@ -39,6 +46,12 @@ const DEFAULT_DURATION_S = 8
 const MIN_DURATION_S = 4
 const MAX_DURATION_S = 8
 
+// Duração FIXA do Gemini Omni Flash em preview: o corpo da Interactions API não
+// aceita parâmetro de duração e o modelo devolve sempre ~10s (medido). Como a
+// cobrança é por segundo, gravar os 8s que o client pede no ledger subcobraria
+// 20% de cada geração — por isso o valor real entra aqui e ignora o client.
+const OMNI_DURATION_S = 10
+
 // FIX 5 — gate de custo: fator de segurança conservador aplicado à estimativa de
 // créditos exigida no saldo antes de disparar a geração. >=1 encarece a exigência
 // (mais protetivo); default 1 (exige exatamente a estimativa). Só bloqueia quando o
@@ -58,6 +71,9 @@ const BodySchema = z
     // Frame inicial opcional: SOMENTE data URL base64 (http(s):// é IGNORADA — nunca
     // baixamos URL de referência, anti-SSRF).
     image: z.string().min(1).max(MAX_BODY_BYTES).optional(),
+    // Vídeo de referência (edição/composição). Só a flavor `interactions` aceita;
+    // o Veo ignora. Mesma regra do `image`: data URL base64, nada de http(s).
+    video: z.string().min(1).max(MAX_BODY_BYTES).optional(),
   })
   .passthrough()
 
@@ -138,6 +154,11 @@ export async function POST(req: Request): Promise<Response> {
     const m = DATA_URL_RE.exec(parsed.data.image.trim())
     if (m) imageRef = { mimeType: m[1], bytesBase64Encoded: m[2] }
   }
+  let videoRef: { bytesBase64Encoded: string; mimeType: string } | null = null
+  if (parsed.data.video) {
+    const m = DATA_URL_RE.exec(parsed.data.video.trim())
+    if (m) videoRef = { mimeType: m[1], bytesBase64Encoded: m[2] }
+  }
 
   // 5) Config server-only.
   const projectId = process.env.GCP_PROJECT_ID
@@ -156,14 +177,17 @@ export async function POST(req: Request): Promise<Response> {
     console.error('resolveModel (video) falhou', (e as Error).message)
     return json(502, { error: { message: 'falha ao resolver o modelo', type: 'upstream' } })
   }
-  if (!resolved || resolved.provider !== 'vertex' || resolved.api_flavor !== 'veo') {
+  if (!resolved || resolved.provider !== 'vertex' || !VIDEO_FLAVORS.has(resolved.api_flavor)) {
     return json(400, { error: { message: 'modelo de vídeo não disponível', type: 'bad_request' } })
   }
   const region = resolved.region
   if (!region) {
-    console.error('modelo veo sem region', model)
+    console.error('modelo de vídeo sem region', model)
     return json(500, { error: { message: 'modelo mal configurado', type: 'config' } })
   }
+  const isOmni = resolved.api_flavor === 'interactions'
+  // A duração cobrada é a REAL, não a pedida — ver OMNI_DURATION_S.
+  const billedSeconds = isOmni ? OMNI_DURATION_S : durationSeconds
 
   // 6b) GATE DE CUSTO (FIX 5): saldo > 0 não basta — vídeo é caro e a cobrança real
   // (por duração) só ocorre no done/status. Estimamos o custo em CRÉDITOS aqui e
@@ -188,7 +212,7 @@ export async function POST(req: Request): Promise<Response> {
             ? cfg.margin_multiplier
             : 1
       if (cfg.usd_brl_rate > 0 && cfg.credit_brl > 0) {
-        const estCostUsd = durationSeconds * pricePerSecond * margin
+        const estCostUsd = billedSeconds * pricePerSecond * margin
         const estCredits = (estCostUsd * cfg.usd_brl_rate) / cfg.credit_brl
         const required = estCredits * VIDEO_MIN_BALANCE_MULT
         if (required > 0 && balanceBefore < required) {
@@ -210,24 +234,75 @@ export async function POST(req: Request): Promise<Response> {
     return json(502, { error: { message: 'falha de autenticação com o provedor', type: 'upstream' } })
   }
 
-  // 8) Corpo do :predictLongRunning. sampleCount:1 (um vídeo por chamada). O frame
-  // inicial (se houver) vai como `image` na instância.
-  const instance: Record<string, unknown> = { prompt }
-  if (imageRef) instance.image = imageRef
-  const submitBody = {
-    instances: [instance],
-    parameters: { sampleCount: 1, durationSeconds, aspectRatio },
+  // 8) SUBMIT. As duas flavors divergem em endpoint, corpo e formato do id da
+  // operação — só o que vem antes e depois é compartilhado.
+  //
+  //   veo          POST publishers/google/models/{id}:predictLongRunning
+  //                { instances:[{prompt, image?}], parameters:{...} }
+  //                id = data.name  (…/operations/…)
+  //
+  //   interactions POST v1beta1/projects/{p}/locations/global/interactions
+  //                { model, input:[partes], response_format, background:true }
+  //                id = data.name  (…/interactions/…)
+  //
+  // `background:true` é o que torna o Omni pollável e faz ele caber no fluxo
+  // submit→poll que o app já tem. Sem isso a chamada bloquearia até o vídeo
+  // ficar pronto e estouraria o teto de 300s da função.
+  const submitUrl = isOmni
+    ? buildInteractionsUrl(projectId)
+    : buildLongRunningUrl(
+        region,
+        projectId,
+        resolved.upstream_model_id,
+        'predictLongRunning',
+        resolved.vertex_publisher ?? 'google',
+      )
+
+  const buildBody = (): Record<string, unknown> => {
+    if (!isOmni) {
+      const instance: Record<string, unknown> = { prompt }
+      if (imageRef) instance.image = imageRef
+      return { instances: [instance], parameters: { sampleCount: 1, durationSeconds, aspectRatio } }
+    }
+    // A ordem importa: as referências primeiro, a instrução por último — é como
+    // o modelo foi sondado e como os exemplos da Interactions API montam o input.
+    const input: Record<string, unknown>[] = []
+    if (videoRef) {
+      input.push({ type: 'video', data: videoRef.bytesBase64Encoded, mime_type: videoRef.mimeType })
+    }
+    if (imageRef) {
+      input.push({ type: 'image', data: imageRef.bytesBase64Encoded, mime_type: imageRef.mimeType })
+    }
+    input.push({ type: 'text', text: prompt })
+    return {
+      model: resolved.upstream_model_id,
+      input,
+      response_format: { type: 'video', aspect_ratio: aspectRatio },
+      background: true,
+    }
   }
+  const submitBody = buildBody()
 
   const submit = (reg: string): Promise<Response> =>
-    fetch(buildLongRunningUrl(reg, projectId, resolved.upstream_model_id, 'predictLongRunning', resolved.vertex_publisher ?? 'google'), {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
+    fetch(
+      isOmni
+        ? submitUrl
+        : buildLongRunningUrl(
+            reg,
+            projectId,
+            resolved.upstream_model_id,
+            'predictLongRunning',
+            resolved.vertex_publisher ?? 'google',
+          ),
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submitBody),
       },
-      body: JSON.stringify(submitBody),
-    })
+    )
 
   // 8b) RESERVA de créditos (auditoria A-1). O gate acima é uma LEITURA de saldo:
   // N submits simultâneos liam o mesmo valor e todos passavam, enquanto o débito
@@ -246,7 +321,7 @@ export async function POST(req: Request): Promise<Response> {
       const margin =
         Number.isFinite(envMargin) && envMargin > 0 ? envMargin : cfg.margin_multiplier > 0 ? cfg.margin_multiplier : 1
       if (cfg.usd_brl_rate > 0 && cfg.credit_brl > 0) {
-        const est = (durationSeconds * pricePerSecond * margin * cfg.usd_brl_rate) / cfg.credit_brl
+        const est = (billedSeconds * pricePerSecond * margin * cfg.usd_brl_rate) / cfg.credit_brl
         if (est > 0) holdCreditsAmount = Math.ceil(est)
       }
     } catch (e) {
@@ -282,7 +357,10 @@ export async function POST(req: Request): Promise<Response> {
   let healedRegion: string | null = null
   if (!upstream.ok) {
     const detail = await upstream.text().catch(() => '')
-    if (regionUsed !== VERTEX_FALLBACK_REGION && isRegionAllowed(VERTEX_FALLBACK_REGION) && upstream.status === 404) {
+    // O fallback de região não se aplica ao Omni: a coleção de interactions só
+    // existe em `global`, e a URL nem carrega a região. Retentar seria repetir a
+    // MESMA chamada e gravar uma região "curada" que não muda nada.
+    if (!isOmni && regionUsed !== VERTEX_FALLBACK_REGION && isRegionAllowed(VERTEX_FALLBACK_REGION) && upstream.status === 404) {
       try {
         const retry = await submit(VERTEX_FALLBACK_REGION)
         if (retry.ok) {
@@ -316,6 +394,15 @@ export async function POST(req: Request): Promise<Response> {
     await releaseHold(holdId).catch(() => {})
     return json(502, { error: { message: 'provedor não retornou operação', type: 'upstream' } })
   }
+  // O nome volta do UPSTREAM, não do client, mas é ele que o /status vai
+  // interpolar numa URL. Conferir o formato aqui é mais barato que descobrir no
+  // poll que a operação é impollável — e mantém a mesma postura das outras
+  // rotas: nada entra em URL sem passar por uma regex.
+  if (isOmni && !INTERACTION_NAME_RE.test(operationId)) {
+    console.error('interactions submit com name fora do formato', operationId.slice(0, 120))
+    await releaseHold(holdId).catch(() => {})
+    return json(502, { error: { message: 'provedor não retornou operação', type: 'upstream' } })
+  }
 
   // FIX 1 — LEDGER NO SUBMIT: grava a linha em video_charges com a DURAÇÃO REAL
   // submetida (fonte de verdade da cobrança) + user_id + model, status 'submitted'.
@@ -343,7 +430,7 @@ export async function POST(req: Request): Promise<Response> {
         op: operationId,
         user_id: userId,
         model: resolved.id,
-        duration_seconds: durationSeconds,
+        duration_seconds: billedSeconds,
         status: 'submitted',
         hold_id: holdId,
       }),
