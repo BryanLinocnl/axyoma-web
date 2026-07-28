@@ -99,10 +99,36 @@ export function DownloadPicker({
   }, [])
 
   const primary = installers.find((i) => i.id === detected) ?? null
-  const others = primary ? installers.filter((i) => i.id !== primary.id) : installers
+
+  // A LISTA NUNCA MUDA. Antes ela era `installers.filter(i => i.id !== primary.id)`,
+  // e isso trocava o conteúdo debaixo do cursor:
+  //
+  //   HTML do servidor (sem detecção)  → 1ª linha = macOS Apple Silicon
+  //   depois da hidratação             → 1ª linha = macOS Intel
+  //
+  // O Apple Silicon saía da lista ao virar botão e o Intel subia para o lugar
+  // dele. Quem mirasse na primeira linha enquanto a página terminava de carregar
+  // clicava em Apple Silicon e baixava Intel — que no macOS INSTALA E RODA, via
+  // Rosetta, só que várias vezes mais lento. Erro silencioso: a pessoa conclui
+  // que o app é lento, não que baixou o arquivo errado.
+  //
+  // Aconteceu de verdade. Agora todos os instaladores ficam sempre na lista, na
+  // mesma ordem; o que muda é só a marca de "detectado". Duplicar o principal
+  // entre o botão e a lista é preço barato por um alvo que não se move.
+  const detectado = primary?.id ?? null
 
   return (
     <div className="mt-10 flex w-full max-w-[560px] flex-col items-center">
+      {/* ALTURA RESERVADA. O servidor não sabe a máquina, então este bloco começa
+          como uma frase curta e vira botão (56px) + linha de versão (20px) na
+          hidratação. Sem reserva, tudo que vem abaixo — a lista de instaladores —
+          desce ~55px no meio do caminho, e o item que estava sob o cursor deixa
+          de ser o item clicado.
+
+          É a segunda metade do mesmo defeito que fazia a lista reordenar: alvo
+          que se move entre o primeiro paint e o segundo. Medido: 56 + 20 + 12 de
+          respiro = 88px. */}
+      <div className="flex min-h-[88px] w-full flex-col items-center justify-center">
       {primary ? (
         (() => {
           const Icon = ICONS[primary.os]
@@ -142,22 +168,27 @@ export function DownloadPicker({
           sistema automaticamente
         </p>
       )}
+      </div>
 
       {/* Lista completa: um Mac Intel que caiu no palpite errado, ou quem baixa
-          num computador para instalar em outro, resolve aqui. */}
+          num computador para instalar em outro, resolve aqui. O rótulo também é
+          fixo — "Outras versões" deixaria de valer agora que o detectado
+          continua na lista, e trocar o texto na hidratação é o mesmo tipo de
+          instabilidade que esta correção remove. */}
       <div className="mt-10 w-full">
         <p
           className="mb-3 text-left text-[13px] font-medium"
           style={{ color: 'var(--ink-faint)' }}
         >
-          {primary ? 'Outras versões' : 'Todos os instaladores'}
+          Todos os instaladores
         </p>
         <ul
           className="gb-raised overflow-hidden rounded-[14px] text-left"
           style={{ border: '1px solid var(--hairline)' }}
         >
-          {others.map((inst, i) => {
+          {installers.map((inst, i) => {
             const Icon = ICONS[inst.os]
+            const ehDetectado = inst.id === detectado
             return (
               <li key={inst.id} style={i > 0 ? { borderTop: '1px solid var(--hairline)' } : undefined}>
                 <a
@@ -169,6 +200,16 @@ export function DownloadPicker({
                   <span className="text-[13.5px]" style={{ color: 'var(--ink-muted)' }}>
                     {inst.detail}
                   </span>
+                  {/* Marca o que casa com esta máquina. É o que sobrou do
+                      "remover da lista": informa sem mover nada de lugar. */}
+                  {ehDetectado && (
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                      style={{ background: 'var(--accent)', color: '#fff' }}
+                    >
+                      seu sistema
+                    </span>
+                  )}
                   {/* Só aparece quando esta plataforma ficou para trás. No caso
                       normal (todas na mesma versão) a linha continua limpa. */}
                   {inst.version !== version && (
