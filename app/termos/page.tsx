@@ -33,7 +33,7 @@ export default function TermosPage(): React.JSX.Element {
       <Secao titulo="Créditos e pagamento">
         <p>
           O uso é debitado em créditos calculados pelo custo real do modelo utilizado (1 crédito = R$
-          0,30). Contas novas recebem 400 créditos de bônus. Os créditos de bônus e os créditos de
+          0,30). Contas novas recebem 100 créditos de bônus. Os créditos de bônus e os créditos de
           franquia dos planos (Pro e Teams) são válidos exclusivamente para os modelos da Vertex AI
           (Google Cloud); os créditos comprados são válidos para todos os modelos, inclusive os da
           Vertex. Créditos comprados não são reembolsáveis após o consumo. Pagamentos são feitos via PIX

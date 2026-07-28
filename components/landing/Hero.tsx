@@ -40,7 +40,7 @@ export function Hero(): React.JSX.Element {
           className="gb-lift mt-5 text-[13.5px]"
           style={{ color: 'var(--ink-faint)', animationDelay: '220ms' }}
         >
-          400 créditos para começar · sem cartão · Windows, macOS e Linux
+          100 créditos para começar · chave própria e modelos locais sem custo · Windows, macOS e Linux
         </p>
       </div>
 

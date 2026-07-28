@@ -41,9 +41,9 @@ créditos Axyoma debitados pelo custo real do modelo. Não há cota diária — 
 é quanto crédito a pessoa decide gastar. Um concorrente que revende assinatura
 com limite mensal não consegue copiar essa frase honestamente.
 
-**E três formas de pagar o modelo, não uma.** Crédito Axyoma, chave própria da
-OpenRouter (paga direto ao provedor, sem passar pelo nosso saldo) ou modelo local
-pelo Ollama (sem custo nenhum). Nenhuma delas é obrigatória e nenhuma tranca a
+**E três formas de pagar o modelo, não uma.** Crédito Axyoma, chave própria
+(OpenRouter ou OpenAI — paga direto ao fornecedor, sem passar pelo nosso saldo)
+ou modelo local pelo Ollama (sem custo nenhum). Nenhuma delas é obrigatória e nenhuma tranca a
 outra: dá para ter as três ligadas ao mesmo tempo e escolher modelo a modelo.
 
 **Consequência para a assinatura:** se qualquer um pode trazer a própria chave,
@@ -52,6 +52,13 @@ paga". Por isso o Pro e o Teams não são pacotes de token. Eles vendem o que a
 chave do usuário não compra: skills prontas, workflows salvos, memória de projeto
 entre sessões, automações agendadas, execução em nuvem e o Modo Design. A franquia
 mensal de créditos entra como conveniência, no fim da lista, nunca como manchete.
+
+**Privacidade como consequência da arquitetura, não como promessa.** Nos dois
+caminhos que não usam crédito — chave própria e modelo local — o que o usuário
+escreve não passa por nós. Com chave própria, o turno vai da máquina dele direto
+ao fornecedor; com modelo local, não sai da máquina. Um concorrente que roteia
+tudo por proxy próprio não consegue dizer isso. É afirmação verificável, não
+postura: dá para conferir no tráfego.
 
 ## Operating Context
 
@@ -68,18 +75,23 @@ O site tem duas metades: a landing pública (esta superfície) e a área logada
 - **Modelos disponíveis:** Gemini, Claude, GPT, Grok, Llama, DeepSeek, Kimi,
   Qwen, Mistral e outros, num seletor único. Logos oficiais dos provedores já
   existem em `public/providers/*.svg` (38 arquivos).
-- **Créditos:** 1 crédito = R$ 0,30. Bônus de cadastro = **400 créditos**,
+- **Créditos:** 1 crédito = R$ 0,30. Bônus de cadastro = **100 créditos**,
   controlado pela env `SIGNUP_BONUS_CREDITS` no proxy. Bônus e franquia são uma
   **franquia Vertex**: valem só nos modelos da Vertex AI, e ficam num bolso
   separado (`bonus_balance`) do saldo comprado (`balance`). Créditos comprados
   valem para todos os modelos. Nunca escrever "400 créditos" sem qualificar —
   sem a qualificação vira promessa falsa.
-- **Chave própria (BYOK):** o usuário pode conectar a chave dele da OpenRouter.
-  A chave fica **na máquina dele**, cifrada; viaja em header por requisição, é
-  usada em memória e descartada. Nunca é gravada nem logada no servidor. O que
-  roda por ela não debita crédito e não passa pela tabela de preços.
+- **Chave própria (BYOK):** OpenRouter **e OpenAI**. A chave fica na máquina do
+  usuário, cifrada pelo sistema. No caminho atual (`byok_route=direct`) o turno
+  vai da máquina dele **DIRETO ao fornecedor** — a chave e o conteúdo do prompt
+  **não passam pelos nossos servidores**. Antes trafegavam por header a cada
+  requisição; hoje não trafegam. O que roda por ela não debita crédito e não
+  passa pela tabela de preços. Anthropic é **"em breve"** (falta adaptador de
+  API, não cadastro).
 - **Modelos locais:** integração com Ollama (instalar, baixar, remover pelo
-  próprio app). Rodam offline, sem crédito, e estão no plano **Free**.
+  próprio app). Rodam **offline**, sem crédito e sem internet — nada do que o
+  usuário escreve sai do computador. Estão no plano **Free**. Hoje a landing
+  **não menciona isso**, e é um dos argumentos mais fortes que o produto tem.
 - **Pagamento:** PIX ou cartão, no site ou no app.
 - **Planos:** Free está no ar. Pro e Teams são **"em breve"**, sem preço
   anunciado e **sem botão de compra** — não inventar valores. Os recursos

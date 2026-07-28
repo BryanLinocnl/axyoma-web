@@ -33,9 +33,9 @@ const PLANS: Plan[] = [
     live: true,
     price: 'R$ 0',
     period: 'para sempre',
-    desc: 'Comece sem cartão. 400 créditos de bônus para conhecer o app trabalhando de verdade.',
+    desc: 'Comece sem cartão. 100 créditos de bônus, mais chave própria e modelos locais que não consomem crédito.',
     perks: [
-      '400 créditos de bônus (modelos Vertex AI)',
+      '100 créditos de bônus (modelos Vertex AI)',
       'Modo Code e modo Plan completos',
       'Modelos locais pelo Ollama, sem gastar crédito',
       'Ou conecte a sua chave da OpenRouter',
@@ -100,7 +100,7 @@ export function Pricing(): React.JSX.Element {
                 // visitante procura antes de baixar.
                 ['1 crédito', 'R$ 0,30, debitado pelo custo real do modelo'],
                 ['Pagamento', 'PIX ou cartão, no site ou dentro do app'],
-                ['Bônus de cadastro', '400 créditos, sem cartão'],
+                ['Bônus de cadastro', '100 créditos, sem cartão'],
                 ['Bônus e franquia', 'valem para os modelos da Vertex AI'],
                 ['Créditos comprados', 'valem para todos os modelos'],
                 // As duas saídas sem crédito. Ficam aqui, e não em destaque no
