@@ -43,7 +43,8 @@ export default function DocsPage(): React.JSX.Element {
 
       <Secao titulo="Login e conta">
         <p>
-          Entre com e-mail e senha ou com sua conta Google ou Apple — o login do app é o mesmo do site. Se
+          {/* APPLE: fora enquanto o provedor não estiver configurado. */}
+          Entre com e-mail e senha ou com sua conta Google — o login do app é o mesmo do site. Se
           esquecer a senha, use a opção de recuperação na tela de entrada. A área da conta mostra seu
           plano, saldo de créditos e histórico de uso.
         </p>
