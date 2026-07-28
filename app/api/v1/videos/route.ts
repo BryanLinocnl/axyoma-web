@@ -52,6 +52,11 @@ const MAX_DURATION_S = 8
 // 20% de cada geração — por isso o valor real entra aqui e ignora o client.
 const OMNI_DURATION_S = 10
 
+// Teto de referências de imagem numa geração. Cada uma é base64 no corpo, e o
+// corpo inteiro já tem cap próprio (MAX_BODY_BYTES); este limite existe para
+// recusar cedo, antes de decodificar, uma lista absurda.
+const MAX_REF_IMAGES = 8
+
 // FIX 5 — gate de custo: fator de segurança conservador aplicado à estimativa de
 // créditos exigida no saldo antes de disparar a geração. >=1 encarece a exigência
 // (mais protetivo); default 1 (exige exatamente a estimativa). Só bloqueia quando o
@@ -74,6 +79,12 @@ const BodySchema = z
     // Vídeo de referência (edição/composição). Só a flavor `interactions` aceita;
     // o Veo ignora. Mesma regra do `image`: data URL base64, nada de http(s).
     video: z.string().min(1).max(MAX_BODY_BYTES).optional(),
+    // Imagens ADICIONAIS. O Veo aceita um frame inicial e só; a Interactions
+    // aceita várias referências, e é disso que depende uma composição com mais
+    // de um asset (ex.: "mostre a tela A, depois a tela B"). Sem isto o app
+    // mandava só a primeira e o modelo INVENTAVA as demais — o pedido citava
+    // uma segunda imagem que nunca chegava.
+    images: z.array(z.string().min(1)).max(MAX_REF_IMAGES).optional(),
   })
   .passthrough()
 
@@ -158,6 +169,14 @@ export async function POST(req: Request): Promise<Response> {
   if (parsed.data.video) {
     const m = DATA_URL_RE.exec(parsed.data.video.trim())
     if (m) videoRef = { mimeType: m[1], bytesBase64Encoded: m[2] }
+  }
+  // Referências extras, na ORDEM em que vieram — o prompt fala delas por posição
+  // ("a primeira imagem", "a segunda"), então reordenar aqui quebraria o pedido.
+  // `image` continua sendo a primeira, para o Veo seguir funcionando igual.
+  const extraRefs: { bytesBase64Encoded: string; mimeType: string }[] = []
+  for (const raw of parsed.data.images ?? []) {
+    const m = DATA_URL_RE.exec(raw.trim())
+    if (m) extraRefs.push({ mimeType: m[1], bytesBase64Encoded: m[2] })
   }
 
   // 5) Config server-only.
@@ -272,6 +291,9 @@ export async function POST(req: Request): Promise<Response> {
     }
     if (imageRef) {
       input.push({ type: 'image', data: imageRef.bytesBase64Encoded, mime_type: imageRef.mimeType })
+    }
+    for (const extra of extraRefs) {
+      input.push({ type: 'image', data: extra.bytesBase64Encoded, mime_type: extra.mimeType })
     }
     input.push({ type: 'text', text: prompt })
     return {
