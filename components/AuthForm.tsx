@@ -177,21 +177,22 @@ export function AuthForm({
           <p className="mt-1 text-[13.5px]" style={{ color: 'var(--ink-muted)' }}>
             {isSignup
               ? 'Preencha os dados para criar sua conta'
-              : 'Entre com sua conta Apple ou Google'}
+              : 'Entre com sua conta Google ou com e-mail e senha'}
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-5">
           {!isSignup && (
             <>
+              {/* APPLE: o provedor ainda NÃO está configurado no Supabase — o
+                  botão existia e devolvia erro. Botão de login que falha é pior
+                  que ausência: a pessoa conclui que a conta dela é que está com
+                  problema. Devolver este bloco quando o Sign in with Apple
+                  estiver ativo (exige Apple Developer Program pago + Service ID
+                  + chave de assinatura). O `AppleIcon` e o tipo `'apple'` em
+                  `oauth()` ficam no lugar de propósito, para a volta ser só
+                  descomentar. */}
               <div className="flex flex-col gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => oauth('apple')}
-                  className="gb-btn gb-btn-ghost w-full py-2.5 text-[14px]"
-                >
-                  <AppleIcon /> Entrar com Apple
-                </button>
                 <button
                   type="button"
                   onClick={() => oauth('google')}
