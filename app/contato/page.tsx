@@ -15,7 +15,7 @@ const FAQ: Array<[string, string]> = [
   ],
   [
     'Como funcionam os créditos?',
-    'Você não precisa de chave de API própria. Usa créditos Axyoma, onde 1 crédito = R$ 0,30, e o débito é calculado pelo custo real (em USD) do modelo escolhido. Toda conta nova recebe 400 créditos de bônus — na prática, um mês do plano Pro grátis para testar. Os créditos de bônus e os de franquia dos planos (Pro e Teams) valem para os modelos da Vertex AI (Google Cloud); os créditos comprados valem para todos os modelos, incluindo os da Vertex.',
+    'Você não precisa de chave de API própria. Usa créditos Axyoma, onde 1 crédito = R$ 0,30, e o débito é calculado pelo custo real (em USD) do modelo escolhido. Toda conta nova recebe 100 créditos de bônus para experimentar. Os créditos de bônus e os de franquia dos planos (Pro e Teams) valem para os modelos da Vertex AI (Google Cloud); os créditos comprados valem para todos os modelos, incluindo os da Vertex.',
   ],
   [
     'Quais modelos de IA posso usar?',
@@ -23,7 +23,7 @@ const FAQ: Array<[string, string]> = [
   ],
   [
     'Quais são os planos?',
-    'Free: 400 créditos de bônus ao se cadastrar, equivalente a um mês do plano Pro para testar. Pro e Teams (em breve): planos pagos com créditos de franquia e o modo Design; os valores serão anunciados no lançamento. Bônus e franquia valem para os modelos da Vertex AI; créditos comprados valem para todos os modelos.',
+    'Free: 100 créditos de bônus ao se cadastrar, para experimentar. Além disso, o Free inclui chave própria (OpenRouter e OpenAI) e modelos locais pelo Ollama, que não consomem crédito. Pro e Teams (em breve): planos pagos com créditos de franquia e o modo Design; os valores serão anunciados no lançamento. Bônus e franquia valem para os modelos da Vertex AI; créditos comprados valem para todos os modelos.',
   ],
   [
     'Em quais sistemas roda?',

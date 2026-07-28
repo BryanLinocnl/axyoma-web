@@ -7,7 +7,7 @@ import { getLatestRelease } from '@/lib/releases'
 export const metadata: Metadata = {
   title: 'Baixar o Axyoma',
   description:
-    'Instaladores do Axyoma para macOS (Apple Silicon e Intel), Windows e Linux. Grátis, com 400 créditos para começar.',
+    'Instaladores do Axyoma para macOS (Apple Silicon e Intel), Windows e Linux. Grátis, com 100 créditos para começar.',
 }
 
 // Server component: resolve a última release no servidor (com cache), e só a
@@ -37,7 +37,7 @@ export default async function DownloadPage(): Promise<React.JSX.Element> {
           className="mt-5 max-w-[46ch] text-[16.5px] leading-relaxed"
           style={{ color: 'var(--ink-muted)' }}
         >
-          Grátis. Crie sua conta e receba 400 créditos para começar — sem cartão, sem chave de API.
+          Grátis. Crie sua conta e receba 100 créditos para começar — sem cartão, sem chave de API.
         </p>
 
         <DownloadPicker installers={release.installers} version={release.version} />

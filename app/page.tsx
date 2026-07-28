@@ -5,6 +5,7 @@ import { ControlSection } from '@/components/landing/ControlSection'
 import { ScaleSection } from '@/components/landing/ScaleSection'
 import { ProductGrid } from '@/components/landing/ProductGrid'
 import { LedgerSection } from '@/components/landing/LedgerSection'
+import { RunSection } from '@/components/landing/RunSection'
 import { Pricing } from '@/components/landing/Pricing'
 import { Faq } from '@/components/landing/Faq'
 import { SiteFooter } from '@/components/landing/SiteFooter'
@@ -27,6 +28,7 @@ export default function Home(): React.JSX.Element {
         <ScaleSection />
         <ProductGrid />
         <LedgerSection />
+        <RunSection />
         <Pricing />
         <Faq />
       </main>

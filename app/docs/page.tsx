@@ -66,7 +66,7 @@ export default function DocsPage(): React.JSX.Element {
       <Secao titulo="Créditos e cobrança">
         <p>
           O uso é debitado em créditos (1 crédito = R$ 0,30), calculados pelo custo real do modelo. Toda
-          conta nova ganha 400 créditos de bônus — equivalente a um mês de Pro para testar.
+          conta nova ganha 100 créditos de bônus para experimentar.
         </p>
         <p>
           Os créditos de bônus e os de franquia dos planos valem para os modelos da Vertex AI (Google

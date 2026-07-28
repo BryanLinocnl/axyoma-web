@@ -23,7 +23,7 @@ const PLANS: PlanCard[] = [
       // Dizia "100 créditos" — o bônus é 400 e vale só nos modelos da Vertex AI.
       // Anunciar número errado na tela de faturamento é o pior lugar possível
       // para errar: é onde o usuário confere se a conta bate.
-      '400 créditos de bônus (modelos Vertex AI, não renováveis)',
+      '100 créditos de bônus (modelos Vertex AI, não renováveis)',
       'Code Mode e Plan Mode',
       'Navegador Inteligente',
       'Editor de Código Integrado',

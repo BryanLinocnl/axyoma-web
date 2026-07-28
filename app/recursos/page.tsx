@@ -91,7 +91,7 @@ export default function RecursosPage(): React.JSX.Element {
           que consome, sem teto artificial e sem surpresa.
         </p>
         <p>
-          Toda conta nova ganha <strong className="text-neutral-900">400 créditos de bônus</strong> ao se
+          Toda conta nova ganha <strong className="text-neutral-900">100 créditos de bônus</strong> ao se
           cadastrar — na prática, um mês do plano Pro para testar a plataforma à vontade. Quando os
           créditos acabam, você compra mais ou assina um plano.
         </p>
@@ -137,7 +137,7 @@ export default function RecursosPage(): React.JSX.Element {
           ))}
         </div>
         <p>
-          Pronto para experimentar? <A href="/download">Baixe o app</A> e ganhe 400 créditos para começar,
+          Pronto para experimentar? <A href="/download">Baixe o app</A> e ganhe 100 créditos para começar,
           ou veja o <A href="/docs">guia rápido</A>.
         </p>
       </Secao>
