@@ -2,12 +2,13 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { AxiomaMark } from '@/components/AxiomaMark'
 import { DownloadPicker } from '@/components/download/DownloadPicker'
+import { GatekeeperNote } from '@/components/download/GatekeeperNote'
 import { getLatestRelease } from '@/lib/releases'
 
 export const metadata: Metadata = {
   title: 'Baixar o Axyoma',
   description:
-    'Instaladores do Axyoma para macOS (Apple Silicon e Intel), Windows e Linux. Grátis, com 100 créditos para começar.',
+    'Instaladores do Axyoma para macOS (Apple Silicon e Intel) e Windows. Grátis, com 100 créditos para começar.',
 }
 
 // Server component: resolve a última release no servidor (com cache), e só a
@@ -41,6 +42,11 @@ export default async function DownloadPage(): Promise<React.JSX.Element> {
         </p>
 
         <DownloadPicker installers={release.installers} version={release.version} />
+
+        {/* Fica visível para todo mundo, não só para quem o navegador denuncia
+            como Mac: é comum baixar num computador para instalar em outro, e a
+            pessoa que tropeça no aviso do macOS já fechou esta página. */}
+        <GatekeeperNote />
 
         {/* Não existe link para a página de releases do GitHub: de lá dá para
             baixar versões antigas, que podem ter falhas já corrigidas. A página

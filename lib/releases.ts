@@ -68,15 +68,33 @@ export type ReleaseInfo = {
 
 // Como reconhecer cada instalador entre os assets da release. A ordem importa:
 // `-arm64.dmg` tem que ser testado antes de `.dmg`, senão o x64 casaria errado.
+//
+// LINUX ESTÁ FORA, temporariamente. O AppImage exige compilar `node-pty` em
+// Linux (node-gyp não cross-compila) e hoje isso depende do CI, que está
+// bloqueado. Em vez de manter a linha apontando para um binário velho, a página
+// simplesmente não oferece Linux — dizer "não temos ainda" é mais honesto do que
+// entregar uma versão atrasada sem o usuário perceber.
+//
+// Para religar: devolver a linha do AppImage abaixo. O tipo `Installer` mantém
+// 'linux' de propósito, então é essa única linha.
 const MATCHERS: { id: Installer['id']; os: Installer['os']; label: string; detail: string; test: RegExp }[] = [
   { id: 'mac-arm64', os: 'mac', label: 'macOS', detail: 'Apple Silicon', test: /-arm64\.dmg$/i },
   { id: 'mac-x64', os: 'mac', label: 'macOS', detail: 'Intel', test: /-x64\.dmg$/i },
   { id: 'win', os: 'win', label: 'Windows', detail: '64-bit', test: /-setup\.exe$/i },
-  { id: 'linux', os: 'linux', label: 'Linux', detail: 'AppImage', test: /\.AppImage$/i },
 ]
 
+// Links fixos para quando a API não responder.
+//
+// PRECISA APONTAR PARA UM RELEASE QUE EXISTE. Os releases anteriores à v1.1.0
+// foram apagados do repositório de binários — um build antigo carrega falhas já
+// corrigidas, e o repositório é público, então qualquer um alcançaria. Este
+// bloco apontava para a v0.3.1: depois da limpeza, seriam quatro links 404
+// justamente no momento em que o fallback é a única coisa de pé.
+//
+// Ao publicar uma versão nova, atualize estes quatro campos junto.
+const FALLBACK_VERSAO = '1.1.0'
 const FALLBACK: ReleaseInfo = {
-  version: '0.3.1',
+  version: FALLBACK_VERSAO,
   publishedAt: null,
   stale: true,
   installers: [
@@ -85,36 +103,27 @@ const FALLBACK: ReleaseInfo = {
       os: 'mac',
       label: 'macOS',
       detail: 'Apple Silicon',
-      url: `https://github.com/${REPO}/releases/download/v0.3.1/AXYOMA.AI-0.3.1-arm64.dmg`,
+      url: `https://github.com/${REPO}/releases/download/v${FALLBACK_VERSAO}/AXYOMA.AI-${FALLBACK_VERSAO}-arm64.dmg`,
       size: 0,
-      version: '0.3.1',
+      version: FALLBACK_VERSAO,
     },
     {
       id: 'mac-x64',
       os: 'mac',
       label: 'macOS',
       detail: 'Intel',
-      url: `https://github.com/${REPO}/releases/download/v0.3.1/AXYOMA.AI-0.3.1-x64.dmg`,
+      url: `https://github.com/${REPO}/releases/download/v${FALLBACK_VERSAO}/AXYOMA.AI-${FALLBACK_VERSAO}-x64.dmg`,
       size: 0,
-      version: '0.3.1',
+      version: FALLBACK_VERSAO,
     },
     {
       id: 'win',
       os: 'win',
       label: 'Windows',
       detail: '64-bit',
-      url: `https://github.com/${REPO}/releases/download/v0.3.1/AXYOMA.AI-0.3.1-setup.exe`,
+      url: `https://github.com/${REPO}/releases/download/v${FALLBACK_VERSAO}/AXYOMA.AI-${FALLBACK_VERSAO}-setup.exe`,
       size: 0,
-      version: '0.3.1',
-    },
-    {
-      id: 'linux',
-      os: 'linux',
-      label: 'Linux',
-      detail: 'AppImage',
-      url: `https://github.com/${REPO}/releases/download/v0.3.1/AXYOMA.AI-0.3.1.AppImage`,
-      size: 0,
-      version: '0.3.1',
+      version: FALLBACK_VERSAO,
     },
   ],
 }

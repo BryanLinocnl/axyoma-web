@@ -30,6 +30,14 @@ const ICONS: Record<Installer['os'], (p: { className?: string }) => React.JSX.El
   linux: LinuxIcon,
 }
 
+/** Nome do sistema para a frase de "ainda não temos isso". */
+const SISTEMA: Record<Installer['id'], string> = {
+  'mac-arm64': 'Mac com Apple Silicon',
+  'mac-x64': 'Mac com Intel',
+  win: 'Windows',
+  linux: 'Linux',
+}
+
 /**
  * Adivinha, SEM esperar nada assíncrono, qual instalador serve esta máquina.
  *
@@ -109,6 +117,14 @@ export function DownloadPicker({
             </a>
           )
         })()
+      ) : detected ? (
+        // Detectamos o sistema e não temos binário para ele — hoje, Linux.
+        // Dizer isso é melhor do que mandar "escolha abaixo" e deixar a pessoa
+        // procurar numa lista onde o sistema dela não está.
+        <p className="max-w-[42ch] text-center text-[15px]" style={{ color: 'var(--ink-muted)' }}>
+          Ainda não há instalador para {SISTEMA[detected] ?? 'o seu sistema'}. Os disponíveis estão
+          logo abaixo.
+        </p>
       ) : (
         <p className="text-[15px]" style={{ color: 'var(--ink-muted)' }}>
           Escolha o instalador do seu sistema abaixo.
