@@ -13,7 +13,7 @@ const COLUMNS: [string, string][] = [
   ],
   [
     'Liberdade para escolher',
-    'Use os créditos do Axyoma ou conecte sua OpenRouter quando quiser. A plataforma funciona da forma que fizer mais sentido para você.',
+    'Use os créditos do Axyoma ou conecte sua própria chave da OpenRouter ou da OpenAI quando quiser. A plataforma funciona da forma que fizer mais sentido para você.',
   ],
 ]
 

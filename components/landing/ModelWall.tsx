@@ -31,7 +31,8 @@ export function ModelWall(): React.JSX.Element {
           style={{ color: 'var(--ink-faint)' }}
         >
           Troque de modelo a qualquer momento sem trocar de aplicativo. Use os créditos do Axyoma
-          ou conecte sua própria OpenRouter — o fluxo continua exatamente o mesmo.
+          ou conecte sua própria chave da OpenRouter ou da OpenAI — o fluxo continua exatamente o
+          mesmo.
         </p>
 
         <ul className="mx-auto mt-12 grid max-w-[880px] grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-3 lg:grid-cols-5">

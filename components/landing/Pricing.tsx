@@ -38,7 +38,7 @@ const PLANS: Plan[] = [
       '100 créditos de bônus (modelos Vertex AI)',
       'Modo Code e modo Plan completos',
       'Modelos locais pelo Ollama, sem gastar crédito',
-      'Ou conecte a sua chave da OpenRouter',
+      'Ou conecte a sua chave da OpenRouter ou da OpenAI',
       'MCP, skills, busca na web e terminal',
       'Compre créditos quando quiser, sem assinar',
     ],
@@ -99,14 +99,14 @@ export function Pricing(): React.JSX.Element {
                 // copy; fica aqui para não sumir da página — é o número que o
                 // visitante procura antes de baixar.
                 ['1 crédito', 'R$ 0,30, debitado pelo custo real do modelo'],
-                ['Pagamento', 'PIX ou cartão, no site ou dentro do app'],
+                ['Pagamento', 'Pix (QR, copia-e-cola ou Open Finance), no site ou no app'],
                 ['Bônus de cadastro', '100 créditos, sem cartão'],
                 ['Bônus e franquia', 'valem para os modelos da Vertex AI'],
                 ['Créditos comprados', 'valem para todos os modelos'],
                 // As duas saídas sem crédito. Ficam aqui, e não em destaque no
                 // topo: "comece agora" continua sendo o caminho principal —
                 // quem chega na página não quer escolher provedor, quer baixar.
-                ['Chave própria', 'OpenRouter: você paga o provedor, sem crédito Axyoma'],
+                ['Chave própria', 'OpenRouter ou OpenAI: você paga o provedor, sem crédito Axyoma'],
                 ['Modelos locais', 'pelo Ollama, na sua máquina, sem custo'],
               ].map(([k, v], i) => (
                 <div

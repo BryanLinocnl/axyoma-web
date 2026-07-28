@@ -31,7 +31,7 @@ const PLANS: PlanCard[] = [
       'Busca na Web',
       'Criador de Skills',
       'Modelos locais pelo Ollama, sem crédito',
-      'Chave própria da OpenRouter, se preferir',
+      'Chave própria da OpenRouter ou da OpenAI, se preferir',
       'Todos os modelos do catálogo (pay per use)',
     ],
   },

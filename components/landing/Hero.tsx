@@ -40,7 +40,10 @@ export function Hero(): React.JSX.Element {
           className="gb-lift mt-5 text-[13.5px]"
           style={{ color: 'var(--ink-faint)', animationDelay: '220ms' }}
         >
-          100 créditos para começar · chave própria e modelos locais sem custo · Windows, macOS e Linux
+          {/* LINUX: fora até o AppImage voltar. Não é detalhe de rodapé — é a
+              primeira dobra, e prometer um instalador que não existe queima a
+              confiança logo na linha em que ela é construída. */}
+          100 créditos para começar · chave própria e modelos locais sem custo · Windows e macOS
         </p>
       </div>
 

@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 const FAQ: Array<[string, string]> = [
   [
     'O que é o Axyoma AI?',
-    'Um estúdio de engenharia com IA em app desktop (macOS, Windows e Linux). Em um só app você cria artes para redes sociais (modo Design), planeja features em tarefas revisáveis (modo Plan) e roda um agente que lê, escreve e edita código, executa comandos e entrega até o PR no GitHub (modo Code).',
+    'Um estúdio de engenharia com IA em app desktop (macOS e Windows). Em um só app você cria artes para redes sociais (modo Design), planeja features em tarefas revisáveis (modo Plan) e roda um agente que lê, escreve e edita código, executa comandos e entrega até o PR no GitHub (modo Code).',
   ],
   [
     'Como funcionam os créditos?',
@@ -27,11 +27,11 @@ const FAQ: Array<[string, string]> = [
   ],
   [
     'Em quais sistemas roda?',
-    'macOS (Apple Silicon e Intel), Windows e Linux. O app se mantém atualizado automaticamente no Windows e Linux; no macOS notifica quando há nova versão.',
+    'macOS (Apple Silicon e Intel) e Windows. O app se mantém atualizado automaticamente no Windows; no macOS notifica quando há nova versão. A versão para Linux volta em breve.',
   ],
   [
     'Como pago?',
-    'Por PIX ou cartão de crédito, no checkout do site ou do app.',
+    'Por Pix — QR code, copia-e-cola ou pagamento direto pelo seu banco (Open Finance) —, no checkout do site ou do app.',
   ],
 ]
 

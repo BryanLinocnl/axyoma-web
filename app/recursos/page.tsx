@@ -38,7 +38,8 @@ const VANTAGENS: Array<[string, string]> = [
   ['Todos os modelos num lugar', 'Troque de modelo por tarefa sem trocar de aplicativo.'],
   ['Agente que executa', 'Do plano ao PR, o trabalho acontece dentro do app.'],
   ['Controle de verdade', 'O modo Plan revisa antes de agir: nada roda sem a sua aprovação.'],
-  ['Multiplataforma e atualizado', 'macOS, Windows e Linux, com atualização automática.'],
+  // LINUX: sai daqui enquanto o AppImage não volta a ser gerado.
+  ['Multiplataforma e atualizado', 'macOS e Windows, com atualização automática.'],
 ]
 
 export default function RecursosPage(): React.JSX.Element {
@@ -121,9 +122,9 @@ export default function RecursosPage(): React.JSX.Element {
 
       <Secao titulo="Multiplataforma e sempre atualizado">
         <p>
-          O app roda em macOS (Apple Silicon e Intel), Windows e Linux. No Windows e no Linux ele se
-          atualiza sozinho; no macOS, avisa quando há uma nova versão para você baixar. Você trabalha
-          sempre na versão mais recente sem esforço.
+          O app roda em macOS (Apple Silicon e Intel) e Windows. No Windows ele se atualiza sozinho;
+          no macOS, avisa quando há uma nova versão para você baixar. Você trabalha sempre na versão
+          mais recente sem esforço. A versão para Linux volta em breve.
         </p>
       </Secao>
 

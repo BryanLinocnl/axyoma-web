@@ -18,7 +18,10 @@ const POINTS: [string, string][] = [
   ],
   [
     'Saldo que é seu',
-    'Crédito comprado não vira pó no fim do mês. Você recarrega quando quiser, por PIX ou cartão.',
+    // CARTÃO: a cobrança nasce fixada em PIX na função `asaas-create-payment`
+    // (`billingType: 'PIX'`), então cartão não é opção hoje — habilitar no
+    // painel do Asaas não basta. Devolver a menção quando a função mudar.
+    'Crédito comprado não vira pó no fim do mês. Você recarrega quando quiser, por Pix.',
   ],
 ]
 

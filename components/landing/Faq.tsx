@@ -5,11 +5,11 @@ const ITEMS: Array<[string, string]> = [
   ],
   [
     'Preciso configurar uma API?',
-    'Não. Você pode começar imediatamente com os créditos inclusos. Se preferir, também pode conectar sua própria OpenRouter e outros provedores compatíveis.',
+    'Não. Você pode começar imediatamente com os créditos inclusos. Se preferir, também pode conectar sua própria chave da OpenRouter ou da OpenAI.',
   ],
   [
-    'Posso usar minha própria OpenRouter?',
-    'Sim. Em Configurações → Modelos você cola a sua chave da OpenRouter e escolhe os modelos que quer usar com ela. O que roda por essa chave é cobrado pela OpenRouter, direto de você, e não consome crédito Axyoma.',
+    'Posso usar minha própria chave de API?',
+    'Sim, da OpenRouter ou da OpenAI. Em Configurações → Modelos você cola a chave e escolhe os modelos que quer usar com ela. O que roda por essa chave é cobrado pelo provedor, direto de você, e não consome crédito Axyoma. Anthropic com chave própria está a caminho.',
   ],
   // Onde a chave mora é a primeira pergunta de quem cola uma chave num app de
   // terceiro, e a resposta é um diferencial nosso — não guardamos. Vale a
@@ -32,11 +32,14 @@ const ITEMS: Array<[string, string]> = [
   ],
   [
     'Como funciona a cobrança?',
-    'Você pode utilizar os créditos do Axyoma, comprar créditos adicionais ou utilizar sua própria API. O custo de cada execução é exibido de forma transparente. Um crédito custa R$ 0,30 e você paga por PIX ou cartão. Bônus e franquia valem para os modelos da Vertex AI; créditos comprados valem para todos os modelos.',
+    'Você pode utilizar os créditos do Axyoma, comprar créditos adicionais ou utilizar sua própria API. O custo de cada execução é exibido de forma transparente. Um crédito custa R$ 0,30 e você paga por Pix — no QR code, no copia-e-cola ou direto pelo seu banco, via Open Finance. Bônus e franquia valem para os modelos da Vertex AI; créditos comprados valem para todos os modelos.',
   ],
   [
+    // LINUX: o instalador voltou a ser gerado só para Windows e macOS. Enquanto
+    // o AppImage não volta, esta resposta não pode listá-lo — é a pergunta que
+    // alguém faz JUSTAMENTE para decidir se baixa.
     'Quais sistemas operacionais são suportados?',
-    'Windows, macOS (Apple Silicon e Intel) e Linux. A atualização é automática no Windows e no Linux; no macOS o app avisa quando há versão nova.',
+    'Windows e macOS (Apple Silicon e Intel). A atualização é automática no Windows; no macOS o app avisa quando há versão nova. A versão para Linux volta em breve.',
   ],
 ]
 

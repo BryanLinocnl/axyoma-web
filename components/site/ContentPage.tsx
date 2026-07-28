@@ -66,15 +66,22 @@ export function ContentPage({
 }
 
 // Seção padrão: título sólido em preto (sem degradê/itálico) + corpo.
+//
+// `id` existe para as páginas legais: documento de conformidade é lido por
+// consulta ("o que diz sobre retenção?"), não da primeira à última linha, e
+// quem revisa precisa mandar link para um trecho específico. `scroll-mt`
+// compensa a âncora ficar colada no topo da janela.
 export function Secao({
   titulo,
+  id,
   children,
 }: {
   titulo: string
+  id?: string
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <section>
+    <section id={id} className={id ? 'scroll-mt-8' : undefined}>
       <h2
         className="mb-4 text-[22px] font-semibold tracking-[-0.02em] sm:text-[26px]"
         style={{ color: 'var(--ink)' }}
@@ -83,6 +90,124 @@ export function Secao({
       </h2>
       <div className="flex flex-col gap-4">{children}</div>
     </section>
+  )
+}
+
+// Divisão dentro de uma seção. Documento legal longo sem terceiro nível vira
+// parede de texto — e é justamente onde mora o detalhe que o revisor procura.
+export function SubSecao({
+  titulo,
+  children,
+}: {
+  titulo: string
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <div>
+      <h3 className="mb-2 text-[17px] font-semibold" style={{ color: 'var(--ink)' }}>
+        {titulo}
+      </h3>
+      <div className="flex flex-col gap-3">{children}</div>
+    </div>
+  )
+}
+
+/** Lista com marcador discreto, no mesmo ritmo do corpo. */
+export function Lista({ itens }: { itens: React.ReactNode[] }): React.JSX.Element {
+  return (
+    <ul className="flex flex-col gap-2">
+      {itens.map((item, i) => (
+        <li key={i} className="flex gap-2.5">
+          <span
+            className="mt-[9px] h-[5px] w-[5px] shrink-0 rounded-full"
+            style={{ background: 'var(--accent)' }}
+            aria-hidden
+          />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * Tabela para as matrizes que uma política precisa ter (base legal por
+ * finalidade, operador por país, prazo por categoria).
+ *
+ * A rolagem horizontal fica DENTRO do contêiner: numa tela estreita, tabela de
+ * três colunas empurraria a página inteira para o lado.
+ */
+export function Tabela({
+  colunas,
+  linhas,
+}: {
+  colunas: string[]
+  linhas: React.ReactNode[][]
+}): React.JSX.Element {
+  return (
+    <div
+      className="gb-raised overflow-x-auto rounded-[14px]"
+      style={{ border: '1px solid var(--hairline)' }}
+    >
+      <table className="w-full min-w-[520px] border-collapse text-[15px]">
+        <thead>
+          <tr>
+            {colunas.map((c) => (
+              <th
+                key={c}
+                scope="col"
+                className="px-4 py-3 text-left text-[13.5px] font-semibold"
+                style={{ color: 'var(--ink)', borderBottom: '1px solid var(--hairline)' }}
+              >
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {linhas.map((linha, i) => (
+            <tr key={i}>
+              {linha.map((celula, j) => (
+                <td
+                  key={j}
+                  className="px-4 py-3 align-top leading-relaxed"
+                  style={i > 0 ? { borderTop: '1px solid var(--hairline)' } : undefined}
+                >
+                  {celula}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** Índice ancorado. Ver o comentário de `Secao` sobre por que ele existe. */
+export function Indice({ itens }: { itens: { id: string; titulo: string }[] }): React.JSX.Element {
+  return (
+    <nav
+      aria-label="Índice do documento"
+      className="rounded-[14px] p-5"
+      style={{ border: '1px solid var(--hairline)' }}
+    >
+      <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ink-faint)' }}>
+        Nesta página
+      </p>
+      <ol className="grid gap-x-8 gap-y-1.5 text-[15px] sm:grid-cols-2">
+        {itens.map((it, i) => (
+          <li key={it.id} className="flex gap-2">
+            <span className="gb-mono shrink-0 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
+              {String(i + 1).padStart(2, '0')}
+            </span>
+            <a href={`#${it.id}`} className="underline-offset-4 hover:underline">
+              {it.titulo}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
   )
 }
 

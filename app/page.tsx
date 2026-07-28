@@ -1,6 +1,7 @@
 import { SiteNav } from '@/components/landing/SiteNav'
 import { Hero } from '@/components/landing/Hero'
 import { ModelWall } from '@/components/landing/ModelWall'
+import { ProblemSection } from '@/components/landing/ProblemSection'
 import { ControlSection } from '@/components/landing/ControlSection'
 import { ScaleSection } from '@/components/landing/ScaleSection'
 import { ProductGrid } from '@/components/landing/ProductGrid'
@@ -24,6 +25,12 @@ export default function Home(): React.JSX.Element {
       <main id="conteudo">
         <Hero />
         <ModelWall />
+        {/* Problema antes de recurso. Fica DEPOIS da parede de modelos, não
+            entre ela e o herói: a parede é a prova imediata da promessa do
+            herói, e separar as duas quebra a leitura. Daqui em diante a página
+            é funcionalidade — ControlSection, ProductGrid, Ledger — e é
+            justamente isso que precisava de um porquê antes. */}
+        <ProblemSection />
         <ControlSection />
         <ScaleSection />
         <ProductGrid />
