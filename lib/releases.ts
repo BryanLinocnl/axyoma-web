@@ -1,4 +1,4 @@
-// Resolve os instaladores da ÚLTIMA release direto da API do GitHub.
+// Resolve os instaladores direto da API do GitHub, UM POR PLATAFORMA.
 //
 // POR QUE NÃO LINK FIXO: o nome do artefato carrega a versão
 // (`AXYOMA.AI-0.3.1-arm64.dmg`), então todo lançamento invalidaria os links da
@@ -7,18 +7,40 @@
 // <nome> muda. Perguntar à API é o único caminho que sobrevive a um release
 // sem intervenção.
 //
+// POR QUE NÃO BASTA `/releases/latest`: um release pode sair INCOMPLETO. Foi o
+// que aconteceu na v1.1.0 — o CI ficou bloqueado por pendência de pagamento e
+// os binários saíram de build local, onde só macOS e Windows são viáveis (o
+// AppImage precisa compilar `node-pty` em Linux, e node-gyp não cross-compila).
+// Lendo um release só, a linha de Linux simplesmente SUMIA da página: quem
+// entrasse de Linux não achava nada para baixar. E o `FALLBACK` lá embaixo não
+// salvava, porque ele só dispara quando NENHUM instalador é reconhecido.
+//
+// Daí a resolução por plataforma: percorremos os releases do mais novo para o
+// mais antigo e, para cada plataforma, ficamos com a PRIMEIRA ocorrência. Assim
+// macOS e Windows apontam para a v1.1.0 enquanto Linux continua na v1.0.0, em
+// vez de a página mentir por omissão. Cada instalador carrega a própria
+// `version` justamente para a interface poder dizer isso em voz alta.
+//
+// CONSEQUÊNCIA OPERACIONAL: enquanto uma plataforma depender de um release
+// antigo, esse release NÃO pode ser apagado — é o único lugar de onde o binário
+// dela sai.
+//
 // CUSTO: a API sem token permite 60 req/h por IP. O `revalidate` abaixo faz o
 // Next guardar a resposta no Data Cache, então o site inteiro gasta ~4 req/h,
-// não uma por visita.
+// não uma por visita. Continua sendo UMA requisição: pedimos a lista, não um
+// release por plataforma.
 //
-// FALLBACK: se a API falhar (fora do ar, limite estourado, release ainda não
+// FALLBACK: se a API falhar (fora do ar, limite estourado, nenhuma release
 // publicada), devolvemos os links da 0.3.1 fixos. A página de download nunca
 // pode ficar sem um instalador.
 
 // Nada aqui expõe a PÁGINA de releases do GitHub de propósito: de lá o
 // visitante alcança versões antigas, que podem ter falhas já corrigidas. A
-// página de download oferece apenas os binários da release mais recente.
+// página oferece apenas o binário mais recente de cada sistema.
 const REPO = 'BryanLinocnl/AXIOMA-AI-releases'
+
+/** Quantos releases olhamos para trás procurando uma plataforma ausente. */
+const JANELA = 30
 
 /** Cada instalável que a página oferece, na ordem em que aparece. */
 export type Installer = {
@@ -30,9 +52,12 @@ export type Installer = {
   url: string
   /** Tamanho em bytes; 0 quando veio do fallback. */
   size: number
+  /** Versão DESTE binário — pode ser mais antiga que a `version` da página. */
+  version: string
 }
 
 export type ReleaseInfo = {
+  /** A versão mais recente publicada, mesmo que nem toda plataforma a tenha. */
   version: string
   /** ISO 8601, ou null no fallback. */
   publishedAt: string | null
@@ -62,6 +87,7 @@ const FALLBACK: ReleaseInfo = {
       detail: 'Apple Silicon',
       url: `https://github.com/${REPO}/releases/download/v0.3.1/AXYOMA.AI-0.3.1-arm64.dmg`,
       size: 0,
+      version: '0.3.1',
     },
     {
       id: 'mac-x64',
@@ -70,6 +96,7 @@ const FALLBACK: ReleaseInfo = {
       detail: 'Intel',
       url: `https://github.com/${REPO}/releases/download/v0.3.1/AXYOMA.AI-0.3.1-x64.dmg`,
       size: 0,
+      version: '0.3.1',
     },
     {
       id: 'win',
@@ -78,6 +105,7 @@ const FALLBACK: ReleaseInfo = {
       detail: '64-bit',
       url: `https://github.com/${REPO}/releases/download/v0.3.1/AXYOMA.AI-0.3.1-setup.exe`,
       size: 0,
+      version: '0.3.1',
     },
     {
       id: 'linux',
@@ -86,51 +114,75 @@ const FALLBACK: ReleaseInfo = {
       detail: 'AppImage',
       url: `https://github.com/${REPO}/releases/download/v0.3.1/AXYOMA.AI-0.3.1.AppImage`,
       size: 0,
+      version: '0.3.1',
     },
   ],
 }
 
 type GhAsset = { name: string; browser_download_url: string; size: number }
-type GhRelease = { tag_name?: string; published_at?: string; assets?: GhAsset[] }
+type GhRelease = {
+  tag_name?: string
+  published_at?: string
+  draft?: boolean
+  prerelease?: boolean
+  assets?: GhAsset[]
+}
+
+/** `v1.1.0` → `1.1.0`. */
+function semVersao(tag: string | undefined): string {
+  return (tag ?? '').replace(/^v/, '')
+}
 
 export async function getLatestRelease(): Promise<ReleaseInfo> {
   try {
-    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=${JANELA}`, {
       headers: { Accept: 'application/vnd.github+json' },
       next: { revalidate: 900 },
     })
     if (!res.ok) throw new Error(`GitHub respondeu ${res.status}`)
 
-    const data = (await res.json()) as GhRelease
-    const assets = data.assets ?? []
+    const todas = (await res.json()) as GhRelease[]
+
+    // Rascunho nunca; pré-release também não — é exatamente o estado em que
+    // marcamos um release enquanto ele está incompleto, e trazê-lo para a página
+    // por acidente anularia o motivo de tê-lo marcado.
+    //
+    // A API devolve do mais novo para o mais antigo (por data de criação), que é
+    // a ordem que a busca abaixo assume.
+    const publicadas = (Array.isArray(todas) ? todas : []).filter((r) => !r.draft && !r.prerelease)
+    if (publicadas.length === 0) return FALLBACK
 
     const installers = MATCHERS.flatMap<Installer>((m) => {
-      const hit = assets.find((a) => m.test.test(a.name))
-      if (!hit) return []
-      return [
-        {
-          id: m.id,
-          os: m.os,
-          label: m.label,
-          detail: m.detail,
-          url: hit.browser_download_url,
-          size: hit.size,
-        },
-      ]
+      for (const rel of publicadas) {
+        const hit = (rel.assets ?? []).find((a) => m.test.test(a.name))
+        if (!hit) continue
+        return [
+          {
+            id: m.id,
+            os: m.os,
+            label: m.label,
+            detail: m.detail,
+            url: hit.browser_download_url,
+            size: hit.size,
+            version: semVersao(rel.tag_name),
+          },
+        ]
+      }
+      return []
     })
 
-    // Release sem nenhum instalável reconhecido não serve — melhor o fallback,
+    // Nenhuma plataforma reconhecida em release nenhuma — melhor o fallback,
     // que ao menos aponta para binários que sabemos existir.
     if (installers.length === 0) return FALLBACK
 
     return {
-      version: (data.tag_name ?? '').replace(/^v/, '') || FALLBACK.version,
-      publishedAt: data.published_at ?? null,
+      version: semVersao(publicadas[0].tag_name) || FALLBACK.version,
+      publishedAt: publicadas[0].published_at ?? null,
       installers,
       stale: false,
     }
   } catch (e) {
-    console.error('[releases] não consegui resolver a última release:', e)
+    console.error('[releases] não consegui resolver os instaladores:', e)
     return FALLBACK
   }
 }

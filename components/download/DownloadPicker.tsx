@@ -116,8 +116,12 @@ export function DownloadPicker({
       )}
 
       {primary && (
+        // A versão exibida é a DO BINÁRIO, não a da página: quando uma
+        // plataforma fica para trás (release publicado sem ela), dizer o número
+        // do release mais novo aqui seria falso justamente para quem vai baixar
+        // o arquivo antigo.
         <p className="mt-3 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
-          Versão {version}
+          Versão {primary.version}
           {formatSize(primary.size) ? ` · ${formatSize(primary.size)}` : ''} · detectamos o seu
           sistema automaticamente
         </p>
@@ -149,6 +153,20 @@ export function DownloadPicker({
                   <span className="text-[13.5px]" style={{ color: 'var(--ink-muted)' }}>
                     {inst.detail}
                   </span>
+                  {/* Só aparece quando esta plataforma ficou para trás. No caso
+                      normal (todas na mesma versão) a linha continua limpa. */}
+                  {inst.version !== version && (
+                    <span
+                      className="gb-mono rounded-full px-2 py-0.5 text-[11px]"
+                      style={{
+                        border: '1px solid var(--hairline-strong, var(--hairline))',
+                        color: 'var(--ink-faint)',
+                      }}
+                      title={`A versão ${version} ainda não tem instalador para ${inst.label}.`}
+                    >
+                      v{inst.version}
+                    </span>
+                  )}
                   <span
                     className="gb-mono ml-auto text-[12.5px]"
                     style={{ color: 'var(--ink-faint)' }}
@@ -167,7 +185,7 @@ export function DownloadPicker({
         style={{ color: 'var(--ink-faint)' }}
       >
         <Check className="size-3.5" aria-hidden />
-        Os links apontam sempre para a versão mais recente.
+        Cada link aponta para a versão mais recente disponível para aquele sistema.
       </p>
     </div>
   )
