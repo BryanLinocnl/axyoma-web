@@ -31,7 +31,7 @@ const FAQ: Array<[string, string]> = [
   ],
   [
     'Como pago?',
-    'Por PIX ou cartão de crédito, no checkout do site ou do app.',
+    'Por Pix — QR code, copia-e-cola ou pagamento direto pelo seu banco (Open Finance) —, no checkout do site ou do app.',
   ],
 ]
 

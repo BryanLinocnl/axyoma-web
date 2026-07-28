@@ -99,7 +99,7 @@ export function Pricing(): React.JSX.Element {
                 // copy; fica aqui para não sumir da página — é o número que o
                 // visitante procura antes de baixar.
                 ['1 crédito', 'R$ 0,30, debitado pelo custo real do modelo'],
-                ['Pagamento', 'PIX ou cartão, no site ou dentro do app'],
+                ['Pagamento', 'Pix (QR, copia-e-cola ou Open Finance), no site ou no app'],
                 ['Bônus de cadastro', '100 créditos, sem cartão'],
                 ['Bônus e franquia', 'valem para os modelos da Vertex AI'],
                 ['Créditos comprados', 'valem para todos os modelos'],

@@ -36,8 +36,8 @@ export default function TermosPage(): React.JSX.Element {
           0,30). Contas novas recebem 100 créditos de bônus. Os créditos de bônus e os créditos de
           franquia dos planos (Pro e Teams) são válidos exclusivamente para os modelos da Vertex AI
           (Google Cloud); os créditos comprados são válidos para todos os modelos, inclusive os da
-          Vertex. Créditos comprados não são reembolsáveis após o consumo. Pagamentos são feitos via PIX
-          e cartão de crédito. Planos e preços podem ser alterados mediante aviso.
+          Vertex. Créditos comprados não são reembolsáveis após o consumo. Pagamentos são feitos via
+          Pix. Planos e preços podem ser alterados mediante aviso.
         </p>
       </Secao>
 

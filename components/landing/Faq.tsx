@@ -32,7 +32,7 @@ const ITEMS: Array<[string, string]> = [
   ],
   [
     'Como funciona a cobrança?',
-    'Você pode utilizar os créditos do Axyoma, comprar créditos adicionais ou utilizar sua própria API. O custo de cada execução é exibido de forma transparente. Um crédito custa R$ 0,30 e você paga por PIX ou cartão. Bônus e franquia valem para os modelos da Vertex AI; créditos comprados valem para todos os modelos.',
+    'Você pode utilizar os créditos do Axyoma, comprar créditos adicionais ou utilizar sua própria API. O custo de cada execução é exibido de forma transparente. Um crédito custa R$ 0,30 e você paga por Pix — no QR code, no copia-e-cola ou direto pelo seu banco, via Open Finance. Bônus e franquia valem para os modelos da Vertex AI; créditos comprados valem para todos os modelos.',
   ],
   [
     // LINUX: o instalador voltou a ser gerado só para Windows e macOS. Enquanto
