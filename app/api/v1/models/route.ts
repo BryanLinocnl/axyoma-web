@@ -64,6 +64,10 @@ interface RawModel {
     output_modalities?: string[]
   }
   supported_parameters?: string[]
+  // Níveis de esforço de raciocínio aceitos, em ordem crescente. Ausente = o
+  // cliente usa o padrão low/medium/high. Só vem preenchido para o modelo que
+  // foge da regra (ex.: gpt-5.2-pro recusa 'low'; Gemini só aceita low/high).
+  reasoning_levels?: string[]
   // Teto de imagens de REFERÊNCIA que o modelo aceita numa geração img2img.
   // Só a tabela `public.models` popula isto (coluna max_reference_images); os
   // modelos vindos só da OpenRouter ficam sem o campo (cliente aplica fallback).
@@ -83,10 +87,11 @@ interface ModelsTableRow {
   output_price_usd_per_mtok: number | string
   sort_order: number
   max_reference_images: number | null
+  reasoning_levels: string[] | null
 }
 
 const MODELS_TABLE_SELECT =
-  'id,display_name,context_length,input_modalities,output_modalities,supported_parameters,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order,max_reference_images'
+  'id,display_name,context_length,input_modalities,output_modalities,supported_parameters,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order,max_reference_images,reasoning_levels'
 
 // `public.byok_models` — catálogo dos provedores em que a chave é DO USUÁRIO.
 //
@@ -114,10 +119,11 @@ interface ByokModelRow {
   input_price_usd_per_mtok: number | string
   output_price_usd_per_mtok: number | string
   sort_order: number
+  reasoning_levels: string[] | null
 }
 
 const BYOK_MODELS_SELECT =
-  'id,provider,display_name,context_length,input_modalities,output_modalities,supported_parameters,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order'
+  'id,provider,display_name,context_length,input_modalities,output_modalities,supported_parameters,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order,reasoning_levels'
 
 export function OPTIONS(req: Request): Response {
   return new Response(null, { status: 204, headers: corsHeaders(req, 'GET, OPTIONS') })
@@ -224,6 +230,7 @@ function byokRowToRawModel(row: ByokModelRow): RawModel {
       output_modalities: row.output_modalities ?? [],
     },
     supported_parameters: row.supported_parameters ?? [],
+    reasoning_levels: row.reasoning_levels ?? undefined,
   }
 }
 
@@ -244,6 +251,7 @@ function tableRowToRawModel(row: ModelsTableRow): RawModel {
     supported_parameters: row.supported_parameters ?? [],
     // null → undefined: JSON.stringify omite o campo; o cliente aplica o fallback.
     max_reference_images: row.max_reference_images ?? undefined,
+    reasoning_levels: row.reasoning_levels ?? undefined,
   }
 }
 
