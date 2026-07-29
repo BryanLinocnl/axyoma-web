@@ -72,6 +72,13 @@ interface RawModel {
   // Só a tabela `public.models` popula isto (coluna max_reference_images); os
   // modelos vindos só da OpenRouter ficam sem o campo (cliente aplica fallback).
   max_reference_images?: number
+  // Durações de saída, em segundos, que o modelo de vídeo aceita (crescente).
+  // UMA entrada = duração fixa: o cliente mostra o valor e não pergunta. Ausente
+  // = o modelo não gera vídeo. É o que distingue `veo` (durationSeconds é
+  // parâmetro real, 4–8s) de `interactions` (a Interactions API não tem campo de
+  // duração e o Omni devolve sempre ~10s) sem expor o `api_flavor`, que é
+  // detalhe interno de roteamento.
+  video_durations_s?: number[]
 }
 
 // Linha de `public.models` — SOMENTE colunas seguras para expor (ver comentário
@@ -88,10 +95,11 @@ interface ModelsTableRow {
   sort_order: number
   max_reference_images: number | null
   reasoning_levels: string[] | null
+  video_durations_s: number[] | null
 }
 
 const MODELS_TABLE_SELECT =
-  'id,display_name,context_length,input_modalities,output_modalities,supported_parameters,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order,max_reference_images,reasoning_levels'
+  'id,display_name,context_length,input_modalities,output_modalities,supported_parameters,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order,max_reference_images,reasoning_levels,video_durations_s'
 
 // `public.byok_models` — catálogo dos provedores em que a chave é DO USUÁRIO.
 //
@@ -252,6 +260,7 @@ function tableRowToRawModel(row: ModelsTableRow): RawModel {
     // null → undefined: JSON.stringify omite o campo; o cliente aplica o fallback.
     max_reference_images: row.max_reference_images ?? undefined,
     reasoning_levels: row.reasoning_levels ?? undefined,
+    video_durations_s: row.video_durations_s ?? undefined,
   }
 }
 
