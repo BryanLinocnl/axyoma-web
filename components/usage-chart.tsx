@@ -57,9 +57,25 @@ function fmtCompacto(n: number): string {
   return fmt(n)
 }
 
+/**
+ * Cores das curvas.
+ *
+ * NÃO usa `--chart-1`/`--chart-2`: essa paleta é inteiramente cinza
+ * (`oklch(0.87 0 0)` tem croma zero), e a curva do Axyoma ficava cinza-claro
+ * sobre fundo branco — praticamente invisível. Com duas séries sobrepostas,
+ * duas tonalidades do mesmo cinza também não se distinguem.
+ *
+ * Âmbar é a cor da marca (`--brand-1`); o azul é escolhido por ser o oposto
+ * dela na roda, então as duas áreas se separam mesmo empilhadas — e continuam
+ * distinguíveis nas formas mais comuns de daltonismo, o que dois tons de
+ * laranja não garantiriam.
+ */
+const COR_AXYOMA = '#fb860a'
+const COR_BYOK = '#2b7fff'
+
 const chartConfig = {
-  axyoma: { label: 'Créditos Axyoma', color: 'var(--chart-1)' },
-  byok: { label: 'Sua chave (BYOK)', color: 'var(--chart-2)' },
+  axyoma: { label: 'Créditos Axyoma', color: COR_AXYOMA },
+  byok: { label: 'Sua chave (BYOK)', color: COR_BYOK },
 } satisfies ChartConfig
 
 function UsageTooltip({
@@ -85,12 +101,12 @@ function UsageTooltip({
         {new Date(p.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
       </span>
 
-      <LinhaTooltip cor="var(--chart-1)" rotulo="Axyoma" valor={fmt(vAxyoma)} />
+      <LinhaTooltip cor={COR_AXYOMA} rotulo="Axyoma" valor={fmt(vAxyoma)} />
       {metrica === 'creditos' && vAxyoma > 0 && (
         <span className="text-muted-foreground pl-3.5">≈ R$ {fmt(creditsToBRL(vAxyoma, creditBrl))}</span>
       )}
 
-      <LinhaTooltip cor="var(--chart-2)" rotulo="BYOK" valor={fmt(vByok)} />
+      <LinhaTooltip cor={COR_BYOK} rotulo="BYOK" valor={fmt(vByok)} />
       {/* Sem esta linha um zero no BYOK parece "não usei", quando significa
           "usei, e não custou crédito nenhum daqui". */}
       {metrica === 'creditos' && <span className="text-muted-foreground pl-3.5">pago pela sua chave</span>}
@@ -200,8 +216,8 @@ export function UsageChart({
 
         {temByok && (
           <div className="text-muted-foreground mt-3 flex items-center gap-4 text-xs">
-            <Legenda cor="var(--chart-1)" texto="Créditos Axyoma" />
-            <Legenda cor="var(--chart-2)" texto="Sua chave (BYOK)" />
+            <Legenda cor={COR_AXYOMA} texto="Créditos Axyoma" />
+            <Legenda cor={COR_BYOK} texto="Sua chave (BYOK)" />
             <span className="ml-auto tabular-nums">{fmtCompacto(total)} no período</span>
           </div>
         )}

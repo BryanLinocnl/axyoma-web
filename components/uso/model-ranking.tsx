@@ -72,25 +72,22 @@ function RankingList({
 }
 
 /**
- * Ranking de modelos, das DUAS fontes.
+ * Modelos mais usados — UMA lista, com tudo.
  *
- * Saía do `usage_log` e por isso listava só o que passa pelo proxy — modelo
- * rodado com chave própria não aparecia, mesmo respondendo por milhões de
- * tokens. Agora vem do rollup, que cobre as duas origens.
+ * Eram dois cards, "por créditos" e "por tokens". A divisão não se sustentava:
+ * separar por FORMA DE PAGAMENTO não responde a pergunta que a tela levanta
+ * ("o que eu mais uso?"), e produzia um efeito colateral confuso — um modelo
+ * usado pelos dois lados, como o `grok-4.5`, aparecia nos dois cards com
+ * números diferentes, e parecia erro.
  *
- * O card da direita passou a ranquear por TOKENS, não por chamadas. Uma
- * chamada de agente e uma pergunta curta contam igual no número de chamadas,
- * então o pódio dizia mais sobre estilo de uso do que sobre volume — e é o
- * volume que explica a conta.
+ * Uma lista só, ordenada por TOKENS, que é a única medida em que Axyoma e BYOK
+ * são comparáveis. O crédito continua visível em cada linha, quando existe.
  */
+const TOPO = 8
+
 export function ModelRanking({ rows }: { rows: UsoModelo[] }): React.JSX.Element {
-  const porCreditos = useMemo(
-    // Só o que de fato consome crédito: um modelo BYOK aqui seria uma barra
-    // zerada, ocupando lugar de quem tem número para mostrar.
-    () => rows.filter((r) => r.creditos > 0).sort((a, b) => b.creditos - a.creditos).slice(0, 5),
-    [rows],
-  )
-  const porTokens = useMemo(() => [...rows].sort((a, b) => b.tokens - a.tokens).slice(0, 5), [rows])
+  const top = useMemo(() => [...rows].sort((a, b) => b.tokens - a.tokens).slice(0, TOPO), [rows])
+  const temByok = useMemo(() => rows.some((r) => r.fonte === 'byok'), [rows])
 
   if (rows.length === 0) {
     return (
@@ -102,16 +99,14 @@ export function ModelRanking({ rows }: { rows: UsoModelo[] }): React.JSX.Element
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Card className="p-6">
-        <p className="mb-4 text-sm font-semibold">Modelos mais usados (créditos)</p>
-        <RankingList items={porCreditos} campo="creditos" unit="créditos" />
-      </Card>
-      <Card className="p-6">
-        <p className="mb-1 text-sm font-semibold">Modelos mais usados (tokens)</p>
-        <p className="text-muted-foreground mb-4 text-xs">créditos Axyoma e chave própria</p>
-        <RankingList items={porTokens} campo="tokens" unit="tokens" compacto />
-      </Card>
-    </div>
+    <Card className="p-6">
+      <div className="mb-4 flex items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold">Modelos mais usados</p>
+        <p className="text-muted-foreground text-xs">
+          por tokens{temByok ? ' · Axyoma e chave própria' : ''}
+        </p>
+      </div>
+      <RankingList items={top} campo="tokens" unit="tokens" compacto />
+    </Card>
   )
 }
