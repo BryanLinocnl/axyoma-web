@@ -8,6 +8,8 @@ import { CreditsChart } from '@/components/uso/credits-chart'
 import { ModelRanking } from '@/components/uso/model-ranking'
 import { SubAgentSection } from '@/components/uso/subagent-section'
 import { UsoTable } from '@/components/uso/uso-table'
+import { FonteSection } from '@/components/uso/fonte-section'
+import { carregarUsoPorFonte, type UsoFonte } from '@/lib/uso-por-fonte'
 import type { UsageChartPoint } from '@/components/usage-chart'
 import type { UsoLogRow } from '@/components/uso/types'
 
@@ -44,6 +46,10 @@ function buildChartData(rows: UsoLogRow[]): UsageChartPoint[] {
 export default function UsoPage(): React.JSX.Element {
   const { userId } = useConta()
   const [rows, setRows] = useState<UsoLogRow[]>([])
+  // Uso agregado por fonte. Vem de `usage_daily`, não do `usage_log` acima: o
+  // BYOK que o app manda DIRETO ao provedor nunca passa pelo proxy, então não
+  // existe no log — e era 94% do uso BYOK desta base.
+  const [fontes, setFontes] = useState<UsoFonte[]>([])
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(0)
 
@@ -70,6 +76,12 @@ export default function UsoPage(): React.JSX.Element {
       setLoading(false)
     }
 
+    // Em paralelo e tolerante a falha: o rollup é um extra desta tela, e um
+    // erro nele não pode apagar o resto da página.
+    void carregarUsoPorFonte(userId)
+      .then((r) => { if (!cancelled) setFontes(r.fontes) })
+      .catch((e) => console.error('uso por fonte:', e))
+
     void loadAll()
     return () => {
       cancelled = true
@@ -88,6 +100,10 @@ export default function UsoPage(): React.JSX.Element {
   return (
     <div>
       <KpiCards creditsToday={creditsToday} credits30d={credits30d} creditsTotal={creditsTotal} generations={rows.length} />
+
+      {/* Antes dos gráficos: os KPIs acima falam só de CRÉDITO, e quem usa chave
+          própria via a página inteira zerada sem entender por quê. */}
+      <FonteSection fontes={fontes} />
 
       <div className="mb-6">
         <CreditsChart data={buildChartData(rows)} />
