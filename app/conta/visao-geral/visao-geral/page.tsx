@@ -10,6 +10,8 @@ import { UsageChart, type UsageChartPoint } from '@/components/usage-chart'
 import { ModelsUsageTable, type UsageLogRow } from '@/components/models-usage-table'
 import { BuyCreditsCard } from '@/components/dashboard/BuyCreditsCard'
 import { DownloadCard } from '@/components/dashboard/DownloadCard'
+import { FonteSection } from '@/components/uso/fonte-section'
+import { carregarUsoPorFonte, type UsoFonte } from '@/lib/uso-por-fonte'
 
 type Row = UsageLogRow & { ts: string }
 
@@ -40,12 +42,21 @@ function buildChartData(rows: Row[]): UsageChartPoint[] {
 export default function ContaOverviewPage(): React.JSX.Element {
   const { userId, balance, bonus, purchased, token, creditBrl } = useConta()
   const [rows, setRows] = useState<Row[]>([])
+  // Uso por fonte vem de `usage_daily`, não do `usage_log` desta página: o BYOK
+  // que o app manda DIRETO ao provedor nunca passa pelo proxy e não existe no
+  // log. Sem isto, esta tela fala só de crédito e some com o resto.
+  const [fontes, setFontes] = useState<UsoFonte[]>([])
   const [loadingRows, setLoadingRows] = useState(true)
   const [now, setNow] = useState(0)
 
   useEffect(() => {
     if (!userId) return
     let cancelled = false
+    // Tolerante a falha e em paralelo: um erro no rollup não pode derrubar a
+    // tela inicial da conta.
+    void carregarUsoPorFonte(userId, DAYS_BACK)
+      .then((r) => { if (!cancelled) setFontes(r.fontes) })
+      .catch((e) => console.error('uso por fonte:', e))
     const since = new Date(Date.now() - DAYS_BACK * 864e5).toISOString()
     void supabase
       .from('usage_log')
@@ -115,6 +126,10 @@ export default function ContaOverviewPage(): React.JSX.Element {
           sub={bonus > 0 ? 'dias no ritmo atual · inclui a franquia' : 'dias no ritmo atual'}
         />
       </section>
+
+      {/* Depois dos KPIs, que falam só de CRÉDITO: quem usa chave própria via
+          esta tela inteira sem o próprio uso, e nada explicava a ausência. */}
+      <FonteSection fontes={fontes} />
 
       <div className="mb-6">
         <UsageChart data={buildChartData(rows)} creditBrl={creditBrl} />
