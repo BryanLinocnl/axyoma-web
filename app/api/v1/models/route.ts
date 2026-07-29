@@ -139,22 +139,63 @@ export function OPTIONS(req: Request): Response {
 
 // Busca o catálogo público da OpenRouter. Falha -> [] (degrada com graça: a
 // resposta final ainda traz os modelos da tabela).
+/**
+ * Modalidades que precisam ser pedidas UMA A UMA.
+ *
+ * `GET /models` sem query NÃO devolve o catálogo inteiro: devolve os 367
+ * modelos de texto e omite tudo que gera outra coisa. Medido em 2026-07-29:
+ *
+ *   sem filtro              367
+ *   output_modalities=image  40   (29 ausentes do padrão)
+ *   output_modalities=video  17   (17 ausentes — TODOS)
+ *   output_modalities=speech 15   (15 ausentes — TODOS)
+ *   embeddings               34   (34 ausentes — TODOS)
+ *   rerank                    6   (6 ausentes — TODOS)
+ *
+ * União: 468. Eram 101 modelos que nunca chegavam ao cliente, incluindo o Grok
+ * Imagine (imagem e vídeo) e o Grok Voice TTS. O app tinha uma busca extra por
+ * `?output_modalities=video`, mas ela morria aqui: esta função ignorava a query
+ * e devolvia sempre a lista padrão.
+ *
+ * `audio` sai de fora porque não acrescenta nada (4 modelos, todos já no
+ * padrão); `embedding` no singular é erro de schema (HTTP 400) — o plural é que
+ * vale.
+ */
+const MODALIDADES_EXTRA = ['image', 'video', 'speech', 'embeddings', 'rerank'] as const
+
 async function fetchOpenRouterCatalog(): Promise<RawModel[]> {
-  try {
-    const key = process.env.OPENROUTER_KEY
-    const res = await fetch(`${OPENROUTER}/models`, {
-      headers: key ? { Authorization: `Bearer ${key}` } : {},
-    })
-    if (!res.ok) {
-      console.error(`OpenRouter /models HTTP ${res.status}`)
+  const key = process.env.OPENROUTER_KEY
+  const headers: Record<string, string> = key ? { Authorization: `Bearer ${key}` } : {}
+
+  const buscar = async (query: string): Promise<RawModel[]> => {
+    try {
+      const res = await fetch(`${OPENROUTER}/models${query}`, { headers })
+      if (!res.ok) {
+        console.error(`OpenRouter /models${query} HTTP ${res.status}`)
+        return []
+      }
+      const json = (await res.json()) as { data?: RawModel[] }
+      return json.data ?? []
+    } catch (e) {
+      console.error(`OpenRouter /models${query} indisponível:`, (e as Error).message)
       return []
     }
-    const json = (await res.json()) as { data?: RawModel[] }
-    return json.data ?? []
-  } catch (e) {
-    console.error('OpenRouter /models indisponível (degradando para só a tabela):', (e as Error).message)
-    return []
   }
+
+  // Em paralelo: a lista padrão é a que importa, e uma modalidade que falhe
+  // devolve [] sem derrubar as outras.
+  const listas = await Promise.all([
+    buscar(''),
+    ...MODALIDADES_EXTRA.map((m) => buscar(`?output_modalities=${m}`)),
+  ])
+
+  // Dedup por id, primeira ocorrência vence: a lista padrão vem primeiro, então
+  // um modelo que apareça nas duas mantém os metadados dela.
+  const porId = new Map<string, RawModel>()
+  for (const lista of listas) {
+    for (const m of lista) if (m?.id && !porId.has(m.id)) porId.set(m.id, m)
+  }
+  return [...porId.values()]
 }
 
 // Busca os modelos habilitados de `public.models`. Falha -> [] (degrada com
