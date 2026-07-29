@@ -23,7 +23,7 @@ export default function ContaLayout({ children }: { children: React.ReactNode })
 }
 
 function ContaShell({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const { authReady, loading, plan } = useConta()
+  const { authReady, loading, plan, isAdmin } = useConta()
   const pathname = usePathname()
   const crumb = findNavPath(pathname) ?? FALLBACK_TITLES[pathname] ?? { group: 'Conta', page: 'Conta' }
 
@@ -52,9 +52,19 @@ function ContaShell({ children }: { children: React.ReactNode }): React.JSX.Elem
             </Breadcrumb>
           </div>
           <div className="flex items-center gap-2">
+            {/* Papel SOBREPÕE plano no selo. Um developer tem assinatura como
+                qualquer conta (a minha é `solo`, exibida como "Pro"), mas o que
+                descreve o acesso dele é o papel — e ver "Plano Pro" num acesso
+                que não é vendido e não expira só confunde. */}
             <div className="border-border bg-card flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs">
-              <BadgeCheck className="size-3.5 text-amber-500" />
-              {loading ? <span className="bg-muted h-3 w-16 animate-pulse rounded" /> : <>Plano {plan}</>}
+              <BadgeCheck className={`size-3.5 ${isAdmin ? 'text-blue-500' : 'text-amber-500'}`} />
+              {loading ? (
+                <span className="bg-muted h-3 w-16 animate-pulse rounded" />
+              ) : isAdmin ? (
+                <>Developer</>
+              ) : (
+                <>Plano {plan}</>
+              )}
             </div>
             <ModeToggle />
           </div>
