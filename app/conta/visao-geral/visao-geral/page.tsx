@@ -6,12 +6,12 @@ import { supabase } from '@/lib/supabase-browser'
 import { useConta } from '@/lib/conta-context'
 import { creditsToBRL } from '@/lib/credits'
 import { Card } from '@/components/ui/card'
-import { UsageChart, type UsageChartPoint } from '@/components/usage-chart'
+import { UsageChart } from '@/components/usage-chart'
 import { ModelsUsageTable, type UsageLogRow } from '@/components/models-usage-table'
 import { BuyCreditsCard } from '@/components/dashboard/BuyCreditsCard'
 import { DownloadCard } from '@/components/dashboard/DownloadCard'
 import { FonteSection } from '@/components/uso/fonte-section'
-import { carregarUsoPorFonte, type UsoFonte } from '@/lib/uso-por-fonte'
+import { carregarUsoPorFonte, type UsoFonte, type PontoDiario, type UsoModelo } from '@/lib/uso-por-fonte'
 
 type Row = UsageLogRow & { ts: string }
 
@@ -24,21 +24,6 @@ function fmt(n: number): string {
   return n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 }
 
-function buildChartData(rows: Row[]): UsageChartPoint[] {
-  const byDay = new Map<string, number>()
-  for (const r of rows) {
-    const key = dayKey(r.ts)
-    byDay.set(key, (byDay.get(key) ?? 0) + Number(r.credits))
-  }
-  const points: UsageChartPoint[] = []
-  for (let i = DAYS_BACK - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 864e5)
-    const key = d.toISOString().slice(0, 10)
-    points.push({ date: key, credits: byDay.get(key) ?? 0 })
-  }
-  return points
-}
-
 export default function ContaOverviewPage(): React.JSX.Element {
   const { userId, balance, bonus, purchased, token, creditBrl } = useConta()
   const [rows, setRows] = useState<Row[]>([])
@@ -46,6 +31,8 @@ export default function ContaOverviewPage(): React.JSX.Element {
   // que o app manda DIRETO ao provedor nunca passa pelo proxy e não existe no
   // log. Sem isto, esta tela fala só de crédito e some com o resto.
   const [fontes, setFontes] = useState<UsoFonte[]>([])
+  const [serie, setSerie] = useState<PontoDiario[]>([])
+  const [porModelo, setPorModelo] = useState<UsoModelo[]>([])
   const [loadingRows, setLoadingRows] = useState(true)
   const [now, setNow] = useState(0)
 
@@ -55,7 +42,12 @@ export default function ContaOverviewPage(): React.JSX.Element {
     // Tolerante a falha e em paralelo: um erro no rollup não pode derrubar a
     // tela inicial da conta.
     void carregarUsoPorFonte(userId, DAYS_BACK)
-      .then((r) => { if (!cancelled) setFontes(r.fontes) })
+      .then((r) => {
+        if (cancelled) return
+        setFontes(r.fontes)
+        setSerie(r.porDia)
+        setPorModelo(r.porModelo)
+      })
       .catch((e) => console.error('uso por fonte:', e))
     const since = new Date(Date.now() - DAYS_BACK * 864e5).toISOString()
     void supabase
@@ -132,10 +124,10 @@ export default function ContaOverviewPage(): React.JSX.Element {
       <FonteSection fontes={fontes} />
 
       <div className="mb-6">
-        <UsageChart data={buildChartData(rows)} creditBrl={creditBrl} />
+        <UsageChart data={serie} creditBrl={creditBrl} />
       </div>
 
-      <ModelsUsageTable rows={rows} />
+      <ModelsUsageTable rows={porModelo} />
     </div>
   )
 }

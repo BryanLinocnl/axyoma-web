@@ -39,9 +39,41 @@ export type UsoFonte = {
   custoUsd: number | null
 }
 
-export type UsoDiario = { dia: string; fonte: UsoFonte['id']; tokens: number; chamadas: number }
+/**
+ * Um dia da série do gráfico, com as duas fontes lado a lado.
+ *
+ * Três métricas porque as fontes não são comparáveis em todas: BYOK tem
+ * `creditosByok` sempre 0 — quem paga é a chave do usuário. Só `tokens` e
+ * `chamadas` medem a mesma coisa nos dois lados, e é por isso que a métrica é
+ * escolhível no gráfico em vez de fixa.
+ */
+export type PontoDiario = {
+  date: string
+  creditosAxyoma: number
+  creditosByok: number
+  tokensAxyoma: number
+  tokensByok: number
+  chamadasAxyoma: number
+  chamadasByok: number
+}
+
+/**
+ * Um modelo usado, com a fonte que pagou.
+ *
+ * A tabela "Modelos usados" saía do `usage_log` e por isso listava só o que
+ * passa pelo proxy — os modelos rodados com chave própria não apareciam em
+ * lugar nenhum, mesmo respondendo por milhões de tokens.
+ */
+export type UsoModelo = {
+  modelo: string
+  fonte: UsoFonte['id']
+  chamadas: number
+  tokens: number
+  creditos: number
+}
 
 type LinhaRollup = {
+  model: string | null
   dia: string
   fonte: string | null
   kind: string | null
@@ -83,11 +115,11 @@ const num = (v: number | string | null): number => (v == null ? 0 : Number(v)) |
 export async function carregarUsoPorFonte(
   userId: string,
   diasAtras = 90,
-): Promise<{ fontes: UsoFonte[]; porDia: UsoDiario[] }> {
+): Promise<{ fontes: UsoFonte[]; porDia: PontoDiario[]; porModelo: UsoModelo[] }> {
   const desde = new Date(Date.now() - diasAtras * 864e5).toISOString().slice(0, 10)
   const { data, error } = await supabase
     .from('usage_daily')
-    .select('dia, fonte, kind, calls, credits, cost_usd, prompt_tokens, completion_tokens')
+    .select('dia, model, fonte, kind, calls, credits, cost_usd, prompt_tokens, completion_tokens')
     .eq('user_id', userId)
     .gte('dia', desde)
     .order('dia', { ascending: true })
@@ -98,31 +130,69 @@ export async function carregarUsoPorFonte(
     ['axyoma', { id: 'axyoma', label: 'Créditos Axyoma', chamadas: 0, tokens: 0, creditos: 0, custoUsd: 0 }],
     ['byok', { id: 'byok', label: 'Sua chave (BYOK)', chamadas: 0, tokens: 0, creditos: 0, custoUsd: null }],
   ])
-  const dias = new Map<string, UsoDiario>()
+  const dias = new Map<string, PontoDiario>()
+  const modelos = new Map<string, UsoModelo>()
+  const pontoVazio = (date: string): PontoDiario => ({
+    date,
+    creditosAxyoma: 0, creditosByok: 0,
+    tokensAxyoma: 0, tokensByok: 0,
+    chamadasAxyoma: 0, chamadasByok: 0,
+  })
 
   for (const l of (data ?? []) as LinhaRollup[]) {
     const fonte = fonteDoKind(l.kind)
     if (!fonte) continue
     const tokens = num(l.prompt_tokens) + num(l.completion_tokens)
     const chamadas = num(l.calls)
+    const creditos = num(l.credits)
 
     const f = acc.get(fonte)!
     f.chamadas += chamadas
     f.tokens += tokens
-    f.creditos += num(l.credits)
+    f.creditos += creditos
     if (f.custoUsd !== null) f.custoUsd += num(l.cost_usd)
 
-    const chave = `${l.dia}|${fonte}`
-    const d = dias.get(chave) ?? { dia: l.dia, fonte, tokens: 0, chamadas: 0 }
-    d.tokens += tokens
-    d.chamadas += chamadas
-    dias.set(chave, d)
+    const d = dias.get(l.dia) ?? pontoVazio(l.dia)
+    if (fonte === 'axyoma') {
+      d.creditosAxyoma += creditos
+      d.tokensAxyoma += tokens
+      d.chamadasAxyoma += chamadas
+    } else {
+      d.creditosByok += creditos
+      d.tokensByok += tokens
+      d.chamadasByok += chamadas
+    }
+    dias.set(l.dia, d)
+
+    // Agrupado por (modelo, fonte): o MESMO modelo pode rodar pelos dois lados
+    // — com crédito Axyoma num turno e com a chave do usuário no outro. Somar
+    // os dois numa linha só esconderia exatamente o que esta tela responde.
+    const modelo = l.model ?? '—'
+    const chaveModelo = `${modelo}|${fonte}`
+    const mm = modelos.get(chaveModelo) ?? { modelo, fonte, chamadas: 0, tokens: 0, creditos: 0 }
+    mm.chamadas += chamadas
+    mm.tokens += tokens
+    mm.creditos += creditos
+    modelos.set(chaveModelo, mm)
+  }
+
+  // Série CONTÍNUA: dia sem uso vira ponto zerado, não buraco. Sem isto o
+  // recharts liga 12/07 direto em 21/07 e a linha inventa um consumo que não
+  // houve nos dias do meio.
+  const serie: PontoDiario[] = []
+  for (let i = diasAtras - 1; i >= 0; i--) {
+    const dia = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10)
+    serie.push(dias.get(dia) ?? pontoVazio(dia))
   }
 
   return {
     // Só devolve a fonte que TEM uso: um card zerado de BYOK no painel de quem
     // nunca usou chave própria é ruído, não informação.
     fontes: [...acc.values()].filter((f) => f.chamadas > 0 || f.tokens > 0),
-    porDia: [...dias.values()].sort((a, b) => a.dia.localeCompare(b.dia)),
+    porDia: serie,
+    // Ordena por TOKENS, não por créditos: ordenar por crédito jogaria todo
+    // modelo BYOK para o fim da lista, já que o crédito dele é zero por
+    // definição — que é justamente o defeito que esta mudança corrige.
+    porModelo: [...modelos.values()].sort((a, b) => b.tokens - a.tokens || b.chamadas - a.chamadas),
   }
 }

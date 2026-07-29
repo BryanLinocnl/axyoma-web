@@ -4,13 +4,15 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase-browser'
 import { useConta } from '@/lib/conta-context'
 import { KpiCards } from '@/components/uso/kpi-cards'
-import { CreditsChart } from '@/components/uso/credits-chart'
+// Mesmo gráfico da Visão Geral, de propósito. O <CreditsChart> era uma CÓPIA
+// dele, e foi por isso que as duas telas divergiram: qualquer mudança tinha de
+// ser feita duas vezes, e a segunda era esquecida.
+import { UsageChart } from '@/components/usage-chart'
 import { ModelRanking } from '@/components/uso/model-ranking'
 import { SubAgentSection } from '@/components/uso/subagent-section'
 import { UsoTable } from '@/components/uso/uso-table'
 import { FonteSection } from '@/components/uso/fonte-section'
-import { carregarUsoPorFonte, type UsoFonte } from '@/lib/uso-por-fonte'
-import type { UsageChartPoint } from '@/components/usage-chart'
+import { carregarUsoPorFonte, type UsoFonte, type PontoDiario, type UsoModelo } from '@/lib/uso-por-fonte'
 import type { UsoLogRow } from '@/components/uso/types'
 
 const SELECT_COLUMNS = 'ts, model, credits, kind, prompt_tokens, completion_tokens'
@@ -28,21 +30,6 @@ function dayKey(iso: string): string {
   return iso.slice(0, 10)
 }
 
-function buildChartData(rows: UsoLogRow[]): UsageChartPoint[] {
-  const byDay = new Map<string, number>()
-  for (const r of rows) {
-    const key = dayKey(r.ts)
-    byDay.set(key, (byDay.get(key) ?? 0) + Number(r.credits))
-  }
-  const points: UsageChartPoint[] = []
-  for (let i = CHART_DAYS_BACK - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * DAY_MS)
-    const key = d.toISOString().slice(0, 10)
-    points.push({ date: key, credits: byDay.get(key) ?? 0 })
-  }
-  return points
-}
-
 export default function UsoPage(): React.JSX.Element {
   const { userId } = useConta()
   const [rows, setRows] = useState<UsoLogRow[]>([])
@@ -50,6 +37,8 @@ export default function UsoPage(): React.JSX.Element {
   // BYOK que o app manda DIRETO ao provedor nunca passa pelo proxy, então não
   // existe no log — e era 94% do uso BYOK desta base.
   const [fontes, setFontes] = useState<UsoFonte[]>([])
+  const [serie, setSerie] = useState<PontoDiario[]>([])
+  const [porModelo, setPorModelo] = useState<UsoModelo[]>([])
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(0)
 
@@ -78,8 +67,13 @@ export default function UsoPage(): React.JSX.Element {
 
     // Em paralelo e tolerante a falha: o rollup é um extra desta tela, e um
     // erro nele não pode apagar o resto da página.
-    void carregarUsoPorFonte(userId)
-      .then((r) => { if (!cancelled) setFontes(r.fontes) })
+    void carregarUsoPorFonte(userId, CHART_DAYS_BACK)
+      .then((r) => {
+        if (cancelled) return
+        setFontes(r.fontes)
+        setSerie(r.porDia)
+        setPorModelo(r.porModelo)
+      })
       .catch((e) => console.error('uso por fonte:', e))
 
     void loadAll()
@@ -106,11 +100,11 @@ export default function UsoPage(): React.JSX.Element {
       <FonteSection fontes={fontes} />
 
       <div className="mb-6">
-        <CreditsChart data={buildChartData(rows)} />
+        <UsageChart data={serie} titulo="Consumo diário" />
       </div>
 
       <div className="mb-6">
-        <ModelRanking rows={rows} />
+        <ModelRanking rows={porModelo} />
       </div>
 
       <div className="mb-6">

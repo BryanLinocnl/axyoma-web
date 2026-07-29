@@ -5,7 +5,9 @@ import { ArrowUpIcon, ArrowDownIcon, ChevronLeftIcon, ChevronRightIcon } from 'l
 import { Card } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import type { UsoModelo } from '@/lib/uso-por-fonte'
 
+/** @deprecated shape antiga, de quando a tabela saía do `usage_log`. */
 export type UsageLogRow = {
   model: string | null
   kind: string | null
@@ -14,25 +16,7 @@ export type UsageLogRow = {
   completion_tokens: number
 }
 
-const USE_CASE_LABELS: Record<string, string> = {
-  chat: 'Chat',
-  plan_mode: 'Plan Mode',
-  code_mode: 'Code Mode',
-  design_mode: 'Design Mode',
-  skill: 'Skill',
-  vision: 'Visão Computacional',
-  image_generation: 'Geração de Imagens',
-}
-
-function labelForKind(kind: string | null): string {
-  if (!kind) return 'Chat'
-  // Nunca expor valores brutos de provedor de infra (ex.: nome do gateway) na
-  // UI — qualquer `kind` não mapeado cai em "Geração".
-  return USE_CASE_LABELS[kind] ?? 'Geração'
-}
-
-type Row = { model: string; useCase: string; calls: number; tokens: number; credits: number }
-type SortKey = 'model' | 'useCase' | 'calls' | 'tokens' | 'credits'
+type SortKey = 'modelo' | 'fonte' | 'chamadas' | 'tokens' | 'creditos'
 
 const PAGE_SIZE = 20
 
@@ -60,7 +44,10 @@ function SortHeader({
     <TableHead className={className}>
       <button
         onClick={() => onToggle(sortKeyName)}
-        className={cn('text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors', className?.includes('text-right') && 'justify-end')}
+        className={cn(
+          'text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors',
+          className?.includes('text-right') && 'justify-end',
+        )}
       >
         {label}
         {active && (sortDir === 'asc' ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />)}
@@ -69,46 +56,43 @@ function SortHeader({
   )
 }
 
-function aggregate(rows: UsageLogRow[]): Row[] {
-  const map = new Map<string, Row>()
-  for (const r of rows) {
-    const model = r.model ?? '—'
-    const useCase = labelForKind(r.kind)
-    const key = `${model}::${useCase}`
-    const existing = map.get(key)
-    const tokens = (r.prompt_tokens ?? 0) + (r.completion_tokens ?? 0)
-    if (existing) {
-      existing.calls += 1
-      existing.tokens += tokens
-      existing.credits += Number(r.credits)
-    } else {
-      map.set(key, { model, useCase, calls: 1, tokens, credits: Number(r.credits) })
-    }
-  }
-  return [...map.values()]
-}
-
-export function ModelsUsageTable({ rows }: { rows: UsageLogRow[] }): React.JSX.Element {
-  const [sortKey, setSortKey] = useState<SortKey>('credits')
+/**
+ * Modelos usados, das DUAS fontes.
+ *
+ * A tabela saía do `usage_log` e por isso listava apenas o que passa pelo
+ * proxy: os modelos rodados com chave própria não apareciam em lugar nenhum,
+ * mesmo respondendo por milhões de tokens. Agora vem do rollup
+ * (`lib/uso-por-fonte.ts`), que cobre as duas origens.
+ *
+ * A coluna "Caso de uso" saiu no lugar de "Fonte". Ela derivava do `kind`, e
+ * como todo `kind` de provedor cai no genérico "Geração", a coluna repetia a
+ * mesma palavra em todas as linhas. "Fonte" responde a pergunta que essa tela
+ * de fato levanta: quem pagou por este modelo.
+ *
+ * A ordenação padrão é por TOKENS, não por créditos: por crédito, todo modelo
+ * BYOK afundaria para o fim da lista — o crédito dele é zero por definição.
+ */
+export function ModelsUsageTable({ rows }: { rows: UsoModelo[] }): React.JSX.Element {
+  const [sortKey, setSortKey] = useState<SortKey>('tokens')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(0)
 
-  const aggregated = useMemo(() => aggregate(rows), [rows])
-
   const sorted = useMemo(() => {
-    const copy = [...aggregated]
+    const copy = [...rows]
     copy.sort((a, b) => {
       const av = a[sortKey]
       const bv = b[sortKey]
-      const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv))
+      const cmp =
+        typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv))
       return sortDir === 'asc' ? cmp : -cmp
     })
     return copy
-  }, [aggregated, sortKey, sortDir])
+  }, [rows, sortKey, sortDir])
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
   const clampedPage = Math.min(page, totalPages - 1)
   const pageRows = sorted.slice(clampedPage * PAGE_SIZE, clampedPage * PAGE_SIZE + PAGE_SIZE)
+  const temByok = useMemo(() => rows.some((r) => r.fonte === 'byok'), [rows])
 
   function toggleSort(key: SortKey): void {
     if (key === sortKey) {
@@ -124,9 +108,13 @@ export function ModelsUsageTable({ rows }: { rows: UsageLogRow[] }): React.JSX.E
     <Card className="p-6">
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm font-semibold">Modelos usados</p>
-        <p className="text-muted-foreground text-xs">{aggregated.length} combinação{aggregated.length === 1 ? '' : 'ões'}</p>
+        <p className="text-muted-foreground text-xs">
+          {rows.length} modelo{rows.length === 1 ? '' : 's'}
+          {temByok ? ' · Axyoma e chave própria' : ''}
+        </p>
       </div>
-      {aggregated.length === 0 ? (
+
+      {rows.length === 0 ? (
         <p className="text-muted-foreground text-sm">Nenhum uso ainda.</p>
       ) : (
         <>
@@ -134,26 +122,33 @@ export function ModelsUsageTable({ rows }: { rows: UsageLogRow[] }): React.JSX.E
             <Table>
               <TableHeader>
                 <TableRow>
-                  <SortHeader label="Modelo" sortKeyName="model" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-                  <SortHeader label="Caso de uso" sortKeyName="useCase" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-                  <SortHeader label="Chamadas" sortKeyName="calls" className="text-right" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                  <SortHeader label="Modelo" sortKeyName="modelo" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                  <SortHeader label="Fonte" sortKeyName="fonte" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                  <SortHeader label="Chamadas" sortKeyName="chamadas" className="text-right" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
                   <SortHeader label="Tokens" sortKeyName="tokens" className="text-right" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
-                  <SortHeader label="Créditos" sortKeyName="credits" className="text-right" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                  <SortHeader label="Créditos" sortKeyName="creditos" className="text-right" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pageRows.map((r) => (
-                  <TableRow key={`${r.model}::${r.useCase}`}>
-                    <TableCell className="font-mono text-xs">{r.model}</TableCell>
-                    <TableCell className="text-muted-foreground">{r.useCase}</TableCell>
-                    <TableCell className="text-muted-foreground text-right">{fmt(r.calls)}</TableCell>
+                  <TableRow key={`${r.modelo}::${r.fonte}`}>
+                    <TableCell className="font-mono text-xs">{r.modelo}</TableCell>
+                    <TableCell>
+                      <FonteBadge fonte={r.fonte} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-right">{fmt(r.chamadas)}</TableCell>
                     <TableCell className="text-muted-foreground text-right">{fmt(r.tokens)}</TableCell>
-                    <TableCell className="text-right">{fmt(r.credits)}</TableCell>
+                    {/* Traço, não "0,00": o BYOK não custou crédito nenhum daqui,
+                        e um zero se lê como "foi de graça". */}
+                    <TableCell className="text-right">
+                      {r.fonte === 'byok' ? <span className="text-muted-foreground">—</span> : fmt(r.creditos)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+
           {sorted.length > PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between">
               <p className="text-muted-foreground text-xs">
@@ -180,5 +175,23 @@ export function ModelsUsageTable({ rows }: { rows: UsageLogRow[] }): React.JSX.E
         </>
       )}
     </Card>
+  )
+}
+
+function FonteBadge({ fonte }: { fonte: UsoModelo['fonte'] }): React.JSX.Element {
+  const axyoma = fonte === 'axyoma'
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs"
+      style={{
+        background: `color-mix(in oklab, ${axyoma ? 'var(--chart-1)' : 'var(--chart-2)'} 12%, transparent)`,
+      }}
+    >
+      <span
+        className="size-1.5 shrink-0 rounded-full"
+        style={{ background: axyoma ? 'var(--chart-1)' : 'var(--chart-2)' }}
+      />
+      {axyoma ? 'Axyoma' : 'Sua chave'}
+    </span>
   )
 }
