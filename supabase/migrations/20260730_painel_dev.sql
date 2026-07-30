@@ -1,0 +1,29 @@
+-- Painel developer: métricas, série diária, grupos de erro e triagem.
+--
+-- `admin_metrics_summary` era chamada por `/api/admin/metrics` e NUNCA EXISTIU
+-- no banco: a página nascia com "falha ao carregar métricas" e o erro genérico
+-- (deliberado, para não vazar detalhe de RPC) escondia a causa. O tipo
+-- `AdminMetrics` no TypeScript descrevia um shape — `total_users`,
+-- `by_model_30d`, `daily_30d` — que nenhuma função devolvia.
+--
+-- CHECAGEM QUE ACEITA USUÁRIO EXPLÍCITO. A primeira versão testava
+-- `is_developer(auth.uid())`. Isso vale quando o CLIENTE chama direto, mas
+-- quebra no caminho do proxy: `lib/supabase-admin.ts` usa a SERVICE ROLE, e com
+-- ela `auth.uid()` é NULL — a RPC recusaria a própria rota legítima. Passou a
+-- ser `coalesce(auth.uid(), p_user)`, com `p_user` extraído do JWT VERIFICADO
+-- pela rota. Não é buraco: quem tem service role já lê as tabelas direto. É
+-- defesa em profundidade contra uma rota nova esquecer de conferir o papel.
+--
+-- Verificado em 30/07/2026:
+--   p_user de developer          → responde (métricas, série de 7 pontos)
+--   p_user de quem não é         → BLOQUEADO: acesso negado
+--   p_user inexistente           → BLOQUEADO: acesso negado
+--
+-- O corpo das funções está nas migrations aplicadas neste dia
+-- (`admin_metrics_e_grupos_de_erro`, `admin_error_groups_agent_errors`,
+-- `admin_error_groups_qualifica_colunas`, `admin_rpcs_aceitam_usuario_explicito`).
+-- Este arquivo registra a decisão, o motivo e o teste.
+--
+-- Uma armadilha que custou uma rodada: `fingerprint` existe em `agent_errors` E
+-- em `error_triage`, e o join deixava `count(distinct fingerprint)` ambíguo.
+-- Todas as colunas das RPCs de erro são qualificadas por isso.

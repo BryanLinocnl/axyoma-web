@@ -194,22 +194,126 @@ export async function setIntegrationSecret(params: {
   })
 }
 
+/**
+ * Métricas do painel interno.
+ *
+ * O tipo anterior (`total_users`, `by_model_30d`, `daily_30d`) descrevia uma RPC
+ * que NUNCA existiu no banco — a página respondia "falha ao carregar métricas"
+ * desde sempre, e a mensagem genérica escondia a causa. O shape abaixo é o da
+ * RPC de verdade, agrupado por assunto e com o que faltava: custo em dólar,
+ * consumo interno da equipe separado, e saúde (erros, abortos, TTFT).
+ */
 export type AdminMetrics = {
-  total_users: number
-  new_users_30d: number
-  total_purchased_credits: number
-  total_balance_credits: number
-  active_subscriptions: number
-  spend_today_credits: number
-  spend_7d_credits: number
-  spend_30d_credits: number
-  by_model_30d: { model: string | null; calls: number; credits: number; prompt_tokens: number; completion_tokens: number }[]
-  daily_30d: { day: string; credits: number; calls: number }[]
+  usuarios: { total: number; novos_30d: number; ativos_7d: number; ativos_30d: number }
+  receita: {
+    creditos_comprados: number
+    compras: number
+    assinaturas_ativas: number
+    saldo_em_circulacao: number
+  }
+  custo: {
+    usd_30d: number
+    usd_7d: number
+    creditos_30d: number
+    /** Consumo da equipe (papel developer). Não debita, mas é medido — some do
+     *  custo por usuário pagante se for misturado. */
+    usd_interno_30d: number
+  }
+  uso: {
+    chamadas_30d: number
+    tokens_30d: number
+    byok_chamadas_30d: number
+    imagens: number
+    videos: number
+  }
+  saude: {
+    turnos_7d: number
+    erros_7d: number
+    abortos_7d: number
+    /** Turnos que bateram o teto de iterações. */
+    cap_7d: number
+    ttft_p50_ms: number | null
+    ttft_p95_ms: number | null
+    /** Reservas abertas há mais de uma hora: crédito preso ou vazado. */
+    holds_presos: number
+  }
+}
+
+export type AdminSeriePonto = {
+  dia: string
+  usd: number
+  creditos: number
+  chamadas: number
+  tokens: number
+  erros: number
+  usuarios: number
+}
+
+export type AdminErrorGroup = {
+  chave: string
+  titulo: string
+  mensagem: string | null
+  error_class: string | null
+  bucket: 'bug' | 'ambiente'
+  ocorrencias: number
+  usuarios: number
+  primeira: string
+  ultima: string
+  versoes: string[] | null
+  ultima_versao: string | null
+  variacoes: number
+  modo: string | null
+  provider: string | null
+  model_id: string | null
+  tool: string | null
+  stack: string | null
+  status: 'novo' | 'investigando' | 'corrigido' | 'ignorado'
+  fixed_in_version: string | null
+  nota: string | null
 }
 
 /** Painel developer: agregados globais (todos os usuários). Nunca exponha sem checar admin antes. */
-export async function getAdminMetrics(): Promise<AdminMetrics> {
-  return rpc<AdminMetrics>('admin_metrics_summary', {})
+export async function getAdminMetrics(userId: string): Promise<AdminMetrics> {
+  // `userId` VERIFICADO pela rota, nunca vindo do corpo. Ele é necessário porque
+  // `rpc()` usa a service role, e com ela `auth.uid()` é nulo no Postgres — sem
+  // isto a própria RPC recusaria a chamada legítima com "acesso negado".
+  return rpc<AdminMetrics>('admin_metrics_summary', { p_user: userId })
+}
+
+export async function getAdminSeries(userId: string, dias = 30): Promise<AdminSeriePonto[]> {
+  return rpc<AdminSeriePonto[]>('admin_daily_series', { p_dias: dias, p_user: userId })
+}
+
+export async function getAdminErrorGroups(params: {
+  userId: string
+  bucket?: 'bug' | 'ambiente' | null
+  dias?: number
+  limite?: number
+  porVariacao?: boolean
+}): Promise<AdminErrorGroup[]> {
+  return rpc<AdminErrorGroup[]>('admin_error_groups', {
+    p_bucket: params.bucket ?? null,
+    p_dias: params.dias ?? 30,
+    p_limite: params.limite ?? 100,
+    p_por_variacao: params.porVariacao ?? false,
+    p_user: params.userId,
+  })
+}
+
+export async function setErrorTriage(params: {
+  userId: string
+  fingerprint: string
+  status: string
+  fixedInVersion?: string | null
+  nota?: string | null
+}): Promise<unknown> {
+  return rpc('admin_error_triage', {
+    p_fingerprint: params.fingerprint,
+    p_status: params.status,
+    p_fixed_in_version: params.fixedInVersion ?? null,
+    p_nota: params.nota ?? null,
+    p_user: params.userId,
+  })
 }
 
 // -----------------------------------------------------------------------------
