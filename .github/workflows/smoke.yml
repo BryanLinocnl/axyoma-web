@@ -27,6 +27,12 @@ jobs:
       # versionado. Ver o comentário naquele arquivo.
       - name: Type check
         run: npm run typecheck
+      # Junto do type-check e antes do build, pelo mesmo motivo: é verificação de
+      # segundos. Falha de tradução é silenciosa por natureza — quem acrescenta
+      # uma string em pt-BR e esquece do en.json não vê nada quebrar, e a página
+      # só mostra a chave crua para quem lê o outro idioma.
+      - name: Traduções completas (nenhuma chave faltando ou vazia)
+        run: npm run check:i18n
       - name: Build
         run: npm run build
         env:
