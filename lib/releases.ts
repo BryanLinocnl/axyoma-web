@@ -85,14 +85,20 @@ const MATCHERS: { id: Installer['id']; os: Installer['os']; label: string; detai
 
 // Links fixos para quando a API não responder.
 //
-// PRECISA APONTAR PARA UM RELEASE QUE EXISTE. Os releases anteriores à v1.1.0
-// foram apagados do repositório de binários — um build antigo carrega falhas já
-// corrigidas, e o repositório é público, então qualquer um alcançaria. Este
-// bloco apontava para a v0.3.1: depois da limpeza, seriam quatro links 404
-// justamente no momento em que o fallback é a única coisa de pé.
+// PRECISA APONTAR PARA O RELEASE MAIS RECENTE, e a razão é operacional, não
+// estética: o release anterior é APAGADO a cada publicação. O repositório de
+// binários é público, e um build antigo continuando lá carrega falhas já
+// corrigidas ao alcance de qualquer um. Foi o que se fez com tudo anterior à
+// v1.1.0, e é o que se faz agora a cada versão.
 //
-// Ao publicar uma versão nova, atualize estes quatro campos junto.
-const FALLBACK_VERSAO = '1.1.0'
+// Consequência direta: um FALLBACK atrasado não fica "velho", fica QUEBRADO —
+// aponta para um release que não existe mais, e são três links 404 justamente
+// no momento em que o fallback é a única coisa de pé. Ele passou a v1.2.0
+// inteira em 1.1.0 e só não quebrou porque a v1.1.0 ainda não tinha sido
+// apagada.
+//
+// ATUALIZE ESTA CONSTANTE NO MESMO COMMIT em que o release novo sai.
+const FALLBACK_VERSAO = '1.3.0'
 const FALLBACK: ReleaseInfo = {
   version: FALLBACK_VERSAO,
   publishedAt: null,
