@@ -1,3 +1,10 @@
+import createNextIntlPlugin from 'next-intl/plugin'
+
+// O plugin só faz uma coisa: dizer ao bundler onde está a configuração por
+// requisição (`i18n/request.ts`), que é quem carrega `messages/{locale}.json`.
+// Sem ele, `getTranslations`/`useTranslations` não encontram catálogo nenhum.
+const withNextIntl = createNextIntlPlugin('./i18n/request.ts')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Pasta de saída. Existe como env porque `next dev` e `next build` gravam no
@@ -80,4 +87,4 @@ const nextConfig = {
   },
 }
 
-export default nextConfig
+export default withNextIntl(nextConfig)

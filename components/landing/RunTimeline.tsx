@@ -1,4 +1,5 @@
 import { Check, ChevronRight, FilePlus2, FileText, Pencil, TerminalSquare } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 /**
  * A trilha de execução do app, recriada em HTML.
@@ -21,25 +22,26 @@ type Row =
   | { kind: 'say'; text: React.ReactNode }
   | { kind: 'done'; label: string; target: string }
 
-const ROWS: Row[] = [
-  { kind: 'read', label: 'Lendo', target: 'components/screens/projection.tsx' },
-  {
-    kind: 'say',
-    text: (
-      <>
-        Vou atualizar <Code>app/actions/ai-projection.ts</Code> com a Server Action de
-        re-renderização conforme a especificação da Etapa 2.
-      </>
-    ),
-  },
-  { kind: 'create', label: 'Criando', target: 'app/actions/ai-projection.ts' },
-  { kind: 'edit', label: 'Lendo artefato', target: 'spec-etapa-3-ui.md' },
-  { kind: 'shell', label: '$', target: 'bun run typecheck' },
-  { kind: 'shell', label: '$', target: 'npm run lint' },
-  { kind: 'done', label: 'Concluindo etapa 2.', target: 'app/actions/ai-projection.ts' },
-  { kind: 'edit', label: 'Salvando artefato', target: 'tasks.md' },
-  { kind: 'edit', label: 'Salvando artefato', target: 'progress.md' },
-]
+// Só o RÓTULO da ação é traduzido. `target` é caminho de arquivo e comando de
+// shell: traduzir isso mostraria uma execução que não existe em máquina nenhuma.
+// O `$` do shell também fica cru — é o prompt do terminal, não uma palavra.
+function useRows(): Row[] {
+  const t = useTranslations('timeline')
+  return [
+    { kind: 'read', label: t('reading'), target: 'components/screens/projection.tsx' },
+    {
+      kind: 'say',
+      text: t.rich('say', { code: (chunks) => <Code>{chunks}</Code> }),
+    },
+    { kind: 'create', label: t('creating'), target: 'app/actions/ai-projection.ts' },
+    { kind: 'edit', label: t('readingArtifact'), target: 'spec-etapa-3-ui.md' },
+    { kind: 'shell', label: '$', target: 'bun run typecheck' },
+    { kind: 'shell', label: '$', target: 'npm run lint' },
+    { kind: 'done', label: t('doneStep'), target: 'app/actions/ai-projection.ts' },
+    { kind: 'edit', label: t('savingArtifact'), target: 'tasks.md' },
+    { kind: 'edit', label: t('savingArtifact'), target: 'progress.md' },
+  ]
+}
 
 function Code({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
@@ -71,6 +73,9 @@ function Node(): React.JSX.Element {
 }
 
 export function RunTimeline(): React.JSX.Element {
+  const t = useTranslations('timeline')
+  const ROWS = useRows()
+
   return (
     <div
       className="gb-raised self-start overflow-hidden rounded-[16px]"
@@ -168,8 +173,8 @@ export function RunTimeline(): React.JSX.Element {
           className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1"
           style={{ color: 'var(--ink-faint)' }}
         >
-          <span className="gb-mono text-[12px]">Tempo 4:39</span>
-          <span className="gb-mono text-[12px]">Tokens 730K</span>
+          <span className="gb-mono text-[12px]">{t('time')} 4:39</span>
+          <span className="gb-mono text-[12px]">{t('tokens')} 730K</span>
           <span className="gb-mono text-[12px]">
             <span style={{ color: '#15803d' }}>+124</span>{' '}
             <span style={{ color: '#b42318' }}>−38</span>
@@ -179,7 +184,7 @@ export function RunTimeline(): React.JSX.Element {
           className="gb-mono shrink-0 rounded-full px-2.5 py-1 text-[12px] font-medium"
           style={{ background: 'var(--accent-wash)', color: 'var(--accent)' }}
         >
-          2,4 créditos
+          {t('credits')}
         </span>
       </div>
     </div>

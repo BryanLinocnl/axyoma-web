@@ -9,7 +9,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "check:i18n": "node scripts/check-i18n.mjs messages pt-BR"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -26,6 +27,7 @@
     "lucide-react": "^0.468.0",
     "motion": "^12.42.2",
     "next": "^15.5.21",
+    "next-intl": "^4.13.4",
     "next-themes": "^0.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

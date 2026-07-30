@@ -1,9 +1,13 @@
-import Link from 'next/link'
+// Ver o comentário em SiteNav.tsx: href cru derruba o visitante para o pt-BR.
+import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { AppMock } from './AppMock'
 import heroShot from '@/public/app/section-hero.png'
 
 export function Hero(): React.JSX.Element {
+  const t = useTranslations('hero')
+
   return (
     <section className="gb-desk relative overflow-hidden">
       <div className="mx-auto max-w-[1200px] px-5 pb-0 pt-32 sm:px-6 sm:pt-40 lg:pt-44">
@@ -11,17 +15,15 @@ export function Hero(): React.JSX.Element {
             linhas cheias, e deixar o navegador quebrar sozinho dava três
             linhas desalinhadas em 1440. */}
         <h1 className="gb-display gb-lift text-[clamp(2.35rem,5.9vw,4.5rem)]">
-          <span className="block">Trabalhe com qualquer IA.</span>
-          <span className="block">Em um único lugar.</span>
+          <span className="block">{t('title1')}</span>
+          <span className="block">{t('title2')}</span>
         </h1>
 
         <p
           className="gb-lift gb-measure mt-7 text-[17px] leading-relaxed sm:text-[18px]"
           style={{ color: 'var(--ink-muted)', animationDelay: '90ms' }}
         >
-          Planeje, execute e acompanhe tarefas com Gemini, Claude, GPT, Grok, DeepSeek e centenas
-          de outros modelos. Comece com créditos inclusos ou conecte sua própria API. Você escolhe
-          como usar.
+          {t('body')}
         </p>
 
         <div
@@ -29,10 +31,10 @@ export function Hero(): React.JSX.Element {
           style={{ animationDelay: '160ms' }}
         >
           <Link href="/download" className="gb-btn gb-btn-primary px-6 py-3 text-[15px]">
-            Baixar grátis
+            {t('ctaPrimary')}
           </Link>
           <Link href="#controle" className="gb-btn gb-btn-ghost px-6 py-3 text-[15px]">
-            Ver como funciona
+            {t('ctaSecondary')}
           </Link>
         </div>
 
@@ -43,7 +45,7 @@ export function Hero(): React.JSX.Element {
           {/* LINUX: fora até o AppImage voltar. Não é detalhe de rodapé — é a
               primeira dobra, e prometer um instalador que não existe queima a
               confiança logo na linha em que ela é construída. */}
-          100 créditos para começar · chave própria e modelos locais sem custo · Windows e macOS
+          {t('note')}
         </p>
       </div>
 
@@ -83,7 +85,7 @@ export function Hero(): React.JSX.Element {
             >
               <Image
                 src={heroShot}
-                alt="Axyoma no modo Code: o agente busca imagens na web, roda comandos no terminal e resume o que fez."
+                alt={t('imageAlt')}
                 priority
                 sizes="(max-width: 640px) 1px, 130vw"
                 className="block h-auto w-full"

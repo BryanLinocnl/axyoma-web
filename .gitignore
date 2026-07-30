@@ -4,8 +4,9 @@
 .pnp.js
 
 # next.js
-/.next/
-/.next-verify/
+# O padrão cobre qualquer NEXT_DIST_DIR alternativo (.next-verify, .next-dbg…):
+# listar um por um já deixou artefato de build entrar num commit.
+/.next*/
 /out/
 
 # production

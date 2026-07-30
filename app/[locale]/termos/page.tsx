@@ -1,11 +1,22 @@
 import type { Metadata } from 'next'
-import { ContentPage, Secao, SubSecao, Lista, Indice, A } from '@/components/site/ContentPage'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { ContentPage, Secao, SubSecao, Lista, Indice, A, AvisoDocumentoEmPortugues } from '@/components/site/ContentPage'
 import { EMPRESA } from '@/lib/empresa'
+import { alternatesFor } from '@/i18n/alternates'
+import { DEFAULT_LOCALE, type Locale } from '@/i18n/routing'
 
-export const metadata: Metadata = {
-  title: 'Termos de Uso — Axyoma',
-  description:
-    'Termos e condições de uso do Axyoma AI: conta, créditos, chave própria, provedores de terceiros, execução de comandos na sua máquina, responsabilidades e limites.',
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'metadata.termos' })
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: alternatesFor('/termos', locale),
+  }
 }
 
 // =============================================================================
@@ -71,12 +82,34 @@ const SECOES = [
   { id: 'contato', titulo: 'Contato' },
 ]
 
-export default function TermosPage(): React.JSX.Element {
+export default async function TermosPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<React.JSX.Element> {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('legal')
+
   return (
     <ContentPage
-      title="Termos de Uso"
-      intro={`Última atualização: ${ATUALIZADO}. Estes termos regem o uso do aplicativo ${EMPRESA.produto}, do site ${EMPRESA.dominio} e dos serviços relacionados.`}
+      title={t('termosTitle')}
+      intro={t('termosIntro', {
+        data: ATUALIZADO,
+        produto: EMPRESA.produto,
+        dominio: EMPRESA.dominio,
+      })}
+      contentLang={DEFAULT_LOCALE}
     >
+      {/* O documento fica em português mesmo na versão inglesa do site. Ver o
+          comentário de `AvisoDocumentoEmPortugues`. */}
+      {locale !== DEFAULT_LOCALE && (
+        <AvisoDocumentoEmPortugues
+          titulo={t('ptOnlyTitle')}
+          corpo={t('ptOnlyBody', { email: EMPRESA.email })}
+        />
+      )}
+
       <Indice itens={SECOES} />
 
       <Secao id="aceitacao" titulo="1. Aceitação destes termos">

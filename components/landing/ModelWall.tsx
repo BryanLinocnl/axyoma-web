@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 
 /**
  * O lugar que uma landing de SaaS reserva a logos de cliente. O Axyoma ainda não
@@ -20,19 +21,19 @@ const PROVIDERS: { file: string; name: string }[] = [
 ]
 
 export function ModelWall(): React.JSX.Element {
+  const t = useTranslations('modelWall')
+
   return (
     <section className="relative">
       <div className="mx-auto max-w-[1200px] px-5 py-16 sm:px-6 sm:py-20">
         <p className="text-center text-[16px]" style={{ color: 'var(--ink)' }}>
-          Todos os principais modelos. Uma única plataforma.
+          {t('title')}
         </p>
         <p
           className="mx-auto mt-1 max-w-[64ch] text-center text-[16px]"
           style={{ color: 'var(--ink-faint)' }}
         >
-          Troque de modelo a qualquer momento sem trocar de aplicativo. Use os créditos do Axyoma
-          ou conecte sua própria chave da OpenRouter ou da OpenAI — o fluxo continua exatamente o
-          mesmo.
+          {t('body')}
         </p>
 
         <ul className="mx-auto mt-12 grid max-w-[880px] grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-3 lg:grid-cols-5">

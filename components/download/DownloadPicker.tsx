@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Image from 'next/image'
 import { Check } from 'lucide-react'
 import type { Installer } from '@/lib/releases'
@@ -30,12 +31,12 @@ const ICONS: Record<Installer['os'], (p: { className?: string }) => React.JSX.El
   linux: LinuxIcon,
 }
 
-/** Nome do sistema para a frase de "ainda não temos isso". */
+/** Chave do nome do sistema para a frase de "ainda não temos isso". */
 const SISTEMA: Record<Installer['id'], string> = {
-  'mac-arm64': 'Mac com Apple Silicon',
-  'mac-x64': 'Mac com Intel',
-  win: 'Windows',
-  linux: 'Linux',
+  'mac-arm64': 'sistemaMacArm',
+  'mac-x64': 'sistemaMacIntel',
+  win: 'sistemaWin',
+  linux: 'sistemaLinux',
 }
 
 /**
@@ -74,6 +75,7 @@ export function DownloadPicker({
   installers: Installer[]
   version: string
 }): React.JSX.Element {
+  const t = useTranslations('download')
   // `null` no primeiro paint (o servidor não sabe a máquina). Só depois de
   // montar é que decidimos, senão a hidratação diverge.
   const [detected, setDetected] = useState<Installer['id'] | null>(null)
@@ -138,7 +140,9 @@ export function DownloadPicker({
               className="gb-btn gb-btn-primary w-full px-6 py-4 text-[16px] sm:w-auto sm:min-w-[340px]"
             >
               <Icon className="h-[18px] w-[18px] brightness-0 invert" />
-              Baixar para {primary.label}
+              {/* `label` e `detail` vêm do release (macOS Apple Silicon, .dmg…):
+                  são o nome do arquivo publicado, não interface. */}
+              {t('pickerDownload', { label: primary.label })}
               <span className="font-normal opacity-75">· {primary.detail}</span>
             </a>
           )
@@ -148,12 +152,13 @@ export function DownloadPicker({
         // Dizer isso é melhor do que mandar "escolha abaixo" e deixar a pessoa
         // procurar numa lista onde o sistema dela não está.
         <p className="max-w-[42ch] text-center text-[15px]" style={{ color: 'var(--ink-muted)' }}>
-          Ainda não há instalador para {SISTEMA[detected] ?? 'o seu sistema'}. Os disponíveis estão
-          logo abaixo.
+          {t('pickerNoInstaller', {
+            sistema: SISTEMA[detected] ? t(SISTEMA[detected]) : t('pickerUnknownSystem'),
+          })}
         </p>
       ) : (
         <p className="text-[15px]" style={{ color: 'var(--ink-muted)' }}>
-          Escolha o instalador do seu sistema abaixo.
+          {t('pickerChooseBelow')}
         </p>
       )}
 
@@ -163,9 +168,10 @@ export function DownloadPicker({
         // do release mais novo aqui seria falso justamente para quem vai baixar
         // o arquivo antigo.
         <p className="mt-3 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
-          Versão {primary.version}
-          {formatSize(primary.size) ? ` · ${formatSize(primary.size)}` : ''} · detectamos o seu
-          sistema automaticamente
+          {t('pickerVersion', {
+            version: primary.version,
+            size: formatSize(primary.size) ? ` · ${formatSize(primary.size)}` : '',
+          })}
         </p>
       )}
       </div>
@@ -180,7 +186,7 @@ export function DownloadPicker({
           className="mb-3 text-left text-[13px] font-medium"
           style={{ color: 'var(--ink-faint)' }}
         >
-          Todos os instaladores
+          {t('pickerAll')}
         </p>
         <ul
           className="gb-raised overflow-hidden rounded-[14px] text-left"
@@ -207,7 +213,7 @@ export function DownloadPicker({
                       className="rounded-full px-2 py-0.5 text-[11px] font-medium"
                       style={{ background: 'var(--accent)', color: '#fff' }}
                     >
-                      seu sistema
+                      {t('pickerYourSystem')}
                     </span>
                   )}
                   {/* Só aparece quando esta plataforma ficou para trás. No caso
@@ -219,7 +225,7 @@ export function DownloadPicker({
                         border: '1px solid var(--hairline-strong, var(--hairline))',
                         color: 'var(--ink-faint)',
                       }}
-                      title={`A versão ${version} ainda não tem instalador para ${inst.label}.`}
+                      title={t('pickerBehindTitle', { version, label: inst.label })}
                     >
                       v{inst.version}
                     </span>
@@ -242,7 +248,7 @@ export function DownloadPicker({
         style={{ color: 'var(--ink-faint)' }}
       >
         <Check className="size-3.5" aria-hidden />
-        Cada link aponta para a versão mais recente disponível para aquele sistema.
+        {t('pickerLatestNote')}
       </p>
     </div>
   )

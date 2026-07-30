@@ -1,11 +1,22 @@
 import type { Metadata } from 'next'
-import { ContentPage, Secao, SubSecao, Lista, Tabela, Indice, A } from '@/components/site/ContentPage'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { ContentPage, Secao, SubSecao, Lista, Tabela, Indice, A, AvisoDocumentoEmPortugues } from '@/components/site/ContentPage'
 import { EMPRESA } from '@/lib/empresa'
+import { alternatesFor } from '@/i18n/alternates'
+import { DEFAULT_LOCALE, type Locale } from '@/i18n/routing'
 
-export const metadata: Metadata = {
-  title: 'Política de Privacidade — Axyoma',
-  description:
-    'Como o Axyoma AI trata dados pessoais: o que coletamos, com quem compartilhamos, por quanto tempo guardamos e o que acontece com o conteúdo que você envia. Em conformidade com a LGPD (Lei 13.709/2018).',
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'metadata.privacidade' })
+  return {
+    title: t('title'),
+    description: t('description'),
+    alternates: alternatesFor('/privacidade', locale),
+  }
 }
 
 // =============================================================================
@@ -66,12 +77,30 @@ const SECOES = [
   { id: 'contato', titulo: 'Contato' },
 ]
 
-export default function PrivacidadePage(): React.JSX.Element {
+export default async function PrivacidadePage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<React.JSX.Element> {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('legal')
+
   return (
     <ContentPage
-      title="Política de Privacidade"
-      intro={`Última atualização: ${ATUALIZADO}. Esta política descreve como o ${EMPRESA.produto} coleta, utiliza, compartilha, armazena e protege dados pessoais, em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 — LGPD).`}
+      title={t('privacidadeTitle')}
+      intro={t('privacidadeIntro', { data: ATUALIZADO, produto: EMPRESA.produto })}
+      contentLang={DEFAULT_LOCALE}
     >
+      {/* O documento fica em português mesmo na versão inglesa do site. Ver o
+          comentário de `AvisoDocumentoEmPortugues`. */}
+      {locale !== DEFAULT_LOCALE && (
+        <AvisoDocumentoEmPortugues
+          titulo={t('ptOnlyTitle')}
+          corpo={t('ptOnlyBody', { email: EMPRESA.email })}
+        />
+      )}
+
       <Indice itens={SECOES} />
 
       <Secao id="escopo" titulo="1. Escopo e a quem se aplica">

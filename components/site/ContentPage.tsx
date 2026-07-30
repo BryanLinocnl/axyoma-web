@@ -1,5 +1,8 @@
-import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { AxiomaMark } from '@/components/AxiomaMark'
+import { LocaleSwitcher } from '@/components/site/LocaleSwitcher'
+// Ver o comentário em SiteNav.tsx: href cru derruba o visitante para o pt-BR.
+import { Link } from '@/i18n/navigation'
 
 // Casca das páginas institucionais/legais (privacidade, termos, contato).
 // Mundo Glass Bench (ver DESIGN.md): mesa clara, azul como único acento,
@@ -9,11 +12,19 @@ export function ContentPage({
   title,
   intro,
   children,
+  // Idioma do CONTEÚDO, quando ele não acompanha o idioma do site. Existe por
+  // causa de `privacidade` e `termos`, que continuam em português na versão
+  // inglesa: sem isto o <html lang="en"> faria o leitor de tela ler um documento
+  // português com voz inglesa, e o Google indexaria o texto como se fosse inglês.
+  contentLang,
 }: {
   title: string
-  intro?: string
+  intro?: React.ReactNode
   children: React.ReactNode
+  contentLang?: string
 }): React.JSX.Element {
+  const t = useTranslations('contentPage')
+
   return (
     <div className="glass-site">
       <main className="min-h-screen">
@@ -28,18 +39,27 @@ export function ContentPage({
               </span>
               <span className="font-brand text-[22px] leading-none tracking-tight">Axyoma</span>
             </Link>
-            <Link
-              href="/download"
-              className="text-[15px] font-medium transition-colors"
-              style={{ color: 'var(--accent)' }}
-            >
-              Baixar o app
-            </Link>
+            <div className="flex items-center gap-4">
+              <LocaleSwitcher />
+              <Link
+                href="/download"
+                className="text-[15px] font-medium transition-colors"
+                style={{ color: 'var(--accent)' }}
+              >
+                {t('download')}
+              </Link>
+            </div>
           </div>
 
-          <h1 className="gb-display text-[clamp(2.1rem,4.6vw,3.25rem)]">{title}</h1>
+          <h1 className="gb-display text-[clamp(2.1rem,4.6vw,3.25rem)]" lang={contentLang}>
+            {title}
+          </h1>
           {intro ? (
-            <p className="gb-measure mt-5 text-[17px] leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
+            <p
+              className="gb-measure mt-5 text-[17px] leading-relaxed"
+              style={{ color: 'var(--ink-muted)' }}
+              lang={contentLang}
+            >
               {intro}
             </p>
           ) : null}
@@ -47,6 +67,7 @@ export function ContentPage({
           <div
             className="mt-14 flex flex-col gap-12 text-[16.5px] leading-relaxed"
             style={{ color: 'var(--ink-muted)' }}
+            lang={contentLang}
           >
             {children}
           </div>
@@ -56,7 +77,7 @@ export function ContentPage({
             style={{ borderColor: 'var(--hairline)', color: 'var(--ink-faint)' }}
           >
             <Link href="/" className="underline underline-offset-4">
-              Voltar ao início
+              {t('back')}
             </Link>
           </div>
         </div>
@@ -186,14 +207,15 @@ export function Tabela({
 
 /** Índice ancorado. Ver o comentário de `Secao` sobre por que ele existe. */
 export function Indice({ itens }: { itens: { id: string; titulo: string }[] }): React.JSX.Element {
+  const t = useTranslations('contentPage')
   return (
     <nav
-      aria-label="Índice do documento"
+      aria-label={t('indexAriaLabel')}
       className="rounded-[14px] p-5"
       style={{ border: '1px solid var(--hairline)' }}
     >
       <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ink-faint)' }}>
-        Nesta página
+        {t('onThisPage')}
       </p>
       <ol className="grid gap-x-8 gap-y-1.5 text-[15px] sm:grid-cols-2">
         {itens.map((it, i) => (
@@ -208,6 +230,42 @@ export function Indice({ itens }: { itens: { id: string; titulo: string }[] }): 
         ))}
       </ol>
     </nav>
+  )
+}
+
+/**
+ * Aviso no topo das páginas legais quando o site está em outro idioma.
+ *
+ * `privacidade` e `termos` NÃO são traduzidos (spec `multilingue.md` §2.1 e §6):
+ * são documentos jurídicos, e o visitante europeu está sob GDPR, não LGPD —
+ * traduzir por máquina um texto que declara o que se faz com dado pessoal é
+ * assumir risco em outra jurisdição. Enquanto não houver revisão humana, a
+ * versão em inglês serve o documento em português COM este aviso, que é a opção
+ * honesta: política mal traduzida é pior do que política em outro idioma.
+ *
+ * Só aparece fora do português — por isso as chaves `legal.ptOnly*` existem no
+ * catálogo pt-BR (a verificação de paridade exige) mas nunca chegam à tela.
+ */
+export function AvisoDocumentoEmPortugues({
+  titulo,
+  corpo,
+}: {
+  titulo: string
+  corpo: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <aside
+      className="gb-raised rounded-[14px] p-5"
+      style={{ border: '1px solid var(--accent)' }}
+      lang="en"
+    >
+      <p className="text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>
+        {titulo}
+      </p>
+      <p className="mt-2 text-[14.5px] leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
+        {corpo}
+      </p>
+    </aside>
   )
 }
 

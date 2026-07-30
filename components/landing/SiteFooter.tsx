@@ -1,32 +1,36 @@
-import Link from 'next/link'
+// Ver o comentário em SiteNav.tsx: href cru derruba o visitante para o pt-BR.
+import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { AxiomaLogo } from '@/components/AxiomaLogo'
 import { EMPRESA } from '@/lib/empresa'
 
-const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
+// Rótulos viraram chaves (`footer.<coluna><Item>`); o href continua cru — é
+// rota, não texto.
+const COLUMNS: { id: 'produto' | 'conta' | 'legal'; links: { key: string; href: string }[] }[] = [
   {
-    title: 'Produto',
+    id: 'produto',
     links: [
-      { label: 'Baixar', href: '/download' },
-      { label: 'Recursos', href: '/recursos' },
-      { label: 'Planos', href: '#planos' },
-      { label: 'Documentação', href: '/docs' },
+      { key: 'produtoDownload', href: '/download' },
+      { key: 'produtoRecursos', href: '/recursos' },
+      { key: 'produtoPlanos', href: '#planos' },
+      { key: 'produtoDocs', href: '/docs' },
     ],
   },
   {
-    title: 'Conta',
+    id: 'conta',
     links: [
-      { label: 'Entrar', href: '/login' },
-      { label: 'Criar conta', href: '/signup' },
-      { label: 'Créditos e faturamento', href: '/conta/faturamento' },
-      { label: 'Contato', href: '/contato' },
+      { key: 'contaLogin', href: '/login' },
+      { key: 'contaSignup', href: '/signup' },
+      { key: 'contaFaturamento', href: '/conta/faturamento' },
+      { key: 'contaContato', href: '/contato' },
     ],
   },
   {
-    title: 'Legal',
+    id: 'legal',
     links: [
-      { label: 'Termos de uso', href: '/termos' },
-      { label: 'Privacidade', href: '/privacidade' },
+      { key: 'legalTermos', href: '/termos' },
+      { key: 'legalPrivacidade', href: '/privacidade' },
     ],
   },
 ]
@@ -39,6 +43,8 @@ const SYSTEMS: { label: string; icon: string | null }[] = [
 ]
 
 export function SiteFooter(): React.JSX.Element {
+  const t = useTranslations('footer')
+
   return (
     <footer
       className="gb-desk relative overflow-hidden"
@@ -49,12 +55,10 @@ export function SiteFooter(): React.JSX.Element {
         <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div>
             <h2 className="gb-display max-w-[15ch] text-[clamp(2rem,4.4vw,3rem)]">
-              Uma plataforma. Todos os modelos. Total liberdade.
+              {t('headline')}
             </h2>
             <p className="gb-measure mt-5 text-[16px]" style={{ color: 'var(--ink-muted)' }}>
-              Baixe o Axyoma, comece com créditos inclusos e descubra uma forma mais inteligente de
-              trabalhar com IA. Quando quiser, conecte sua própria API ou continue usando os
-              recursos da plataforma.
+              {t('body')}
             </p>
           </div>
 
@@ -63,7 +67,7 @@ export function SiteFooter(): React.JSX.Element {
               href="/download"
               className="gb-btn gb-btn-primary w-fit px-6 py-3.5 text-[15px]"
             >
-              Baixar grátis
+              {t('cta')}
             </Link>
             <ul className="flex items-center gap-5">
               {SYSTEMS.map((s) => (
@@ -102,7 +106,7 @@ export function SiteFooter(): React.JSX.Element {
               </span>
             </Link>
             <p className="mt-3 max-w-[32ch] text-[14px]" style={{ color: 'var(--ink-muted)' }}>
-              A plataforma para trabalhar com agentes e qualquer modelo de IA, no seu desktop.
+              {t('tagline')}
             </p>
             <a
               href={`mailto:${EMPRESA.email}`}
@@ -114,19 +118,19 @@ export function SiteFooter(): React.JSX.Element {
           </div>
 
           {COLUMNS.map((col) => (
-            <nav key={col.title} aria-label={col.title}>
+            <nav key={col.id} aria-label={t(`${col.id}Title`)}>
               <h3 className="text-[13px] font-semibold" style={{ color: 'var(--ink-faint)' }}>
-                {col.title}
+                {t(`${col.id}Title`)}
               </h3>
               <ul className="mt-4 flex flex-col gap-2.5">
                 {col.links.map((l) => (
-                  <li key={l.label}>
+                  <li key={l.key}>
                     <Link
                       href={l.href}
                       className="text-[14px] transition-colors hover:text-[var(--ink)]"
                       style={{ color: 'var(--ink-muted)' }}
                     >
-                      {l.label}
+                      {t(l.key)}
                     </Link>
                   </li>
                 ))}

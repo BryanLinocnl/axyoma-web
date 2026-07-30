@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl'
 import { AxiomaLogo } from '@/components/AxiomaLogo'
 
 /**
@@ -62,6 +63,7 @@ function ModeTabs({ active }: { active: Mode }): React.JSX.Element {
 }
 
 function Sidebar({ project, threads }: { project: string; threads: string[] }): React.JSX.Element {
+  const t = useTranslations('appMock')
   return (
     <aside
       className="gb-glass-thin hidden w-[188px] shrink-0 flex-col gap-4 p-3 sm:flex"
@@ -90,7 +92,7 @@ function Sidebar({ project, threads }: { project: string; threads: string[] }): 
           className="px-1 text-[9.5px] font-semibold uppercase tracking-wider"
           style={{ color: 'var(--ink-faint)' }}
         >
-          Conversas
+          {t('conversas')}
         </div>
         {threads.map((t, i) => (
           <div
@@ -115,9 +117,9 @@ function Sidebar({ project, threads }: { project: string; threads: string[] }): 
           BL
         </span>
         <div className="min-w-0">
-          <div className="truncate text-[10.5px] font-medium leading-tight">Sua conta</div>
+          <div className="truncate text-[10.5px] font-medium leading-tight">{t('suaConta')}</div>
           <div className="gb-mono text-[9.5px] leading-tight" style={{ color: 'var(--accent)' }}>
-            412 créditos
+            {t('creditos')}
           </div>
         </div>
       </div>
@@ -160,6 +162,7 @@ function StepRow({
 }
 
 function CodeStage(): React.JSX.Element {
+  const t = useTranslations('appMock')
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-5">
       <div className="flex justify-end">
@@ -167,24 +170,25 @@ function CodeStage(): React.JSX.Element {
           className="max-w-[78%] rounded-[13px] rounded-br-[5px] px-3.5 py-2 text-[12px] leading-snug"
           style={{ background: 'var(--accent)', color: '#fff' }}
         >
-          O frete sai errado pra CEP do Nordeste. Acha a causa e corrige.
+          {t('codePrompt')}
         </p>
       </div>
 
       <div className="flex flex-col gap-2.5">
         <p className="text-[12px] leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
-          A faixa 40000–65999 não estava mapeada e caía no fallback Sudeste. Corrigi a tabela e
-          cobri com teste.
+          {t('codeAnswer')}
         </p>
 
         <div
           className="flex flex-col gap-2 rounded-[11px] p-3"
           style={{ background: 'color-mix(in srgb, var(--ink) 4%, transparent)' }}
         >
-          <StepRow label="Leu" detail="src/lib/frete.ts" />
-          <StepRow label="Editou" detail="frete.ts · +18 −6" />
-          <StepRow label="Terminal" detail="npm test — 24 passed" />
-          <StepRow label="Abrindo PR" detail="fix/frete-nordeste" state="running" />
+          {/* `detail` é caminho de arquivo, comando e nome de branch — não é
+              interface, então não entra no catálogo. */}
+          <StepRow label={t('codeRead')} detail="src/lib/frete.ts" />
+          <StepRow label={t('codeEdited')} detail="frete.ts · +18 −6" />
+          <StepRow label={t('codeTerminal')} detail={t('codeTerminalDetail')} />
+          <StepRow label={t('codeOpeningPr')} detail="fix/frete-nordeste" state="running" />
         </div>
 
         <div
@@ -221,28 +225,40 @@ function CodeStage(): React.JSX.Element {
 }
 
 function PlanStage(): React.JSX.Element {
+  const t = useTranslations('appMock')
   // O caminho do arquivo fica COLADO na tarefa, não alinhado à direita da
   // coluna: em painel largo o alinhamento à direita abria 300px de vazio entre
   // a tarefa e o arquivo dela, e os dois deixavam de parecer o mesmo item.
-  const tasks: [string, string, boolean][] = [
-    ['Mapear as faixas de CEP por região', 'src/lib/frete.ts', true],
-    ['Trocar o fallback por erro explícito', 'src/lib/frete.ts', true],
-    ['Cobrir Nordeste e Norte com teste', 'test/frete.spec.ts', false],
-    ['Atualizar o snapshot do checkout', 'test/checkout.spec.ts', false],
+  // A CHAVE de tradução entra no array e vira a `key` do React.
+  //
+  // Antes da i18n a key era o próprio texto da tarefa, que é único. Com a
+  // extração o texto virou `t(...)` e a key passou a ser `file + done` — e as
+  // duas primeiras tarefas têm o MESMO arquivo e o MESMO estado, então
+  // colidiam em `src/lib/frete.tstrue`. O React avisa e pode duplicar ou omitir
+  // itens.
+  //
+  // Também não dá para voltar ao texto traduzido: ele muda ao trocar de idioma,
+  // e a lista inteira seria remontada em vez de atualizada. A chave i18n é
+  // estável nos dois idiomas.
+  const tasks: [key: string, tarefa: string, file: string, done: boolean][] = [
+    ['planTask1', t('planTask1'), 'src/lib/frete.ts', true],
+    ['planTask2', t('planTask2'), 'src/lib/frete.ts', true],
+    ['planTask3', t('planTask3'), 'test/frete.spec.ts', false],
+    ['planTask4', t('planTask4'), 'test/checkout.spec.ts', false],
   ]
   return (
     <div className="flex max-w-[440px] flex-col gap-3.5 p-4 sm:p-5">
       <div>
-        <h4 className="gb-display text-[19px]">Corrigir frete do Nordeste</h4>
+        <h4 className="gb-display text-[19px]">{t('planTitle')}</h4>
         <p className="mt-1 text-[11.5px]" style={{ color: 'var(--ink-muted)' }}>
-          4 tarefas · nada roda antes de você aprovar
+          {t('planSubtitle')}
         </p>
       </div>
 
       <div className="flex flex-col">
-        {tasks.map(([t, file, done], i) => (
+        {tasks.map(([chave, tarefa, file, done], i) => (
           <div
-            key={t}
+            key={chave}
             className="flex items-baseline gap-2.5 py-2"
             style={i > 0 ? { borderTop: '1px solid var(--hairline)' } : undefined}
           >
@@ -256,7 +272,7 @@ function PlanStage(): React.JSX.Element {
             >
               {done ? '✓' : ''}
             </span>
-            <span className="truncate text-[11.5px]">{t}</span>
+            <span className="truncate text-[11.5px]">{tarefa}</span>
             <span className="gb-mono shrink-0 text-[10px]" style={{ color: 'var(--ink-faint)' }}>
               {file}
             </span>
@@ -269,13 +285,13 @@ function PlanStage(): React.JSX.Element {
           className="rounded-[8px] px-3 py-1.5 text-[11px] font-medium text-white"
           style={{ background: 'var(--accent)' }}
         >
-          Aprovar e executar
+          {t('planApprove')}
         </span>
         <span
           className="rounded-[8px] px-3 py-1.5 text-[11px] font-medium"
           style={{ border: '1px solid var(--hairline)', color: 'var(--ink-muted)' }}
         >
-          Editar plano
+          {t('planEdit')}
         </span>
       </div>
     </div>
@@ -283,6 +299,7 @@ function PlanStage(): React.JSX.Element {
 }
 
 function DesignStage(): React.JSX.Element {
+  const t = useTranslations('appMock')
   return (
     <div className="flex h-full gap-3 p-4 sm:p-5">
       <div className="flex flex-1 flex-col gap-2">
@@ -296,12 +313,12 @@ function DesignStage(): React.JSX.Element {
         >
           <div className="absolute inset-0 flex flex-col justify-end gap-1.5 p-4 text-white">
             <span className="text-[9.5px] font-semibold uppercase tracking-[0.2em] opacity-80">
-              Lançamento
+              {t('designEyebrow')}
             </span>
             <span className="gb-display text-[26px] leading-[0.95] text-white">
-              Frete grátis
+              {t('designHeadline1')}
               <br />
-              pro Nordeste
+              {t('designHeadline2')}
             </span>
           </div>
           {/* Alças de seleção do canvas */}
@@ -315,7 +332,7 @@ function DesignStage(): React.JSX.Element {
           />
         </div>
         <div className="flex items-center gap-1.5">
-          {['1080×1350', 'Story', 'Carrossel'].map((c, i) => (
+          {['1080×1350', t('designStory'), t('designCarrossel')].map((c, i) => (
             <span
               key={c}
               className="rounded-[7px] px-2 py-1 text-[10px] font-medium"
@@ -336,9 +353,9 @@ function DesignStage(): React.JSX.Element {
           className="px-1 pb-1 text-[9.5px] font-semibold uppercase tracking-wider"
           style={{ color: 'var(--ink-faint)' }}
         >
-          Camadas
+          {t('designCamadas')}
         </div>
-        {['Título', 'Selo de frete', 'Foto do produto', 'Fundo'].map((l, i) => (
+        {[t('designLayer1'), t('designLayer2'), t('designLayer3'), t('designLayer4')].map((l, i) => (
           <div
             key={l}
             className="truncate rounded-[6px] px-2 py-1.5 text-[10.5px]"
@@ -364,23 +381,16 @@ const STAGE: Record<Mode, () => React.JSX.Element> = {
   design: DesignStage,
 }
 
-const PROMPT: Record<Mode, string> = {
-  code: 'Digite / para comandos',
-  plan: 'Descreva a feature que quer planejar',
-  design: 'Peça uma variação: “versão story, fundo mais escuro”',
-}
-
+// Nome de modelo é nome próprio: não entra no catálogo. A contagem de tokens é
+// número. O resto do rodapé (rótulo, texto do stat, crédito) vive em
+// `appMock.<modo>*`.
 const MODEL: Record<Mode, string> = {
   code: 'Claude Sonnet 4.5',
   plan: 'Gemini 3 Pro',
   design: 'GPT Image',
 }
 
-const STATS: Record<Mode, { tokens: string; extra: string; credits: string }> = {
-  code: { tokens: '18,4k', extra: 'Modificações +18 −6', credits: '1,7 crédito' },
-  plan: { tokens: '6,1k', extra: '4 tarefas', credits: '0,6 crédito' },
-  design: { tokens: '2,3k', extra: '3 pranchetas', credits: '0,9 crédito' },
-}
+const TOKENS: Record<Mode, string> = { code: '18,4k', plan: '6,1k', design: '2,3k' }
 
 export function AppMock({
   mode = 'code',
@@ -391,6 +401,7 @@ export function AppMock({
   project?: string
   className?: string
 }): React.JSX.Element {
+  const t = useTranslations('appMock')
   const Stage = STAGE[mode]
 
   return (
@@ -398,7 +409,9 @@ export function AppMock({
       className={`gb-glass-thick overflow-hidden rounded-[14px] ${className}`}
       style={{ border: '1px solid var(--hairline)' }}
       role="img"
-      aria-label={`Axyoma em modo ${mode === 'code' ? 'Code' : mode === 'plan' ? 'Plan' : 'Design'} — ilustração da interface do app`}
+      aria-label={t('ariaLabel', {
+        mode: mode === 'code' ? 'Code' : mode === 'plan' ? 'Plan' : 'Design',
+      })}
     >
       {/* Toolbar */}
       <div
@@ -423,7 +436,7 @@ export function AppMock({
       <div className="flex min-h-[268px]">
         <Sidebar
           project={project}
-          threads={['Corrigir frete do Nordeste', 'Migrar checkout pro Pix', 'Rever webhook']}
+          threads={[t('thread1'), t('thread2'), t('thread3')]}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
@@ -441,13 +454,15 @@ export function AppMock({
                 className="flex items-center gap-3 py-2 text-[10px]"
                 style={{ color: 'var(--ink-faint)' }}
               >
-                <span className="gb-mono">Tokens {STATS[mode].tokens}</span>
-                <span className="gb-mono">{STATS[mode].extra}</span>
+                <span className="gb-mono">
+                  {t('tokensLabel')} {TOKENS[mode]}
+                </span>
+                <span className="gb-mono">{t(`${mode}Stat`)}</span>
                 <span
                   className="gb-mono rounded-full px-2 py-0.5"
                   style={{ background: 'var(--accent-wash)', color: 'var(--accent)' }}
                 >
-                  {STATS[mode].credits}
+                  {t(`${mode}Credits`)}
                 </span>
               </div>
               <div
@@ -458,7 +473,7 @@ export function AppMock({
                   className="flex-1 truncate text-[11.5px]"
                   style={{ color: 'var(--ink-faint)' }}
                 >
-                  {PROMPT[mode]}
+                  {t(`${mode}Composer`)}
                 </span>
                 <span
                   className="gb-caret inline-block h-[13px] w-[1.5px]"

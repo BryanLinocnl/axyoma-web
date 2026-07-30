@@ -1,14 +1,15 @@
-import Link from 'next/link'
+// Ver o comentário em SiteNav.tsx: href cru derruba o visitante para o pt-BR.
+import { Link } from '@/i18n/navigation'
+
+import { useTranslations } from 'next-intl'
 
 type Plan = {
-  id: string
+  id: 'free' | 'pro' | 'teams'
+  /** Nome comercial — NÃO traduzido: Free/Pro/Teams são os nomes dos planos. */
   name: string
   live: boolean
-  price?: string
-  period?: string
-  desc: string
-  perks: string[]
-  cta?: { href: string; label: string }
+  perks: number
+  cta?: { href: string }
 }
 
 /*
@@ -26,55 +27,33 @@ type Plan = {
  * lista honesta — plano futuro, recursos futuros, e nenhum botão que cobre por
  * eles.
  */
+// `perks` é a QUANTIDADE de itens, não o texto: as frases vivem em
+// `pricing.<plano>Perk<n>`. Somar um benefício é somar a chave nos DOIS
+// catálogos e subir este número — sem isso o item novo não aparece.
 const PLANS: Plan[] = [
-  {
-    id: 'free',
-    name: 'Free',
-    live: true,
-    price: 'R$ 0',
-    period: 'para sempre',
-    desc: 'Comece sem cartão. 100 créditos de bônus, mais chave própria e modelos locais que não consomem crédito.',
-    perks: [
-      '100 créditos de bônus (modelos Vertex AI)',
-      'Modo Code e modo Plan completos',
-      'Modelos locais pelo Ollama, sem gastar crédito',
-      'Ou conecte a sua chave da OpenRouter ou da OpenAI',
-      'MCP, skills, busca na web e terminal',
-      'Compre créditos quando quiser, sem assinar',
-    ],
-    cta: { href: '/download', label: 'Baixar grátis' },
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    live: false,
-    desc: 'O agente que lembra do projeto, repete o que já deu certo e trabalha enquanto você faz outra coisa.',
-    perks: [
-      'Tudo do plano Free',
-      '300 skills prontas para instalar',
-      'Workflows salvos e reutilizáveis',
-      'Memória de projeto entre sessões',
-      'Automações agendadas e execução em nuvem',
-      'Modo Design',
-      'Franquia mensal de créditos (Vertex AI)',
-    ],
-  },
-  {
-    id: 'teams',
-    name: 'Teams',
-    live: false,
-    desc: 'O mesmo agente para o time inteiro, com as regras, o histórico e a conta compartilhados.',
-    perks: [
-      'Tudo do plano Pro',
-      'As mesmas skills do Pro, mais as de dinâmica de time',
-      'Workflows e memória compartilhados',
-      'Créditos compartilhados pelo time',
-      'Assessoria Advisor',
-    ],
-  },
+  { id: 'free', name: 'Free', live: true, perks: 6, cta: { href: '/download' } },
+  { id: 'pro', name: 'Pro', live: false, perks: 7 },
+  { id: 'teams', name: 'Teams', live: false, perks: 5 },
 ]
 
+// Ordem da tabela de fatos. O preço do crédito saiu do parágrafo de abertura na
+// revisão de copy; fica aqui para não sumir da página — é o número que o
+// visitante procura antes de baixar. `byok` e `local` são as duas saídas sem
+// crédito, e ficam no fim de propósito: quem chega na página não quer escolher
+// provedor, quer baixar.
+const FACTS = [
+  'Credit',
+  'Payment',
+  'Bonus',
+  'Allowance',
+  'Bought',
+  'Byok',
+  'Local',
+] as const
+
 export function Pricing(): React.JSX.Element {
+  const t = useTranslations('pricing')
+
   return (
     <section id="planos" className="relative">
       <div className="mx-auto max-w-[1200px] px-5 py-20 sm:px-6 sm:py-28 lg:py-32">
@@ -82,41 +61,25 @@ export function Pricing(): React.JSX.Element {
           {/* Coluna do argumento */}
           <div className="lg:sticky lg:top-28 lg:self-start">
             <h2 className="gb-display max-w-[14ch] text-[clamp(2.1rem,4.9vw,3.5rem)]">
-              Escolha como prefere usar o Axyoma.
+              {t('title')}
             </h2>
             <p
               className="gb-measure mt-6 text-[16.5px] leading-relaxed"
               style={{ color: 'var(--ink-muted)' }}
             >
-              Comece grátis, com créditos inclusos e sem cartão. Se preferir pagar o provedor
-              direto, conecte a sua própria chave — ou rode modelos locais, que não custam nada.
-              A assinatura não é sobre token: é sobre o que o agente aprende, lembra e repete.
+              {t('body')}
             </p>
 
             <dl className="mt-8 flex flex-col">
-              {[
-                // O preço do crédito saiu do parágrafo de abertura na revisão de
-                // copy; fica aqui para não sumir da página — é o número que o
-                // visitante procura antes de baixar.
-                ['1 crédito', 'R$ 0,30, debitado pelo custo real do modelo'],
-                ['Pagamento', 'Pix (QR, copia-e-cola ou Open Finance), no site ou no app'],
-                ['Bônus de cadastro', '100 créditos, sem cartão'],
-                ['Bônus e franquia', 'valem para os modelos da Vertex AI'],
-                ['Créditos comprados', 'valem para todos os modelos'],
-                // As duas saídas sem crédito. Ficam aqui, e não em destaque no
-                // topo: "comece agora" continua sendo o caminho principal —
-                // quem chega na página não quer escolher provedor, quer baixar.
-                ['Chave própria', 'OpenRouter ou OpenAI: você paga o provedor, sem crédito Axyoma'],
-                ['Modelos locais', 'pelo Ollama, na sua máquina, sem custo'],
-              ].map(([k, v], i) => (
+              {FACTS.map((fact, i) => (
                 <div
-                  key={k}
+                  key={fact}
                   className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 py-3"
                   style={i > 0 ? { borderTop: '1px solid var(--hairline)' } : undefined}
                 >
-                  <dt className="text-[14px] font-medium">{k}</dt>
+                  <dt className="text-[14px] font-medium">{t(`fact${fact}K`)}</dt>
                   <dd className="text-[14px]" style={{ color: 'var(--ink-muted)' }}>
-                    {v}
+                    {t(`fact${fact}V`)}
                   </dd>
                 </div>
               ))}
@@ -150,7 +113,7 @@ export function Pricing(): React.JSX.Element {
                             color: 'var(--ink-faint)',
                           }}
                         >
-                          Em breve
+                          {t('soon')}
                         </span>
                       )}
                     </div>
@@ -158,27 +121,27 @@ export function Pricing(): React.JSX.Element {
                       className="mt-2 max-w-[42ch] text-[14px] leading-relaxed"
                       style={{ color: 'var(--ink-muted)' }}
                     >
-                      {plan.desc}
+                      {t(`${plan.id}Desc`)}
                     </p>
                   </div>
 
                   {plan.live ? (
                     <div className="flex items-baseline gap-1.5">
-                      <span className="gb-display text-[40px]">{plan.price}</span>
+                      <span className="gb-display text-[40px]">{t('freePrice')}</span>
                       <span className="text-[13px]" style={{ color: 'var(--ink-faint)' }}>
-                        {plan.period}
+                        {t('freePeriod')}
                       </span>
                     </div>
                   ) : (
                     <span className="text-[14px]" style={{ color: 'var(--ink-faint)' }}>
-                      Preço no lançamento
+                      {t('priceAtLaunch')}
                     </span>
                   )}
                 </div>
 
                 <ul className="mt-6 grid gap-2.5 sm:grid-cols-2">
-                  {plan.perks.map((perk) => (
-                    <li key={perk} className="flex items-start gap-2.5 text-[14px]">
+                  {Array.from({ length: plan.perks }, (_, n) => n + 1).map((n) => (
+                    <li key={n} className="flex items-start gap-2.5 text-[14px]">
                       <span
                         className="mt-[3px] grid h-[15px] w-[15px] shrink-0 place-items-center rounded-full text-[9px] font-bold text-white"
                         style={{ background: plan.live ? 'var(--accent)' : 'var(--hairline-strong)' }}
@@ -186,7 +149,7 @@ export function Pricing(): React.JSX.Element {
                       >
                         ✓
                       </span>
-                      <span style={{ color: 'var(--ink-muted)' }}>{perk}</span>
+                      <span style={{ color: 'var(--ink-muted)' }}>{t(`${plan.id}Perk${n}`)}</span>
                     </li>
                   ))}
                 </ul>
@@ -196,7 +159,7 @@ export function Pricing(): React.JSX.Element {
                     href={plan.cta.href}
                     className="gb-btn gb-btn-primary mt-7 w-full px-5 py-3 text-[15px]"
                   >
-                    {plan.cta.label}
+                    {t('freeCta')}
                   </Link>
                 )}
               </article>
