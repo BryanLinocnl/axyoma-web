@@ -13,6 +13,12 @@ import { checkRateLimit } from '@/lib/supabase-admin'
 //     chave do usuário atende esses modelos tanto quanto a nossa. Esconder um
 //     Gemini desta lista só porque ele também é vendido por nós seria decidir
 //     pelo usuário de que bolso ele paga.
+//   • source=openai e source=codex — lista CURADA de `public.byok_models`, que
+//     aqui é ALLOW-LIST, não overlay. Não consultam a OpenRouter: os ids são os
+//     da OpenAI (`gpt-5.5`, não `openai/gpt-5.5`) e não há preço nosso a aplicar.
+//     São fontes distintas porque a credencial é distinta — chave de API num
+//     caso, login da conta ChatGPT no outro — e o que cada uma alcança não é o
+//     mesmo conjunto.
 //
 // Não há dedup ENTRE fontes — é de propósito. O mesmo modelo aparecer nas duas
 // listas é a informação, não o defeito: cada uma cobra de um lugar diferente.
@@ -365,8 +371,14 @@ export async function GET(req: Request): Promise<Response> {
   // Fonte pedida. Desconhecida → `axyoma` (o comportamento de sempre): um
   // parâmetro errado não pode virar catálogo vazio no cliente.
   const pedida = new URL(req.url).searchParams.get('source')
-  const source: 'axyoma' | 'openrouter' | 'openai' =
-    pedida === 'openrouter' ? 'openrouter' : pedida === 'openai' ? 'openai' : 'axyoma'
+  const source: 'axyoma' | 'openrouter' | 'openai' | 'codex' =
+    pedida === 'openrouter'
+      ? 'openrouter'
+      : pedida === 'openai'
+        ? 'openai'
+        : pedida === 'codex'
+          ? 'codex'
+          : 'axyoma'
 
   // `openai` sai por um caminho próprio: não consulta a OpenRouter (o catálogo
   // dela não lista modelos da OpenAI sob os ids que a API da OpenAI usa —
@@ -378,11 +390,21 @@ export async function GET(req: Request): Promise<Response> {
   // contexto, sem capacidades. Uma busca ao vivo daria uma lista de ids que o
   // app não sabe precificar nem filtrar por suporte a tools/visão. Em tabela,
   // preço se corrige sem release, o que importa num catálogo que muda sozinho.
-  if (source === 'openai') {
+  // `codex` sai pelo MESMO caminho do `openai`, e por um motivo mais forte: ali
+  // quem decide o que a credencial atende é a OpenAI, POR CONTA. O spike da spec
+  // `login-codex.md` mediu isto — o mesmo token recebe `gpt-5.5` e leva
+  // "not supported when using Codex with a ChatGPT account" em quase todo o
+  // resto, e o recorte muda com o plano. Uma lista curada é o único formato
+  // honesto: é o que vale a pena OFERECER, não o que a conta garantidamente tem.
+  //
+  // Nada de OpenRouter aqui: os ids do Codex (`gpt-5.5`) não são os da
+  // OpenRouter (`openai/gpt-5.5`), e não há preço a aplicar — quem paga é a
+  // assinatura do usuário.
+  if (source === 'openai' || source === 'codex') {
     // Sem merge e sem fallback: aqui a tabela é a allow-list, não overlay. Zero
     // linhas devolve lista vazia de propósito — melhor "nenhum modelo" do que um
-    // catálogo que a chave do usuário pode não atender.
-    const byok = await fetchByokModels('openai')
+    // catálogo que a credencial do usuário pode não atender.
+    const byok = await fetchByokModels(source)
     return new Response(JSON.stringify({ data: byok.map(byokRowToRawModel) }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=300', ...CORS },
