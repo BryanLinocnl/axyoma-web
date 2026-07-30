@@ -1,11 +1,22 @@
 import type { Metadata } from 'next'
+import { setRequestLocale } from 'next-intl/server'
 import { ContentPage, Secao, SubSecao, Lista, Indice, A } from '@/components/site/ContentPage'
 import { EMPRESA } from '@/lib/empresa'
+import { alternatesFor } from '@/i18n/alternates'
+import type { Locale } from '@/i18n/routing'
 
-export const metadata: Metadata = {
-  title: 'Termos de Uso — Axyoma',
-  description:
-    'Termos e condições de uso do Axyoma AI: conta, créditos, chave própria, provedores de terceiros, execução de comandos na sua máquina, responsabilidades e limites.',
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: 'Termos de Uso — Axyoma',
+    description:
+      'Termos e condições de uso do Axyoma AI: conta, créditos, chave própria, provedores de terceiros, execução de comandos na sua máquina, responsabilidades e limites.',
+    alternates: alternatesFor('/termos', locale),
+  }
 }
 
 // =============================================================================
@@ -71,7 +82,14 @@ const SECOES = [
   { id: 'contato', titulo: 'Contato' },
 ]
 
-export default function TermosPage(): React.JSX.Element {
+export default async function TermosPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<React.JSX.Element> {
+  const { locale } = await params
+  setRequestLocale(locale)
+
   return (
     <ContentPage
       title="Termos de Uso"

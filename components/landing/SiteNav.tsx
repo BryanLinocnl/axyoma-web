@@ -1,8 +1,11 @@
 'use client'
 
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { AxiomaLogo } from '@/components/AxiomaLogo'
+import { LocaleSwitcher } from '@/components/site/LocaleSwitcher'
+// `Link` do i18n, não o do `next/link`: com `pt-BR` sem prefixo, um href cru
+// levaria quem está em `/en` de volta ao português no primeiro clique.
+import { Link } from '@/i18n/navigation'
 
 const NAV_ITEMS = [
   { name: 'Modos', href: '#modos' },
@@ -59,6 +62,7 @@ export function SiteNav(): React.JSX.Element {
         </ul>
 
         <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0">
+          <LocaleSwitcher />
           <Link
             href="/login"
             className="hidden px-3 py-1.5 text-[13.5px] transition-colors hover:text-[var(--ink)] sm:block"

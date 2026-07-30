@@ -10,8 +10,19 @@ import { RunSection } from '@/components/landing/RunSection'
 import { Pricing } from '@/components/landing/Pricing'
 import { Faq } from '@/components/landing/Faq'
 import { SiteFooter } from '@/components/landing/SiteFooter'
+import { setRequestLocale } from 'next-intl/server'
 
-export default function Home(): React.JSX.Element {
+// `setRequestLocale` em toda página do `[locale]`: sem ele o next-intl marca a
+// rota como dinâmica na primeira leitura de idioma, e a landing — estática desde
+// sempre — passaria a ser renderizada a cada visita.
+export default async function Home({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<React.JSX.Element> {
+  const { locale } = await params
+  setRequestLocale(locale)
+
   return (
     <div className="glass-site relative min-h-screen">
       <a

@@ -1,11 +1,22 @@
 import type { Metadata } from 'next'
+import { setRequestLocale } from 'next-intl/server'
 import { ContentPage, Secao, Card, A } from '@/components/site/ContentPage'
 import { EMPRESA } from '@/lib/empresa'
+import { alternatesFor } from '@/i18n/alternates'
+import type { Locale } from '@/i18n/routing'
 
-export const metadata: Metadata = {
-  title: 'Sobre e Contato — Axyoma',
-  description:
-    'O que é o Axyoma AI, como funciona o modelo de créditos, planos, plataformas suportadas e como falar com a equipe.',
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: 'Sobre e Contato — Axyoma',
+    description:
+      'O que é o Axyoma AI, como funciona o modelo de créditos, planos, plataformas suportadas e como falar com a equipe.',
+    alternates: alternatesFor('/contato', locale),
+  }
 }
 
 const FAQ: Array<[string, string]> = [
@@ -35,7 +46,14 @@ const FAQ: Array<[string, string]> = [
   ],
 ]
 
-export default function ContatoPage(): React.JSX.Element {
+export default async function ContatoPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<React.JSX.Element> {
+  const { locale } = await params
+  setRequestLocale(locale)
+
   return (
     <ContentPage
       title="Sobre e Contato"

@@ -1,11 +1,22 @@
 import type { Metadata } from 'next'
+import { setRequestLocale } from 'next-intl/server'
 import { ContentPage, Secao, SubSecao, Lista, Tabela, Indice, A } from '@/components/site/ContentPage'
 import { EMPRESA } from '@/lib/empresa'
+import { alternatesFor } from '@/i18n/alternates'
+import type { Locale } from '@/i18n/routing'
 
-export const metadata: Metadata = {
-  title: 'Política de Privacidade — Axyoma',
-  description:
-    'Como o Axyoma AI trata dados pessoais: o que coletamos, com quem compartilhamos, por quanto tempo guardamos e o que acontece com o conteúdo que você envia. Em conformidade com a LGPD (Lei 13.709/2018).',
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: 'Política de Privacidade — Axyoma',
+    description:
+      'Como o Axyoma AI trata dados pessoais: o que coletamos, com quem compartilhamos, por quanto tempo guardamos e o que acontece com o conteúdo que você envia. Em conformidade com a LGPD (Lei 13.709/2018).',
+    alternates: alternatesFor('/privacidade', locale),
+  }
 }
 
 // =============================================================================
@@ -66,7 +77,14 @@ const SECOES = [
   { id: 'contato', titulo: 'Contato' },
 ]
 
-export default function PrivacidadePage(): React.JSX.Element {
+export default async function PrivacidadePage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<React.JSX.Element> {
+  const { locale } = await params
+  setRequestLocale(locale)
+
   return (
     <ContentPage
       title="Política de Privacidade"

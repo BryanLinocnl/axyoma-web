@@ -1,4 +1,5 @@
-import Link from 'next/link'
+// Ver o comentário em SiteNav.tsx: href cru derruba o visitante para o pt-BR.
+import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
 import { AxiomaLogo } from '@/components/AxiomaLogo'
 import { EMPRESA } from '@/lib/empresa'

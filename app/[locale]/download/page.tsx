@@ -1,21 +1,39 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
+// Ver o comentário em SiteNav.tsx: href cru derruba o visitante para o pt-BR.
+import { Link } from '@/i18n/navigation'
 import { AxiomaMark } from '@/components/AxiomaMark'
 import { DownloadPicker } from '@/components/download/DownloadPicker'
 import { GatekeeperNote } from '@/components/download/GatekeeperNote'
 import { getLatestRelease } from '@/lib/releases'
+import { setRequestLocale } from 'next-intl/server'
+import { alternatesFor } from '@/i18n/alternates'
+import type { Locale } from '@/i18n/routing'
 
-export const metadata: Metadata = {
-  title: 'Baixar o Axyoma',
-  description:
-    'Instaladores do Axyoma para macOS (Apple Silicon e Intel) e Windows. Grátis, com 100 créditos para começar.',
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: 'Baixar o Axyoma',
+    description:
+      'Instaladores do Axyoma para macOS (Apple Silicon e Intel) e Windows. Grátis, com 100 créditos para começar.',
+    alternates: alternatesFor('/download', locale),
+  }
 }
 
 // Server component: resolve a última release no servidor (com cache), e só a
 // escolha do instalador — que depende da máquina de quem visita — roda no
 // cliente. Assim o HTML já chega com todos os links prontos, inclusive para
 // quem tem JavaScript desligado.
-export default async function DownloadPage(): Promise<React.JSX.Element> {
+export default async function DownloadPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<React.JSX.Element> {
+  const { locale } = await params
+  setRequestLocale(locale)
   const release = await getLatestRelease()
 
   return (

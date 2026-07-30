@@ -1,5 +1,7 @@
-import Link from 'next/link'
 import { AxiomaMark } from '@/components/AxiomaMark'
+import { LocaleSwitcher } from '@/components/site/LocaleSwitcher'
+// Ver o comentário em SiteNav.tsx: href cru derruba o visitante para o pt-BR.
+import { Link } from '@/i18n/navigation'
 
 // Casca das páginas institucionais/legais (privacidade, termos, contato).
 // Mundo Glass Bench (ver DESIGN.md): mesa clara, azul como único acento,
@@ -28,13 +30,16 @@ export function ContentPage({
               </span>
               <span className="font-brand text-[22px] leading-none tracking-tight">Axyoma</span>
             </Link>
-            <Link
-              href="/download"
-              className="text-[15px] font-medium transition-colors"
-              style={{ color: 'var(--accent)' }}
-            >
-              Baixar o app
-            </Link>
+            <div className="flex items-center gap-4">
+              <LocaleSwitcher />
+              <Link
+                href="/download"
+                className="text-[15px] font-medium transition-colors"
+                style={{ color: 'var(--accent)' }}
+              >
+                Baixar o app
+              </Link>
+            </div>
           </div>
 
           <h1 className="gb-display text-[clamp(2.1rem,4.6vw,3.25rem)]">{title}</h1>

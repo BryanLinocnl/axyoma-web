@@ -1,10 +1,21 @@
 import type { Metadata } from 'next'
+import { setRequestLocale } from 'next-intl/server'
 import { ContentPage, Secao, Card, A } from '@/components/site/ContentPage'
+import { alternatesFor } from '@/i18n/alternates'
+import type { Locale } from '@/i18n/routing'
 
-export const metadata: Metadata = {
-  title: 'Recursos — Axyoma',
-  description:
-    'Tudo o que o Axyoma AI faz: os três modos (Design, Plan e Code), o agente e suas ferramentas, catálogo multi-modelo, créditos, skills, integração com GitHub e suporte multiplataforma.',
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: 'Recursos — Axyoma',
+    description:
+      'Tudo o que o Axyoma AI faz: os três modos (Design, Plan e Code), o agente e suas ferramentas, catálogo multi-modelo, créditos, skills, integração com GitHub e suporte multiplataforma.',
+    alternates: alternatesFor('/recursos', locale),
+  }
 }
 
 const MODOS: Array<[string, string]> = [
@@ -42,7 +53,14 @@ const VANTAGENS: Array<[string, string]> = [
   ['Multiplataforma e atualizado', 'macOS e Windows, com atualização automática.'],
 ]
 
-export default function RecursosPage(): React.JSX.Element {
+export default async function RecursosPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<React.JSX.Element> {
+  const { locale } = await params
+  setRequestLocale(locale)
+
   return (
     <ContentPage
       title="Recursos"

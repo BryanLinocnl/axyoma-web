@@ -1,10 +1,21 @@
 import type { Metadata } from 'next'
+import { setRequestLocale } from 'next-intl/server'
 import { ContentPage, Secao, Card, A } from '@/components/site/ContentPage'
+import { alternatesFor } from '@/i18n/alternates'
+import type { Locale } from '@/i18n/routing'
 
-export const metadata: Metadata = {
-  title: 'Documentação — Axyoma',
-  description:
-    'Guia de uso do Axyoma AI: instalação por sistema, login, como escolher modelos, como usar os modos Design, Plan e Code, créditos e cobrança.',
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return {
+    title: 'Documentação — Axyoma',
+    description:
+      'Guia de uso do Axyoma AI: instalação por sistema, login, como escolher modelos, como usar os modos Design, Plan e Code, créditos e cobrança.',
+    alternates: alternatesFor('/docs', locale),
+  }
 }
 
 const INSTALACAO: Array<[string, string]> = [
@@ -22,7 +33,14 @@ const MODOS: Array<[string, string]> = [
   ['Code', 'No modo Code, dê a tarefa ao agente. Ele lê e edita arquivos, roda comandos, depura e mostra cada ação na timeline. Use o terminal e o editor integrados para acompanhar e intervir quando quiser. Ao final, ele pode abrir o PR no GitHub.'],
 ]
 
-export default function DocsPage(): React.JSX.Element {
+export default async function DocsPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>
+}): Promise<React.JSX.Element> {
+  const { locale } = await params
+  setRequestLocale(locale)
+
   return (
     <ContentPage
       title="Documentação"

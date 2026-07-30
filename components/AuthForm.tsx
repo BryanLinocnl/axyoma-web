@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+// Ver o comentário em SiteNav.tsx: href cru derruba o visitante para o pt-BR.
+import { Link } from '@/i18n/navigation'
 import { Check, X, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '@/lib/supabase-browser'
 import { AxiomaMark } from './AxiomaMark'
