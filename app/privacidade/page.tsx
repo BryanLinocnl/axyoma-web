@@ -32,7 +32,12 @@ export const metadata: Metadata = {
 //     declaradas como coletadas. Se algum dia forem usadas, esta seção muda.
 //   • cookie próprio: só `axyoma-access-token` (`lib/conta-context.tsx:43`).
 //     O servidor nunca emite Set-Cookie; conferido em produção.
-//   • nenhuma biblioteca de analytics no `package.json`.
+//   • analytics: `@vercel/analytics` e `@vercel/speed-insights`, montados no
+//     layout raiz (30/07/2026). Ambos SEM cookie e sem identificador
+//     persistente. Até essa data a §11 afirmava não haver ferramenta de análise
+//     de audiência — a afirmação foi corrigida na MESMA mudança que instalou os
+//     pacotes, e não depois: política publicada que descreve o software errado
+//     é a falha, não o atraso em atualizá-la.
 //
 // PRAZOS DE RETENÇÃO são decisão do controlador, não dedução do código. Os
 // números abaixo foram definidos pelo dono em 28/07/2026.
@@ -40,7 +45,7 @@ export const metadata: Metadata = {
 // PENDENTE DE REVISÃO JURÍDICA antes de uso em edital ou contrato corporativo.
 // =============================================================================
 
-const ATUALIZADO = '28 de julho de 2026'
+const ATUALIZADO = '30 de julho de 2026'
 
 const SECOES = [
   { id: 'escopo', titulo: 'Escopo e a quem se aplica' },
@@ -302,7 +307,7 @@ export default function PrivacidadePage(): React.JSX.Element {
           colunas={['Operador', 'Para quê', 'País']}
           linhas={[
             ['Supabase', 'Banco de dados, autenticação e armazenamento da conta', 'Estados Unidos'],
-            ['Vercel', 'Hospedagem do site e do serviço que encaminha as execuções', 'Estados Unidos'],
+            ['Vercel', 'Hospedagem do site e do serviço que encaminha as execuções; medição de audiência e de desempenho das páginas, sem cookies', 'Estados Unidos'],
             ['Google Cloud (Vertex AI)', 'Execução dos modelos pagos com créditos Axyoma', 'Estados Unidos'],
             ['Google (OAuth)', 'Login com conta Google, quando você escolhe essa opção', 'Estados Unidos'],
             ['OpenRouter', 'Execução de modelos, por crédito Axyoma ou por chave sua', 'Estados Unidos'],
@@ -384,9 +389,18 @@ export default function PrivacidadePage(): React.JSX.Element {
 
       <Secao id="cookies" titulo="11. Cookies e armazenamento local">
         <p>
-          O site usa <strong style={{ color: 'var(--ink)' }}>apenas o estritamente necessário</strong>{' '}
-          para manter você conectado. Não há cookie de publicidade, de rastreamento entre sites nem
-          ferramenta de análise de audiência — não utilizamos Google Analytics ou equivalente.
+          O site <strong style={{ color: 'var(--ink)' }}>não usa cookie de publicidade nem de
+          rastreamento entre sites</strong>. O único cookie é o da sua sessão, listado abaixo.
+        </p>
+        <p>
+          Para saber quantas pessoas visitam as páginas e quanto tempo elas levam para carregar,
+          usamos o <strong style={{ color: 'var(--ink)' }}>Vercel Web Analytics</strong> e o{' '}
+          <strong style={{ color: 'var(--ink)' }}>Vercel Speed Insights</strong>. Os dois funcionam{' '}
+          <strong style={{ color: 'var(--ink)' }}>sem cookies</strong> e sem identificador
+          persistente: não criam perfil seu, não seguem você para outros sites e não são usados para
+          publicidade. O que é medido são páginas visitadas, origem da visita, país, tipo de
+          dispositivo e tempos de carregamento — de forma agregada. Não utilizamos Google Analytics
+          ou equivalente.
         </p>
         <Tabela
           colunas={['Nome', 'Para quê', 'Duração']}
