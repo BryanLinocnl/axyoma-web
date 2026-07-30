@@ -229,11 +229,22 @@ function PlanStage(): React.JSX.Element {
   // O caminho do arquivo fica COLADO na tarefa, não alinhado à direita da
   // coluna: em painel largo o alinhamento à direita abria 300px de vazio entre
   // a tarefa e o arquivo dela, e os dois deixavam de parecer o mesmo item.
-  const tasks: [string, string, boolean][] = [
-    [t('planTask1'), 'src/lib/frete.ts', true],
-    [t('planTask2'), 'src/lib/frete.ts', true],
-    [t('planTask3'), 'test/frete.spec.ts', false],
-    [t('planTask4'), 'test/checkout.spec.ts', false],
+  // A CHAVE de tradução entra no array e vira a `key` do React.
+  //
+  // Antes da i18n a key era o próprio texto da tarefa, que é único. Com a
+  // extração o texto virou `t(...)` e a key passou a ser `file + done` — e as
+  // duas primeiras tarefas têm o MESMO arquivo e o MESMO estado, então
+  // colidiam em `src/lib/frete.tstrue`. O React avisa e pode duplicar ou omitir
+  // itens.
+  //
+  // Também não dá para voltar ao texto traduzido: ele muda ao trocar de idioma,
+  // e a lista inteira seria remontada em vez de atualizada. A chave i18n é
+  // estável nos dois idiomas.
+  const tasks: [key: string, tarefa: string, file: string, done: boolean][] = [
+    ['planTask1', t('planTask1'), 'src/lib/frete.ts', true],
+    ['planTask2', t('planTask2'), 'src/lib/frete.ts', true],
+    ['planTask3', t('planTask3'), 'test/frete.spec.ts', false],
+    ['planTask4', t('planTask4'), 'test/checkout.spec.ts', false],
   ]
   return (
     <div className="flex max-w-[440px] flex-col gap-3.5 p-4 sm:p-5">
@@ -245,9 +256,9 @@ function PlanStage(): React.JSX.Element {
       </div>
 
       <div className="flex flex-col">
-        {tasks.map(([tarefa, file, done], i) => (
+        {tasks.map(([chave, tarefa, file, done], i) => (
           <div
-            key={file + String(done)}
+            key={chave}
             className="flex items-baseline gap-2.5 py-2"
             style={i > 0 ? { borderTop: '1px solid var(--hairline)' } : undefined}
           >
