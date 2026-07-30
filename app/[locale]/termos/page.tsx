@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { ContentPage, Secao, SubSecao, Lista, Indice, A } from '@/components/site/ContentPage'
+import { ContentPage, Secao, SubSecao, Lista, Indice, A, AvisoDocumentoEmPortugues } from '@/components/site/ContentPage'
 import { EMPRESA } from '@/lib/empresa'
 import { alternatesFor } from '@/i18n/alternates'
-import type { Locale } from '@/i18n/routing'
+import { DEFAULT_LOCALE, type Locale } from '@/i18n/routing'
 
 export async function generateMetadata({
   params,
@@ -99,7 +99,17 @@ export default async function TermosPage({
         produto: EMPRESA.produto,
         dominio: EMPRESA.dominio,
       })}
+      contentLang={DEFAULT_LOCALE}
     >
+      {/* O documento fica em português mesmo na versão inglesa do site. Ver o
+          comentário de `AvisoDocumentoEmPortugues`. */}
+      {locale !== DEFAULT_LOCALE && (
+        <AvisoDocumentoEmPortugues
+          titulo={t('ptOnlyTitle')}
+          corpo={t('ptOnlyBody', { email: EMPRESA.email })}
+        />
+      )}
+
       <Indice itens={SECOES} />
 
       <Secao id="aceitacao" titulo="1. Aceitação destes termos">

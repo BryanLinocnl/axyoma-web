@@ -12,10 +12,16 @@ export function ContentPage({
   title,
   intro,
   children,
+  // Idioma do CONTEÚDO, quando ele não acompanha o idioma do site. Existe por
+  // causa de `privacidade` e `termos`, que continuam em português na versão
+  // inglesa: sem isto o <html lang="en"> faria o leitor de tela ler um documento
+  // português com voz inglesa, e o Google indexaria o texto como se fosse inglês.
+  contentLang,
 }: {
   title: string
   intro?: React.ReactNode
   children: React.ReactNode
+  contentLang?: string
 }): React.JSX.Element {
   const t = useTranslations('contentPage')
 
@@ -45,9 +51,15 @@ export function ContentPage({
             </div>
           </div>
 
-          <h1 className="gb-display text-[clamp(2.1rem,4.6vw,3.25rem)]">{title}</h1>
+          <h1 className="gb-display text-[clamp(2.1rem,4.6vw,3.25rem)]" lang={contentLang}>
+            {title}
+          </h1>
           {intro ? (
-            <p className="gb-measure mt-5 text-[17px] leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
+            <p
+              className="gb-measure mt-5 text-[17px] leading-relaxed"
+              style={{ color: 'var(--ink-muted)' }}
+              lang={contentLang}
+            >
               {intro}
             </p>
           ) : null}
@@ -55,6 +67,7 @@ export function ContentPage({
           <div
             className="mt-14 flex flex-col gap-12 text-[16.5px] leading-relaxed"
             style={{ color: 'var(--ink-muted)' }}
+            lang={contentLang}
           >
             {children}
           </div>
@@ -217,6 +230,42 @@ export function Indice({ itens }: { itens: { id: string; titulo: string }[] }): 
         ))}
       </ol>
     </nav>
+  )
+}
+
+/**
+ * Aviso no topo das páginas legais quando o site está em outro idioma.
+ *
+ * `privacidade` e `termos` NÃO são traduzidos (spec `multilingue.md` §2.1 e §6):
+ * são documentos jurídicos, e o visitante europeu está sob GDPR, não LGPD —
+ * traduzir por máquina um texto que declara o que se faz com dado pessoal é
+ * assumir risco em outra jurisdição. Enquanto não houver revisão humana, a
+ * versão em inglês serve o documento em português COM este aviso, que é a opção
+ * honesta: política mal traduzida é pior do que política em outro idioma.
+ *
+ * Só aparece fora do português — por isso as chaves `legal.ptOnly*` existem no
+ * catálogo pt-BR (a verificação de paridade exige) mas nunca chegam à tela.
+ */
+export function AvisoDocumentoEmPortugues({
+  titulo,
+  corpo,
+}: {
+  titulo: string
+  corpo: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <aside
+      className="gb-raised rounded-[14px] p-5"
+      style={{ border: '1px solid var(--accent)' }}
+      lang="en"
+    >
+      <p className="text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>
+        {titulo}
+      </p>
+      <p className="mt-2 text-[14.5px] leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
+        {corpo}
+      </p>
+    </aside>
   )
 }
 

@@ -518,6 +518,7 @@
     "privacidadeIntro": "Última atualização: {data}. Esta política descreve como o {produto} coleta, utiliza, compartilha, armazena e protege dados pessoais, em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 — LGPD).",
     "termosTitle": "Termos de Uso",
     "termosIntro": "Última atualização: {data}. Estes termos regem o uso do aplicativo {produto}, do site {dominio} e dos serviços relacionados.",
-    "ptOnly": "Este documento está disponível apenas em português."
+    "ptOnlyTitle": "Este documento está disponível apenas em português",
+    "ptOnlyBody": "Ele não foi traduzido de propósito: tradução automática de um texto que declara o que se faz com dado pessoal cria risco jurídico em outra jurisdição. Se precisar de ajuda com algum trecho, escreva para {email}."
   }
 }
