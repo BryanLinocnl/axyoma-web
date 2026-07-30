@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Check, Copy } from 'lucide-react'
 
 /**
@@ -27,6 +28,7 @@ const APP = '/Applications/AXYOMA AI.app'
 const COMANDO = `xattr -dr com.apple.quarantine "${APP}"`
 
 export function GatekeeperNote(): React.JSX.Element {
+  const t = useTranslations('download')
   const [copied, setCopied] = useState(false)
 
   async function copy(): Promise<void> {
@@ -46,13 +48,13 @@ export function GatekeeperNote(): React.JSX.Element {
       aria-labelledby="gatekeeper-titulo"
     >
       <h2 id="gatekeeper-titulo" className="text-[14.5px] font-medium">
-        No macOS, se aparecer “o app está danificado”
+        {t('gatekeeperTitle')}
       </h2>
 
       <p className="mt-2 text-[13.5px] leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
-        O arquivo está íntegro. Esta versão ainda não é assinada com um certificado da Apple, e o
-        macOS descreve toda aplicação sem assinatura desse jeito. Arraste o app para a pasta{' '}
-        <span className="gb-mono text-[12.5px]">Aplicativos</span> e rode uma vez no Terminal:
+        {t.rich('gatekeeperBody', {
+          mono: (chunks) => <span className="gb-mono text-[12.5px]">{chunks}</span>,
+        })}
       </p>
 
       {/* O comando QUEBRA em vez de rolar. Numa única linha com scroll
@@ -77,16 +79,15 @@ export function GatekeeperNote(): React.JSX.Element {
           onClick={copy}
           className="grid size-7 shrink-0 place-items-center rounded-[8px] transition-colors hover:bg-[color-mix(in_srgb,var(--ink)_8%,transparent)]"
           style={{ color: copied ? 'var(--ink)' : 'var(--ink-muted)' }}
-          aria-label={copied ? 'Comando copiado' : 'Copiar comando'}
-          title={copied ? 'Copiado' : 'Copiar comando'}
+          aria-label={copied ? t('gatekeeperCopied') : t('gatekeeperCopy')}
+          title={copied ? t('gatekeeperCopiedShort') : t('gatekeeperCopy')}
         >
           {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
         </button>
       </div>
 
       <p className="mt-3 text-[12.5px] leading-relaxed" style={{ color: 'var(--ink-faint)' }}>
-        Ele remove a marca de quarentena apenas deste aplicativo. Nenhuma proteção do seu sistema é
-        desligada, e os próximos downloads seguem sendo verificados normalmente.
+        {t('gatekeeperFootnote')}
       </p>
     </section>
   )

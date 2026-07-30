@@ -1,4 +1,5 @@
 import type { Icon } from '@tabler/icons-react'
+import { useTranslations } from 'next-intl'
 import {
   IconBrandFigma,
   IconBrandGithub,
@@ -55,11 +56,12 @@ function CodeArt(): React.JSX.Element {
 }
 
 function PlanArt(): React.JSX.Element {
+  const t = useTranslations('productGrid')
   const items: [string, boolean][] = [
-    ['Mapear faixas de CEP por região', true],
-    ['Trocar fallback por erro explícito', true],
-    ['Cobrir Nordeste com teste', false],
-    ['Atualizar snapshot do checkout', false],
+    [t('artTask1'), true],
+    [t('artTask2'), true],
+    [t('artTask3'), false],
+    [t('artTask4'), false],
   ]
   return (
     <div
@@ -99,17 +101,13 @@ function PlanArt(): React.JSX.Element {
 }
 
 function SkillsArt(): React.JSX.Element {
+  const t = useTranslations('productGrid')
   // Duas skills abertas + a contagem: mostra que skill é um arquivo de
-  // procedimento em markdown, não um botão mágico.
+  // procedimento em markdown, não um botão mágico. O NOME DO ARQUIVO não é
+  // traduzido — é um caminho no disco do usuário, não interface.
   const skills: [string, string][] = [
-    [
-      'revisar-pr.md',
-      'Antes de abrir PR: rodar os testes, conferir o lint, escrever a descrição em português e marcar o time de review.',
-    ],
-    [
-      'migration-segura.md',
-      'Nunca rodar migration sem backup. Gerar o SQL, mostrar o diff do schema e esperar aprovação.',
-    ],
+    ['revisar-pr.md', t('artSkill1')],
+    ['migration-segura.md', t('artSkill2')],
   ]
   return (
     <div className="flex flex-col gap-2.5">
@@ -122,7 +120,7 @@ function SkillsArt(): React.JSX.Element {
           <div className="flex items-baseline justify-between gap-3">
             <span className="gb-mono text-[11px]">{file}</span>
             <span className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>
-              skill
+              {t('artSkillTag')}
             </span>
           </div>
           <p className="mt-2 text-[11.5px] leading-relaxed" style={{ color: 'var(--ink-muted)' }}>
@@ -131,11 +129,13 @@ function SkillsArt(): React.JSX.Element {
         </div>
       ))}
       <p className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-        Escreva as suas —{' '}
-        <span className="font-medium" style={{ color: 'var(--accent)' }}>
-          300 no plano Pro
-        </span>
-        .
+        {t.rich('artSkillsFootnote', {
+          accent: (chunks) => (
+            <span className="font-medium" style={{ color: 'var(--accent)' }}>
+              {chunks}
+            </span>
+          ),
+        })}
       </p>
     </div>
   )
@@ -156,6 +156,7 @@ const MCP_BRANDS: { name: string; Mark: Icon }[] = [
 ]
 
 function McpArt(): React.JSX.Element {
+  const t = useTranslations('productGrid')
   return (
     <div className="flex flex-col gap-3.5">
       <ul className="grid grid-cols-4 gap-2.5">
@@ -177,59 +178,49 @@ function McpArt(): React.JSX.Element {
         ))}
       </ul>
       <p className="text-[12px] leading-relaxed" style={{ color: 'var(--ink-faint)' }}>
-        E também Postgres, Playwright, Brave Search, Higgsfield e Memória — mais qualquer servidor
-        MCP que você apontar.
+        {t('artMcpFootnote')}
       </p>
     </div>
   )
 }
 
-const QUADRANTS: { title: string; body: string; art: () => React.JSX.Element; tag?: string }[] = [
-  {
-    title: 'Code',
-    body: 'Leia projetos, implemente funcionalidades, execute testes e automatize tarefas de desenvolvimento com segurança.',
-    art: CodeArt,
-  },
-  {
-    title: 'Plan',
-    body: 'Transforme objetivos em planos revisáveis antes da execução. Ajuste estratégias e aprove apenas o que fizer sentido.',
-    art: PlanArt,
-  },
-  {
-    title: 'Skills',
-    body: 'Ensine um procedimento ao agente escrevendo um arquivo em markdown. Ele passa a seguir a sua regra, do seu jeito, em todo projeto.',
-    art: SkillsArt,
-  },
-  {
-    title: 'MCP',
-    body: 'Conecte as ferramentas que você já usa. Os servidores mais comuns vêm prontos — é escolher e autenticar.',
-    art: McpArt,
-  },
+// `tag` continua no tipo (nenhum quadrante usa hoje) porque é o gancho do selo
+// "Em breve" por quadrante.
+const QUADRANTS: {
+  id: 'code' | 'plan' | 'skills' | 'mcp'
+  art: () => React.JSX.Element
+  tag?: string
+}[] = [
+  { id: 'code', art: CodeArt },
+  { id: 'plan', art: PlanArt },
+  { id: 'skills', art: SkillsArt },
+  { id: 'mcp', art: McpArt },
 ]
 
 export function ProductGrid(): React.JSX.Element {
+  const t = useTranslations('productGrid')
+
   return (
     <section id="modos" className="relative">
       <div className="mx-auto max-w-[1200px] px-5 py-20 sm:px-6 sm:py-28 lg:py-32">
         <h2 className="gb-display text-[clamp(2.1rem,4.9vw,3.5rem)]">
-          <span className="block">Uma plataforma.</span>
-          <span className="block">Aberta em todas as pontas.</span>
+          <span className="block">{t('title1')}</span>
+          <span className="block">{t('title2')}</span>
         </h2>
         <p
           className="gb-measure mt-6 text-[16.5px] leading-relaxed"
           style={{ color: 'var(--ink-muted)' }}
         >
-          Code e Plan para trabalhar. Skills para ensinar o seu jeito ao agente, MCP para conectar
-          as ferramentas que você já usa.
+          {t('body')}
         </p>
 
         <div
           className="mt-14 grid md:grid-cols-2"
           style={{ borderTop: '1px solid var(--hairline)' }}
         >
-          {QUADRANTS.map(({ title, body, art: Art, tag }, i) => (
+          {QUADRANTS.map(({ id, art: Art, tag }, i) => (
             <article
-              key={title}
+              key={id}
               className="flex flex-col gap-5 py-9 md:px-9 md:first:pl-0 md:[&:nth-child(3)]:pl-0"
               style={{
                 borderBottom: '1px solid var(--hairline)',
@@ -238,7 +229,9 @@ export function ProductGrid(): React.JSX.Element {
             >
               <div>
                 <div className="flex items-center gap-2.5">
-                  <h3 className="text-[19px] font-semibold tracking-[-0.02em]">{title}</h3>
+                  <h3 className="text-[19px] font-semibold tracking-[-0.02em]">
+                    {t(`${id}Title`)}
+                  </h3>
                   {tag && (
                     <span
                       className="rounded-full px-2 py-0.5 text-[10.5px] font-medium"
@@ -252,7 +245,7 @@ export function ProductGrid(): React.JSX.Element {
                   className="mt-2.5 max-w-[46ch] text-[14.5px] leading-relaxed"
                   style={{ color: 'var(--ink-muted)' }}
                 >
-                  {body}
+                  {t(`${id}Body`)}
                 </p>
               </div>
               <div className="mt-auto">

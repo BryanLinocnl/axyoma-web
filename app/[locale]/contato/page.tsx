@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { setRequestLocale } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ContentPage, Secao, Card, A } from '@/components/site/ContentPage'
 import { EMPRESA } from '@/lib/empresa'
 import { alternatesFor } from '@/i18n/alternates'
@@ -11,40 +11,15 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>
 }): Promise<Metadata> {
   const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'metadata.contato' })
   return {
-    title: 'Sobre e Contato — Axyoma',
-    description:
-      'O que é o Axyoma AI, como funciona o modelo de créditos, planos, plataformas suportadas e como falar com a equipe.',
+    title: t('title'),
+    description: t('description'),
     alternates: alternatesFor('/contato', locale),
   }
 }
 
-const FAQ: Array<[string, string]> = [
-  [
-    'O que é o Axyoma AI?',
-    'Um estúdio de engenharia com IA em app desktop (macOS e Windows). Em um só app você cria artes para redes sociais (modo Design), planeja features em tarefas revisáveis (modo Plan) e roda um agente que lê, escreve e edita código, executa comandos e entrega até o PR no GitHub (modo Code).',
-  ],
-  [
-    'Como funcionam os créditos?',
-    'Você não precisa de chave de API própria. Usa créditos Axyoma, onde 1 crédito = R$ 0,30, e o débito é calculado pelo custo real (em USD) do modelo escolhido. Toda conta nova recebe 100 créditos de bônus para experimentar. Os créditos de bônus e os de franquia dos planos (Pro e Teams) valem para os modelos da Vertex AI (Google Cloud); os créditos comprados valem para todos os modelos, incluindo os da Vertex.',
-  ],
-  [
-    'Quais modelos de IA posso usar?',
-    'Um catálogo com os principais modelos do mercado em um seletor só — Gemini, Claude, GPT, Grok, Llama, DeepSeek, Kimi e outros. Os modelos do Google (Vertex AI) são acessados com os créditos de bônus e de franquia; para os demais modelos, use créditos comprados (que valem para todos).',
-  ],
-  [
-    'Quais são os planos?',
-    'Free: 100 créditos de bônus ao se cadastrar, para experimentar. Além disso, o Free inclui chave própria (OpenRouter e OpenAI) e modelos locais pelo Ollama, que não consomem crédito. Pro e Teams (em breve): planos pagos com créditos de franquia e o modo Design; os valores serão anunciados no lançamento. Bônus e franquia valem para os modelos da Vertex AI; créditos comprados valem para todos os modelos.',
-  ],
-  [
-    'Em quais sistemas roda?',
-    'macOS (Apple Silicon e Intel) e Windows. O app se mantém atualizado automaticamente no Windows; no macOS notifica quando há nova versão. A versão para Linux volta em breve.',
-  ],
-  [
-    'Como pago?',
-    'Por Pix — QR code, copia-e-cola ou pagamento direto pelo seu banco (Open Finance) —, no checkout do site ou do app.',
-  ],
-]
+const FAQ = ['Oque', 'Creditos', 'Modelos', 'Planos', 'Sistemas', 'Pagamento'] as const
 
 export default async function ContatoPage({
   params,
@@ -53,39 +28,39 @@ export default async function ContatoPage({
 }): Promise<React.JSX.Element> {
   const { locale } = await params
   setRequestLocale(locale)
+  const t = await getTranslations('contato')
 
   return (
-    <ContentPage
-      title="Sobre e Contato"
-      intro="O que é o Axyoma, como funciona e como falar com a gente."
-    >
-      <Secao titulo="Sobre o Axyoma">
+    <ContentPage title={t('title')} intro={t('intro')}>
+      <Secao titulo={t('sobreTitle')}>
+        <p>{t('sobreBody1', { produto: EMPRESA.produto })}</p>
         <p>
-          O {EMPRESA.produto} é um estúdio de engenharia com IA para desenvolvedores, makers, agências e
-          freelancers. Em vez de só sugerir, o agente executa: lê e escreve arquivos, roda testes, lint,
-          build e migrações, depura lendo logs e entrega o resultado — com terminal integrado, editor de
-          código e integração com o GitHub. Tudo com um modelo de créditos que você controla, sem montar
-          infraestrutura e sem gerenciar chaves de API.
+          {t.rich('sobreBody2', {
+            recursos: (chunks) => <A href="/recursos">{chunks}</A>,
+          })}
         </p>
+        {/* Identidade da empresa — exigida por revisão (Google for Startups) e
+            pelas páginas legais. Razão social e CNPJ NÃO são traduzidos. */}
         <p>
-          Quer o detalhe de tudo o que ele faz? Veja a página de <A href="/recursos">Recursos</A>.
-        </p>
-        <p>
-          Operado por {EMPRESA.razaoSocial}, CNPJ {EMPRESA.cnpj}, {EMPRESA.cidade}.
-        </p>
-      </Secao>
-
-      <Secao titulo="Fale com a gente">
-        <p>
-          Suporte, dúvidas comerciais e imprensa: <A href={`mailto:${EMPRESA.email}`}>{EMPRESA.email}</A>.
+          {t('sobreOperado', {
+            razaoSocial: EMPRESA.razaoSocial,
+            cnpj: EMPRESA.cnpj,
+            cidade: EMPRESA.cidade,
+          })}
         </p>
       </Secao>
 
-      <Secao titulo="Perguntas frequentes">
-        {FAQ.map(([q, a]) => (
-          <Card key={q}>
-            <p className="text-lg font-semibold text-neutral-900">{q}</p>
-            <p className="mt-2 text-neutral-600">{a}</p>
+      <Secao titulo={t('faleTitle')}>
+        <p>
+          {t('faleBody')} <A href={`mailto:${EMPRESA.email}`}>{EMPRESA.email}</A>.
+        </p>
+      </Secao>
+
+      <Secao titulo={t('faqTitle')}>
+        {FAQ.map((id) => (
+          <Card key={id}>
+            <p className="text-lg font-semibold text-neutral-900">{t(`faq${id}Q`)}</p>
+            <p className="mt-2 text-neutral-600">{t(`faq${id}A`)}</p>
           </Card>
         ))}
       </Secao>

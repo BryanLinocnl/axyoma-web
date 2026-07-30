@@ -2,7 +2,7 @@ import '../globals.css'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { hasLocale, NextIntlClientProvider } from 'next-intl'
-import { setRequestLocale } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import {
   Bricolage_Grotesque,
   Playfair_Display,
@@ -51,8 +51,6 @@ const jetbrains = JetBrains_Mono({
 })
 
 const SITE_URL = 'https://axyoma.ia.br'
-const SITE_DESC =
-  'Planeje, execute e acompanhe tarefas com Gemini, Claude, GPT, Grok, DeepSeek e centenas de outros modelos. Comece com créditos inclusos ou conecte sua própria API. Você escolhe como usar.'
 
 // Este é o layout RAIZ do site inteiro (não existe `app/layout.tsx`): tudo que
 // tem página vive sob `[locale]`, inclusive `/conta`. É o único jeito de o
@@ -69,30 +67,29 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>
 }): Promise<Metadata> {
   const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'metadata.site' })
+  const title = t('title')
+  const description = t('description')
 
   return {
     metadataBase: new URL(SITE_URL),
-    title: {
-      default: 'Axyoma — Trabalhe com qualquer IA. Em um único lugar.',
-      template: '%s',
-    },
-    description: SITE_DESC,
+    title: { default: title, template: '%s' },
+    description,
     applicationName: 'Axyoma AI',
-    keywords: ['Axyoma', 'IA', 'agente de código', 'estúdio de engenharia', 'design com IA', 'créditos'],
+    // Uma string separada por vírgula no catálogo, não um array: JSON de
+    // tradução com array vira lista de índices sem nome, e ninguém sabe o que
+    // faltou traduzir.
+    keywords: t('keywords').split(',').map((k) => k.trim()),
     alternates: alternatesFor('/', hasLocale(LOCALES, locale) ? locale : 'pt-BR'),
     openGraph: {
       type: 'website',
       locale: locale === 'en' ? 'en_US' : 'pt_BR',
       url: SITE_URL,
       siteName: 'Axyoma AI',
-      title: 'Axyoma — Trabalhe com qualquer IA. Em um único lugar.',
-      description: SITE_DESC,
+      title,
+      description,
     },
-    twitter: {
-      card: 'summary_large_image',
-      title: 'Axyoma — Trabalhe com qualquer IA. Em um único lugar.',
-      description: SITE_DESC,
-    },
+    twitter: { card: 'summary_large_image', title, description },
     robots: { index: true, follow: true },
   }
 }

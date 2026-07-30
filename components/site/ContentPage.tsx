@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl'
 import { AxiomaMark } from '@/components/AxiomaMark'
 import { LocaleSwitcher } from '@/components/site/LocaleSwitcher'
 // Ver o comentário em SiteNav.tsx: href cru derruba o visitante para o pt-BR.
@@ -13,9 +14,11 @@ export function ContentPage({
   children,
 }: {
   title: string
-  intro?: string
+  intro?: React.ReactNode
   children: React.ReactNode
 }): React.JSX.Element {
+  const t = useTranslations('contentPage')
+
   return (
     <div className="glass-site">
       <main className="min-h-screen">
@@ -37,7 +40,7 @@ export function ContentPage({
                 className="text-[15px] font-medium transition-colors"
                 style={{ color: 'var(--accent)' }}
               >
-                Baixar o app
+                {t('download')}
               </Link>
             </div>
           </div>
@@ -61,7 +64,7 @@ export function ContentPage({
             style={{ borderColor: 'var(--hairline)', color: 'var(--ink-faint)' }}
           >
             <Link href="/" className="underline underline-offset-4">
-              Voltar ao início
+              {t('back')}
             </Link>
           </div>
         </div>
@@ -191,14 +194,15 @@ export function Tabela({
 
 /** Índice ancorado. Ver o comentário de `Secao` sobre por que ele existe. */
 export function Indice({ itens }: { itens: { id: string; titulo: string }[] }): React.JSX.Element {
+  const t = useTranslations('contentPage')
   return (
     <nav
-      aria-label="Índice do documento"
+      aria-label={t('indexAriaLabel')}
       className="rounded-[14px] p-5"
       style={{ border: '1px solid var(--hairline)' }}
     >
       <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide" style={{ color: 'var(--ink-faint)' }}>
-        Nesta página
+        {t('onThisPage')}
       </p>
       <ol className="grid gap-x-8 gap-y-1.5 text-[15px] sm:grid-cols-2">
         {itens.map((it, i) => (

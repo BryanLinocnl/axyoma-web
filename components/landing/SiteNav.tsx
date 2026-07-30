@@ -1,19 +1,24 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { AxiomaLogo } from '@/components/AxiomaLogo'
 import { LocaleSwitcher } from '@/components/site/LocaleSwitcher'
 // `Link` do i18n, não o do `next/link`: com `pt-BR` sem prefixo, um href cru
 // levaria quem está em `/en` de volta ao português no primeiro clique.
 import { Link } from '@/i18n/navigation'
 
+// O rótulo virou CHAVE do catálogo. A âncora (`#modos`, `#controle`) continua
+// crua de propósito: ela casa com o `id` da seção no DOM, não com o texto — se
+// alguém traduzir o href junto com o rótulo, o menu para de rolar para lugar
+// nenhum e ninguém percebe até clicar.
 const NAV_ITEMS = [
-  { name: 'Modos', href: '#modos' },
-  { name: 'Controle', href: '#controle' },
-  { name: 'Planos', href: '#planos' },
-  { name: 'FAQ', href: '#faq' },
-  { name: 'Docs', href: '/docs' },
-]
+  { key: 'modos', href: '#modos' },
+  { key: 'controle', href: '#controle' },
+  { key: 'planos', href: '#planos' },
+  { key: 'faq', href: '#faq' },
+  { key: 'docs', href: '/docs' },
+] as const
 
 /**
  * Toolbar de vidro — o mesmo material da top bar do app. É um dos dois lugares
@@ -21,6 +26,7 @@ const NAV_ITEMS = [
  * por baixo pra desfocar.
  */
 export function SiteNav(): React.JSX.Element {
+  const t = useTranslations('nav')
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
 
@@ -38,7 +44,7 @@ export function SiteNav(): React.JSX.Element {
           scrolled ? 'max-w-[880px] px-3 py-2' : 'max-w-[1160px] px-4 py-2.5'
         }`}
         style={{ border: '1px solid var(--hairline)' }}
-        aria-label="Principal"
+        aria-label={t('ariaLabel')}
       >
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <AxiomaLogo id="nav" className="h-[22px] w-[22px]" />
@@ -49,13 +55,13 @@ export function SiteNav(): React.JSX.Element {
 
         <ul className="mx-auto hidden items-center gap-1 md:flex">
           {NAV_ITEMS.map((item) => (
-            <li key={item.name}>
+            <li key={item.key}>
               <Link
                 href={item.href}
                 className="rounded-[8px] px-3 py-1.5 text-[13.5px] transition-colors hover:bg-[color-mix(in_srgb,var(--ink)_6%,transparent)]"
                 style={{ color: 'var(--ink-muted)' }}
               >
-                {item.name}
+                {t(item.key)}
               </Link>
             </li>
           ))}
@@ -68,16 +74,16 @@ export function SiteNav(): React.JSX.Element {
             className="hidden px-3 py-1.5 text-[13.5px] transition-colors hover:text-[var(--ink)] sm:block"
             style={{ color: 'var(--ink-muted)' }}
           >
-            Entrar
+            {t('login')}
           </Link>
           <Link href="/download" className="gb-btn gb-btn-primary px-4 py-2 text-[13.5px]">
-            Baixar grátis
+            {t('download')}
           </Link>
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            aria-label={open ? 'Fechar menu' : 'Abrir menu'}
+            aria-label={open ? t('closeMenu') : t('openMenu')}
             className="grid h-8 w-8 place-items-center rounded-[8px] md:hidden"
             style={{ border: '1px solid var(--hairline)' }}
           >
@@ -96,14 +102,14 @@ export function SiteNav(): React.JSX.Element {
         >
           <ul className="flex flex-col">
             {NAV_ITEMS.map((item) => (
-              <li key={item.name}>
+              <li key={item.key}>
                 <Link
                   href={item.href}
                   onClick={() => setOpen(false)}
                   className="block rounded-[8px] px-3 py-2.5 text-[15px]"
                   style={{ color: 'var(--ink-muted)' }}
                 >
-                  {item.name}
+                  {t(item.key)}
                 </Link>
               </li>
             ))}
@@ -114,7 +120,7 @@ export function SiteNav(): React.JSX.Element {
                 className="block rounded-[8px] px-3 py-2.5 text-[15px]"
                 style={{ color: 'var(--ink-muted)' }}
               >
-                Entrar
+                {t('login')}
               </Link>
             </li>
           </ul>

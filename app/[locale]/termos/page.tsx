@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { setRequestLocale } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ContentPage, Secao, SubSecao, Lista, Indice, A } from '@/components/site/ContentPage'
 import { EMPRESA } from '@/lib/empresa'
 import { alternatesFor } from '@/i18n/alternates'
@@ -11,10 +11,10 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>
 }): Promise<Metadata> {
   const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'metadata.termos' })
   return {
-    title: 'Termos de Uso — Axyoma',
-    description:
-      'Termos e condições de uso do Axyoma AI: conta, créditos, chave própria, provedores de terceiros, execução de comandos na sua máquina, responsabilidades e limites.',
+    title: t('title'),
+    description: t('description'),
     alternates: alternatesFor('/termos', locale),
   }
 }
@@ -89,11 +89,16 @@ export default async function TermosPage({
 }): Promise<React.JSX.Element> {
   const { locale } = await params
   setRequestLocale(locale)
+  const t = await getTranslations('legal')
 
   return (
     <ContentPage
-      title="Termos de Uso"
-      intro={`Última atualização: ${ATUALIZADO}. Estes termos regem o uso do aplicativo ${EMPRESA.produto}, do site ${EMPRESA.dominio} e dos serviços relacionados.`}
+      title={t('termosTitle')}
+      intro={t('termosIntro', {
+        data: ATUALIZADO,
+        produto: EMPRESA.produto,
+        dominio: EMPRESA.dominio,
+      })}
     >
       <Indice itens={SECOES} />
 

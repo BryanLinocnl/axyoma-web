@@ -5,7 +5,7 @@ import { AxiomaMark } from '@/components/AxiomaMark'
 import { DownloadPicker } from '@/components/download/DownloadPicker'
 import { GatekeeperNote } from '@/components/download/GatekeeperNote'
 import { getLatestRelease } from '@/lib/releases'
-import { setRequestLocale } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { alternatesFor } from '@/i18n/alternates'
 import type { Locale } from '@/i18n/routing'
 
@@ -15,10 +15,10 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>
 }): Promise<Metadata> {
   const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'metadata.download' })
   return {
-    title: 'Baixar o Axyoma',
-    description:
-      'Instaladores do Axyoma para macOS (Apple Silicon e Intel) e Windows. Grátis, com 100 créditos para começar.',
+    title: t('title'),
+    description: t('description'),
     alternates: alternatesFor('/download', locale),
   }
 }
@@ -34,6 +34,7 @@ export default async function DownloadPage({
 }): Promise<React.JSX.Element> {
   const { locale } = await params
   setRequestLocale(locale)
+  const t = await getTranslations('download')
   const release = await getLatestRelease()
 
   return (
@@ -50,13 +51,13 @@ export default async function DownloadPage({
         </Link>
 
         <h1 className="gb-display max-w-[16ch] text-[clamp(2rem,5vw,3.25rem)]">
-          Instale e comece em minutos.
+          {t('title')}
         </h1>
         <p
           className="mt-5 max-w-[46ch] text-[16.5px] leading-relaxed"
           style={{ color: 'var(--ink-muted)' }}
         >
-          Grátis. Crie sua conta e receba 100 créditos para começar — sem cartão, sem chave de API.
+          {t('body')}
         </p>
 
         <DownloadPicker installers={release.installers} version={release.version} />
@@ -73,9 +74,9 @@ export default async function DownloadPage({
           className="mt-12 border-t pt-8 text-[13.5px]"
           style={{ color: 'var(--ink-faint)', borderColor: 'var(--hairline)' }}
         >
-          Já tem o app?{' '}
+          {t('hasApp')}{' '}
           <Link href="/conta/visao-geral/visao-geral" className="underline underline-offset-4">
-            Acesse sua conta
+            {t('goToAccount')}
           </Link>
         </p>
       </main>

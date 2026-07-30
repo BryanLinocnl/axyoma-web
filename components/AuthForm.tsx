@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 // Ver o comentário em SiteNav.tsx: href cru derruba o visitante para o pt-BR.
 import { Link } from '@/i18n/navigation'
@@ -31,13 +32,9 @@ function checks(pw: string) {
     special: /[^A-Za-z0-9]/.test(pw),
   }
 }
-const LABELS: Record<keyof ReturnType<typeof checks>, string> = {
-  len: 'Mínimo de 8 caracteres',
-  lower: 'Uma letra minúscula',
-  upper: 'Uma letra maiúscula',
-  digit: 'Um número',
-  special: 'Um caractere especial',
-}
+// Chave do catálogo por regra. A ORDEM da lista é a de exibição — o checklist
+// vai do requisito mais comum ao mais raro.
+const RULES = ['len', 'lower', 'upper', 'digit', 'special'] as const
 
 function AppleIcon(): React.JSX.Element {
   return (
@@ -62,6 +59,7 @@ export function AuthForm({
 }: {
   initialMode?: 'signin' | 'signup'
 }): React.JSX.Element {
+  const t = useTranslations('auth')
   const router = useRouter()
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode)
   const [name, setName] = useState('')
@@ -97,14 +95,14 @@ export function AuthForm({
 
   async function reset(): Promise<void> {
     if (!email.trim()) {
-      setMsg('Digite seu e-mail acima primeiro.')
+      setMsg(t('emailFirst'))
       return
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/login`,
     })
     setErr(error ? error.message : null)
-    if (!error) setMsg('Enviamos um link de redefinição para o seu e-mail.')
+    if (!error) setMsg(t('resetSent'))
   }
 
   async function onSubmit(e: React.FormEvent): Promise<void> {
@@ -123,7 +121,7 @@ export function AuthForm({
         if (error) throw error
         const { data } = await supabase.auth.getSession()
         if (data.session) router.push('/conta/visao-geral/visao-geral')
-        else setMsg('Conta criada! Confirme o e-mail que enviamos para entrar.')
+        else setMsg(t('confirmEmail'))
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -134,7 +132,7 @@ export function AuthForm({
         router.push('/conta/visao-geral/visao-geral')
       }
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Erro ao autenticar.')
+      setErr(e instanceof Error ? e.message : t('genericError'))
     } finally {
       setSubmitting(false)
       // Um token do Turnstile só vale uma vez — descarta e pede outro.
@@ -173,12 +171,10 @@ export function AuthForm({
       >
         <div className="mb-6 text-center">
           <h1 className="text-[20px] font-semibold tracking-[-0.015em]">
-            {isSignup ? 'Criar conta' : 'Bem-vindo de volta'}
+            {isSignup ? t('signupTitle') : t('signinTitle')}
           </h1>
           <p className="mt-1 text-[13.5px]" style={{ color: 'var(--ink-muted)' }}>
-            {isSignup
-              ? 'Preencha os dados para criar sua conta'
-              : 'Entre com sua conta Google ou com e-mail e senha'}
+            {isSignup ? t('signupSubtitle') : t('signinSubtitle')}
           </p>
         </div>
 
@@ -199,7 +195,7 @@ export function AuthForm({
                   onClick={() => oauth('google')}
                   className="gb-btn gb-btn-ghost w-full py-2.5 text-[14px]"
                 >
-                  <GoogleIcon /> Entrar com Google
+                  <GoogleIcon /> {t('google')}
                 </button>
               </div>
 
@@ -214,7 +210,7 @@ export function AuthForm({
                   className="relative px-3 text-[12.5px]"
                   style={{ background: 'var(--mat-thick)', color: 'var(--ink-muted)' }}
                 >
-                  Ou continue com
+                  {t('orContinue')}
                 </span>
               </div>
             </>
@@ -223,13 +219,13 @@ export function AuthForm({
           {isSignup && (
             <div className="flex flex-col gap-2">
               <label className={labelCls} htmlFor="name">
-                Nome
+                {t('name')}
               </label>
               <input
                 id="name"
                 className={inputCls}
                 style={inputStyle}
-                placeholder="Seu nome"
+                placeholder={t('namePlaceholder')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -239,14 +235,14 @@ export function AuthForm({
 
           <div className="flex flex-col gap-2">
             <label className={labelCls} htmlFor="email">
-              E-mail
+              {t('email')}
             </label>
             <input
               id="email"
               type="email"
               className={inputCls}
               style={inputStyle}
-              placeholder="voce@exemplo.com"
+              placeholder={t('emailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -256,7 +252,7 @@ export function AuthForm({
           <div className="flex flex-col gap-2">
             <div className="flex items-center">
               <label className={labelCls} htmlFor="password">
-                Senha
+                {t('password')}
               </label>
               {!isSignup && (
                 <button
@@ -265,7 +261,7 @@ export function AuthForm({
                   className="ml-auto text-[13.5px] underline-offset-4 hover:underline"
                   style={{ color: 'var(--ink-muted)' }}
                 >
-                  Esqueceu a senha?
+                  {t('forgot')}
                 </button>
               )}
             </div>
@@ -282,7 +278,7 @@ export function AuthForm({
               <button
                 type="button"
                 onClick={() => setShowPw((v) => !v)}
-                aria-label={showPw ? 'Ocultar senha' : 'Mostrar senha'}
+                aria-label={showPw ? t('hidePassword') : t('showPassword')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:text-[var(--ink)]"
                 style={{ color: 'var(--ink-faint)' }}
               >
@@ -295,7 +291,7 @@ export function AuthForm({
             <>
               <div className="flex flex-col gap-2">
                 <label className={labelCls} htmlFor="confirm">
-                  Repetir senha
+                  {t('confirm')}
                 </label>
                 <input
                   id="confirm"
@@ -309,18 +305,19 @@ export function AuthForm({
                 />
                 {confirm.length > 0 && !match && (
                   <p className="text-[12px]" style={{ color: '#b42318' }}>
-                    As senhas não coincidem.
+                    {t('mismatch')}
                   </p>
                 )}
               </div>
               <ul className="flex flex-col gap-1">
-                {(Object.keys(LABELS) as Array<keyof typeof LABELS>).map((k) => (
+                {RULES.map((k) => (
                   <li
                     key={k}
                     className="flex items-center gap-2 text-[12px]"
                     style={{ color: c[k] ? '#15803d' : 'var(--ink-faint)' }}
                   >
-                    {c[k] ? <Check className="size-3.5" /> : <X className="size-3.5" />} {LABELS[k]}
+                    {c[k] ? <Check className="size-3.5" /> : <X className="size-3.5" />}{' '}
+                    {t(`rule${k[0].toUpperCase()}${k.slice(1)}`)}
                   </li>
                 ))}
               </ul>
@@ -348,14 +345,14 @@ export function AuthForm({
             >
               {submitting
                 ? isSignup
-                  ? 'Criando...'
-                  : 'Entrando...'
+                  ? t('creating')
+                  : t('signingIn')
                 : isSignup
-                  ? 'Criar conta'
-                  : 'Entrar'}
+                  ? t('signup')
+                  : t('signin')}
             </button>
             <p className="text-center text-[13.5px]" style={{ color: 'var(--ink-muted)' }}>
-              {isSignup ? 'Já tem conta? ' : 'Não tem conta? '}
+              {isSignup ? t('hasAccount') : t('noAccount')}
               <button
                 type="button"
                 className="underline underline-offset-4"
@@ -366,7 +363,7 @@ export function AuthForm({
                   setMsg(null)
                 }}
               >
-                {isSignup ? 'Entrar' : 'Cadastre-se'}
+                {isSignup ? t('toSignin') : t('toSignup')}
               </button>
             </p>
           </div>
@@ -374,15 +371,18 @@ export function AuthForm({
       </div>
 
       <p className="px-6 text-center text-[12.5px] leading-relaxed" style={{ color: 'var(--ink-faint)' }}>
-        Ao continuar, você concorda com nossos{' '}
-        <Link href="/termos" className="underline underline-offset-2">
-          Termos de Serviço
-        </Link>{' '}
-        e{' '}
-        <Link href="/privacidade" className="underline underline-offset-2">
-          Política de Privacidade
-        </Link>
-        .
+        {t.rich('terms', {
+          termos: (chunks) => (
+            <Link href="/termos" className="underline underline-offset-2">
+              {chunks}
+            </Link>
+          ),
+          privacidade: (chunks) => (
+            <Link href="/privacidade" className="underline underline-offset-2">
+              {chunks}
+            </Link>
+          ),
+        })}
       </p>
     </div>
   )

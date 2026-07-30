@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { setRequestLocale } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ContentPage, Secao, Card, A } from '@/components/site/ContentPage'
 import { alternatesFor } from '@/i18n/alternates'
 import type { Locale } from '@/i18n/routing'
@@ -10,48 +10,30 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>
 }): Promise<Metadata> {
   const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'metadata.recursos' })
   return {
-    title: 'Recursos — Axyoma',
-    description:
-      'Tudo o que o Axyoma AI faz: os três modos (Design, Plan e Code), o agente e suas ferramentas, catálogo multi-modelo, créditos, skills, integração com GitHub e suporte multiplataforma.',
+    title: t('title'),
+    description: t('description'),
     alternates: alternatesFor('/recursos', locale),
   }
 }
 
-const MODOS: Array<[string, string]> = [
-  [
-    'Design',
-    'Criação de artes para redes sociais — posts, carrosséis, motions e templates. Você descreve a ideia, a IA desenha, você ajusta o resultado e publica. É a forma mais rápida de sair do briefing para a arte pronta sem abrir um editor à parte. O modo Design é exclusivo dos planos pagos.',
-  ],
-  [
-    'Plan',
-    'Planejamento antes de codar. Em vez de soltar um agente que faz tudo de uma vez, o Axyoma quebra a feature em tarefas, monta um plano que você lê e revisa, e só executa depois da sua aprovação. Você mantém o controle passo a passo e enxerga exatamente o que vai acontecer antes que aconteça.',
-  ],
-  [
-    'Code',
-    'Um agente de codificação que executa de ponta a ponta. Ele lê, escreve e edita arquivos de qualquer linguagem ou framework, roda comandos (testes, lint, build, migrações), depura lendo os próprios logs e entrega o trabalho — até abrir o pull request no GitHub. Vem com terminal integrado, editor Monaco e uma timeline visual de cada ação que o agente toma, para você acompanhar tudo em tempo real.',
-  ],
-]
+// Nome do modo é marca do produto (Design/Plan/Code): fica no código.
+const MODOS = ['Design', 'Plan', 'Code'] as const
 
-const FERRAMENTAS: Array<[string, string]> = [
-  ['Arquivos', 'Lê, escreve e edita arquivos do seu projeto, em qualquer linguagem ou framework.'],
-  ['Comandos', 'Roda testes, lint, build, migrações e qualquer comando do terminal — e lê a saída para se corrigir.'],
-  ['Depuração', 'Investiga erros lendo os logs e ajusta o código até funcionar.'],
-  ['Busca web', 'Consulta a web quando precisa de contexto, documentação ou referência atualizada.'],
-  ['Screenshot', 'Captura a tela para inspecionar interfaces e resultados visuais.'],
-  ['Sub-agentes', 'Delega partes da tarefa a outros modelos — ou coloca vários para competir na melhor solução.'],
-  ['Skills', 'Executa comandos e instruções reutilizáveis que você mesmo cria.'],
-]
+const FERRAMENTAS = [
+  'Arquivos',
+  'Comandos',
+  'Depuracao',
+  'Busca',
+  'Screenshot',
+  'Subagentes',
+  'Skills',
+] as const
 
-const VANTAGENS: Array<[string, string]> = [
-  ['Sem gerenciar chaves de API', 'Você cria a conta, ganha créditos e usa. Nada de configurar provedores ou colar chaves.'],
-  ['Só paga o que usa', 'O débito é por consumo real do modelo. Sem assinatura obrigatória para começar.'],
-  ['Todos os modelos num lugar', 'Troque de modelo por tarefa sem trocar de aplicativo.'],
-  ['Agente que executa', 'Do plano ao PR, o trabalho acontece dentro do app.'],
-  ['Controle de verdade', 'O modo Plan revisa antes de agir: nada roda sem a sua aprovação.'],
-  // LINUX: sai daqui enquanto o AppImage não volta a ser gerado.
-  ['Multiplataforma e atualizado', 'macOS e Windows, com atualização automática.'],
-]
+// LINUX: `vantagemMulti` sai de macOS+Windows enquanto o AppImage não volta a
+// ser gerado.
+const VANTAGENS = ['Chaves', 'Uso', 'Modelos', 'Agente', 'Controle', 'Multi'] as const
 
 export default async function RecursosPage({
   params,
@@ -60,104 +42,71 @@ export default async function RecursosPage({
 }): Promise<React.JSX.Element> {
   const { locale } = await params
   setRequestLocale(locale)
+  const t = await getTranslations('recursos')
+  const strong = (chunks: React.ReactNode): React.JSX.Element => (
+    <strong className="text-neutral-900">{chunks}</strong>
+  )
 
   return (
-    <ContentPage
-      title="Recursos"
-      intro="O Axyoma AI é um estúdio de engenharia com IA em app desktop. Num só lugar você desenha, planeja e programa — com os melhores modelos e créditos que você controla. Veja em detalhe tudo o que ele faz."
-    >
-      <Secao titulo="Os três modos">
-        <p>
-          O produto gira em torno de três modos, trocados por um seletor no topo do app. Cada um resolve
-          uma etapa diferente do seu trabalho.
-        </p>
-        {MODOS.map(([nome, desc]) => (
+    <ContentPage title={t('title')} intro={t('intro')}>
+      <Secao titulo={t('modosTitle')}>
+        <p>{t('modosBody')}</p>
+        {MODOS.map((nome) => (
           <Card key={nome}>
             <p className="text-xl font-semibold text-neutral-900">{nome}</p>
-            <p className="mt-2 text-neutral-600">{desc}</p>
+            <p className="mt-2 text-neutral-600">{t(`modos${nome}`)}</p>
           </Card>
         ))}
       </Secao>
 
-      <Secao titulo="O agente e suas ferramentas">
-        <p>
-          No modo Code, o agente não apenas sugere — ele age. Para isso, tem um conjunto de ferramentas
-          que operam diretamente no seu projeto:
-        </p>
+      <Secao titulo={t('ferramentasTitle')}>
+        <p>{t('ferramentasBody')}</p>
         <div className="flex flex-col gap-3">
-          {FERRAMENTAS.map(([nome, desc]) => (
-            <Card key={nome}>
-              <p className="text-lg font-semibold text-neutral-900">{nome}</p>
-              <p className="mt-1 text-neutral-600">{desc}</p>
+          {FERRAMENTAS.map((id) => (
+            <Card key={id}>
+              <p className="text-lg font-semibold text-neutral-900">{t(`ferramenta${id}Nome`)}</p>
+              <p className="mt-1 text-neutral-600">{t(`ferramenta${id}`)}</p>
             </Card>
           ))}
         </div>
       </Secao>
 
-      <Secao titulo="Todos os modelos num lugar">
-        <p>
-          O Axyoma reúne os principais modelos do mundo num único seletor — Gemini, Claude, GPT, Grok,
-          Llama, DeepSeek, Kimi e outros. Você escolhe o melhor modelo para cada tarefa sem sair do app e
-          sem gerenciar chaves de API de cada provedor. Precisa de raciocínio pesado numa etapa e
-          velocidade em outra? Basta trocar o modelo no seletor.
-        </p>
+      <Secao titulo={t('modelosTitle')}>
+        <p>{t('modelosBody')}</p>
       </Secao>
 
-      <Secao titulo="Créditos que você controla">
-        <p>
-          Você não precisa de chave de API própria: usa créditos Axyoma. Cada crédito equivale a R$ 0,30
-          e o débito é calculado pelo custo real (em dólar) do modelo que você escolheu — você paga pelo
-          que consome, sem teto artificial e sem surpresa.
-        </p>
-        <p>
-          Toda conta nova ganha <strong className="text-neutral-900">100 créditos de bônus</strong> ao se
-          cadastrar — na prática, um mês do plano Pro para testar a plataforma à vontade. Quando os
-          créditos acabam, você compra mais ou assina um plano.
-        </p>
-        <p>
-          Uma regra importante: os créditos de bônus e os créditos de franquia dos planos (Pro e Teams)
-          valem para os modelos da <strong className="text-neutral-900">Vertex AI (Google Cloud)</strong>.
-          Já os créditos comprados valem para <strong className="text-neutral-900">todos os modelos</strong>,
-          incluindo os da Vertex. Assim você testa sem custo e desbloqueia todo o catálogo quando quiser.
-        </p>
+      <Secao titulo={t('creditosTitle')}>
+        <p>{t('creditosBody1')}</p>
+        <p>{t.rich('creditosBody2', { strong })}</p>
+        <p>{t.rich('creditosBody3', { strong })}</p>
       </Secao>
 
-      <Secao titulo="Skills">
-        <p>
-          Skills são comandos e instruções reutilizáveis que você cria uma vez e chama sempre que
-          precisar. Padronize um fluxo de revisão, um formato de commit, um estilo de resposta — e deixe
-          o agente repetir isso do seu jeito, sem você reescrever a instrução toda vez.
-        </p>
+      <Secao titulo={t('skillsTitle')}>
+        <p>{t('skillsBody')}</p>
       </Secao>
 
-      <Secao titulo="Integração com o GitHub">
-        <p>
-          O Axyoma se conecta ao GitHub para fechar o ciclo do trabalho: o agente cria e atualiza pull
-          requests e exporta o projeto direto do app. Você sai do planejamento e chega ao PR sem trocar
-          de ferramenta.
-        </p>
+      <Secao titulo={t('githubTitle')}>
+        <p>{t('githubBody')}</p>
       </Secao>
 
-      <Secao titulo="Multiplataforma e sempre atualizado">
-        <p>
-          O app roda em macOS (Apple Silicon e Intel) e Windows. No Windows ele se atualiza sozinho;
-          no macOS, avisa quando há uma nova versão para você baixar. Você trabalha sempre na versão
-          mais recente sem esforço. A versão para Linux volta em breve.
-        </p>
+      <Secao titulo={t('plataformasTitle')}>
+        <p>{t('plataformasBody')}</p>
       </Secao>
 
-      <Secao titulo="Por que o Axyoma">
+      <Secao titulo={t('porqueTitle')}>
         <div className="flex flex-col gap-3">
-          {VANTAGENS.map(([nome, desc]) => (
-            <Card key={nome}>
-              <p className="text-lg font-semibold text-neutral-900">{nome}</p>
-              <p className="mt-1 text-neutral-600">{desc}</p>
+          {VANTAGENS.map((id) => (
+            <Card key={id}>
+              <p className="text-lg font-semibold text-neutral-900">{t(`vantagem${id}Nome`)}</p>
+              <p className="mt-1 text-neutral-600">{t(`vantagem${id}`)}</p>
             </Card>
           ))}
         </div>
         <p>
-          Pronto para experimentar? <A href="/download">Baixe o app</A> e ganhe 100 créditos para começar,
-          ou veja o <A href="/docs">guia rápido</A>.
+          {t.rich('fecho', {
+            download: (chunks) => <A href="/download">{chunks}</A>,
+            docs: (chunks) => <A href="/docs">{chunks}</A>,
+          })}
         </p>
       </Secao>
     </ContentPage>

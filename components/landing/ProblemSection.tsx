@@ -25,27 +25,20 @@
  * repete o que aquelas seções detalham.
  */
 
-const ESCOLHAS: { titulo: string; corpo: string }[] = [
-  {
-    titulo: 'Onde o seu trabalho roda',
-    corpo:
-      'Com chave própria, o turno vai da sua máquina direto ao fornecedor. Com modelo local, não sai da máquina — e isso está no plano gratuito. Nos dois casos, o que você escreve não passa pelos nossos servidores.',
-  },
-  {
-    titulo: 'Quanto custa, antes de rodar',
-    corpo:
-      'Você vê qual modelo vai executar e quanto aquela execução consome antes de confirmar. O débito aparece na hora, ligado ao modelo que rodou — e crédito comprado não expira.',
-  },
-]
+import { useTranslations } from 'next-intl'
+
+const ESCOLHAS = ['onde', 'quanto'] as const
 
 export function ProblemSection(): React.JSX.Element {
+  const t = useTranslations('problem')
+
   return (
     <section className="relative">
       <div className="mx-auto max-w-[1200px] px-5 py-20 sm:px-6 sm:py-28 lg:py-32">
         <h2 className="gb-display text-[clamp(2.1rem,4.9vw,3.5rem)]">
-          <span className="block">O que você escreve sai da sua máquina.</span>
+          <span className="block">{t('title1')}</span>
           <span className="block" style={{ color: 'var(--ink-faint)' }}>
-            E o preço, você descobre depois.
+            {t('title2')}
           </span>
         </h2>
 
@@ -53,23 +46,21 @@ export function ProblemSection(): React.JSX.Element {
           className="gb-measure mt-6 text-[16.5px] leading-relaxed"
           style={{ color: 'var(--ink-muted)' }}
         >
-          É o que acontece quando a ferramenta é dona da infraestrutura: seu código vai para o
-          servidor de quem vendeu o editor, e o custo vem embrulhado numa assinatura que não conta
-          qual execução gastou o quê.
+          {t('body')}
         </p>
 
         <div className="mt-14 border-t pt-12" style={{ borderColor: 'var(--hairline)' }}>
-          <p className="text-[19px] font-medium">No Axyoma, as duas coisas são decisão sua.</p>
+          <p className="text-[19px] font-medium">{t('lead')}</p>
 
           <div className="mt-9 grid gap-x-12 gap-y-9 md:grid-cols-2">
             {ESCOLHAS.map((e) => (
-              <div key={e.titulo}>
-                <h3 className="text-[16px] font-medium">{e.titulo}</h3>
+              <div key={e}>
+                <h3 className="text-[16px] font-medium">{t(`${e}Title`)}</h3>
                 <p
                   className="mt-2 text-[15px] leading-relaxed"
                   style={{ color: 'var(--ink-muted)' }}
                 >
-                  {e.corpo}
+                  {t(`${e}Body`)}
                 </p>
               </div>
             ))}

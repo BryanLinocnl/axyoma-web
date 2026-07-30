@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { setRequestLocale } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ContentPage, Secao, Card, A } from '@/components/site/ContentPage'
 import { alternatesFor } from '@/i18n/alternates'
 import type { Locale } from '@/i18n/routing'
@@ -10,28 +10,19 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>
 }): Promise<Metadata> {
   const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'metadata.docs' })
   return {
-    title: 'Documentação — Axyoma',
-    description:
-      'Guia de uso do Axyoma AI: instalação por sistema, login, como escolher modelos, como usar os modos Design, Plan e Code, créditos e cobrança.',
+    title: t('title'),
+    description: t('description'),
     alternates: alternatesFor('/docs', locale),
   }
 }
 
-const INSTALACAO: Array<[string, string]> = [
-  ['macOS', 'Baixe o .dmg (Apple Silicon ou Intel) na página de download, arraste o Axyoma para a pasta Aplicativos e abra. Quando houver atualização, o app avisa para você baixar a nova versão.'],
-  ['Windows', 'Baixe o instalador .exe, execute e siga o assistente. O app se atualiza sozinho em segundo plano.'],
-  // LINUX: instruções de instalação para um arquivo que não está publicado são
-  // pior que ausência — mandam a pessoa procurar um download que não existe.
-  // Devolver esta linha quando o AppImage voltar.
-  ['Linux', 'O instalador para Linux está temporariamente indisponível e volta em breve. Enquanto isso, o Axyoma roda em macOS e Windows.'],
-]
-
-const MODOS: Array<[string, string]> = [
-  ['Design', 'Escolha o modo Design no seletor do topo, descreva a arte que quer (post, carrossel, motion ou template), gere, ajuste o resultado e exporte. Disponível nos planos pagos.'],
-  ['Plan', 'No modo Plan, descreva a feature. O Axyoma quebra em tarefas e monta um plano. Revise, edite se quiser e aprove — só então a execução começa.'],
-  ['Code', 'No modo Code, dê a tarefa ao agente. Ele lê e edita arquivos, roda comandos, depura e mostra cada ação na timeline. Use o terminal e o editor integrados para acompanhar e intervir quando quiser. Ao final, ele pode abrir o PR no GitHub.'],
-]
+// LINUX: instruções de instalação para um arquivo que não está publicado são
+// pior que ausência — mandam a pessoa procurar um download que não existe. Por
+// isso `instalacaoLinux` fala de indisponibilidade em vez de ensinar o AppImage.
+const INSTALACAO = ['Macos', 'Windows', 'Linux'] as const
+const MODOS = ['Design', 'Plan', 'Code'] as const
 
 export default async function DocsPage({
   params,
@@ -40,68 +31,56 @@ export default async function DocsPage({
 }): Promise<React.JSX.Element> {
   const { locale } = await params
   setRequestLocale(locale)
+  const t = await getTranslations('docs')
 
   return (
-    <ContentPage
-      title="Documentação"
-      intro="Guia rápido para instalar, entender e tirar o máximo do Axyoma AI. Para uma visão completa dos recursos, veja a página de Recursos."
-    >
-      <Secao titulo="Instalação">
+    <ContentPage title={t('title')} intro={t('intro')}>
+      <Secao titulo={t('instalacaoTitle')}>
         <p>
-          Baixe o app na <A href="/download">página de download</A> — o botão detecta o seu sistema. Depois
-          de instalar, faça login com a sua conta Axyoma (a mesma do site).
+          {t.rich('instalacaoBody', {
+            download: (chunks) => <A href="/download">{chunks}</A>,
+          })}
         </p>
-        {INSTALACAO.map(([nome, desc]) => (
+        {INSTALACAO.map((nome) => (
           <Card key={nome}>
-            <p className="text-lg font-semibold text-neutral-900">{nome}</p>
-            <p className="mt-1 text-neutral-600">{desc}</p>
+            {/* O nome do sistema é marca (macOS, Windows, Linux) e por isso fica
+                no código, não no catálogo. */}
+            <p className="text-lg font-semibold text-neutral-900">
+              {nome === 'Macos' ? 'macOS' : nome}
+            </p>
+            <p className="mt-1 text-neutral-600">{t(`instalacao${nome}`)}</p>
           </Card>
         ))}
       </Secao>
 
-      <Secao titulo="Login e conta">
-        <p>
-          {/* APPLE: fora enquanto o provedor não estiver configurado. */}
-          Entre com e-mail e senha ou com sua conta Google — o login do app é o mesmo do site. Se
-          esquecer a senha, use a opção de recuperação na tela de entrada. A área da conta mostra seu
-          plano, saldo de créditos e histórico de uso.
-        </p>
+      <Secao titulo={t('loginTitle')}>
+        {/* APPLE: fora enquanto o provedor não estiver configurado. */}
+        <p>{t('loginBody')}</p>
       </Secao>
 
-      <Secao titulo="Escolher o modelo">
-        <p>
-          Em Config → Modelos, adicione os modelos que quer ver no seletor do chat. Durante o trabalho,
-          troque o modelo por tarefa direto no seletor do topo — sem reconfigurar nada e sem chave de API.
-          O catálogo inclui Gemini, Claude, GPT, Grok, Llama, DeepSeek, Kimi e outros.
-        </p>
+      <Secao titulo={t('modeloTitle')}>
+        <p>{t('modeloBody')}</p>
       </Secao>
 
-      <Secao titulo="Usando os três modos">
-        {MODOS.map(([nome, desc]) => (
+      <Secao titulo={t('modosTitle')}>
+        {MODOS.map((nome) => (
           <Card key={nome}>
             <p className="text-lg font-semibold text-neutral-900">{nome}</p>
-            <p className="mt-1 text-neutral-600">{desc}</p>
+            <p className="mt-1 text-neutral-600">{t(`modos${nome}`)}</p>
           </Card>
         ))}
       </Secao>
 
-      <Secao titulo="Créditos e cobrança">
-        <p>
-          O uso é debitado em créditos (1 crédito = R$ 0,30), calculados pelo custo real do modelo. Toda
-          conta nova ganha 100 créditos de bônus para experimentar.
-        </p>
-        <p>
-          Os créditos de bônus e os de franquia dos planos valem para os modelos da Vertex AI (Google
-          Cloud). Os créditos comprados valem para todos os modelos, incluindo os da Vertex. Para comprar,
-          use a aba Conta (no app ou no site) e pague via PIX. Acompanhe quanto cada turno consumiu em
-          Conta → Uso recente.
-        </p>
+      <Secao titulo={t('creditosTitle')}>
+        <p>{t('creditosBody1')}</p>
+        <p>{t('creditosBody2')}</p>
       </Secao>
 
-      <Secao titulo="Precisa de ajuda?">
+      <Secao titulo={t('ajudaTitle')}>
         <p>
-          Ficou com dúvida ou encontrou um problema? Fale com a gente pela página de{' '}
-          <A href="/contato">contato</A>. Mais conteúdo de documentação em breve.
+          {t.rich('ajudaBody', {
+            contato: (chunks) => <A href="/contato">{chunks}</A>,
+          })}
         </p>
       </Secao>
     </ContentPage>

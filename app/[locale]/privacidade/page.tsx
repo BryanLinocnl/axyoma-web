@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { setRequestLocale } from 'next-intl/server'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ContentPage, Secao, SubSecao, Lista, Tabela, Indice, A } from '@/components/site/ContentPage'
 import { EMPRESA } from '@/lib/empresa'
 import { alternatesFor } from '@/i18n/alternates'
@@ -11,10 +11,10 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>
 }): Promise<Metadata> {
   const { locale } = await params
+  const t = await getTranslations({ locale, namespace: 'metadata.privacidade' })
   return {
-    title: 'Política de Privacidade — Axyoma',
-    description:
-      'Como o Axyoma AI trata dados pessoais: o que coletamos, com quem compartilhamos, por quanto tempo guardamos e o que acontece com o conteúdo que você envia. Em conformidade com a LGPD (Lei 13.709/2018).',
+    title: t('title'),
+    description: t('description'),
     alternates: alternatesFor('/privacidade', locale),
   }
 }
@@ -84,11 +84,12 @@ export default async function PrivacidadePage({
 }): Promise<React.JSX.Element> {
   const { locale } = await params
   setRequestLocale(locale)
+  const t = await getTranslations('legal')
 
   return (
     <ContentPage
-      title="Política de Privacidade"
-      intro={`Última atualização: ${ATUALIZADO}. Esta política descreve como o ${EMPRESA.produto} coleta, utiliza, compartilha, armazena e protege dados pessoais, em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 — LGPD).`}
+      title={t('privacidadeTitle')}
+      intro={t('privacidadeIntro', { data: ATUALIZADO, produto: EMPRESA.produto })}
     >
       <Indice itens={SECOES} />
 
