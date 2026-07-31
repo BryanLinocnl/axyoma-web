@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { verifyUser } from '@/lib/auth'
+import { verifyUserWithEmail } from '@/lib/auth'
+import { isAdminEmail } from '@/lib/admin'
 import {
   getBalance,
   debitUsage,
@@ -817,8 +818,9 @@ export async function POST(req: Request): Promise<Response> {
 
   // 1) Autenticação (local, sem tocar o Supabase).
   let userId: string
+  let emailDoUsuario: string | null = null
   try {
-    userId = await verifyUser(req.headers.get('authorization'))
+    ;({ userId, email: emailDoUsuario } = await verifyUserWithEmail(req.headers.get('authorization')))
   } catch {
     return json(401, { error: { message: 'não autenticado', type: 'auth' } })
   }
@@ -867,11 +869,33 @@ export async function POST(req: Request): Promise<Response> {
   // provedor num incidente. Com a chave do usuário não pagamos nada — o teto
   // dele é o da conta dele. O rate limit por usuário continua valendo (ver 2),
   // porque duração de função é custo nosso mesmo em BYOK.
-  if (!byokKey && Number.isFinite(DAILY_SPEND_CAP_USD) && DAILY_SPEND_CAP_USD > 0) {
+  // DEVELOPER não tem cap. O teto existe para conter o que NÓS pagamos ao
+  // provedor num incidente com usuário comum; a equipe usa o app o dia inteiro
+  // testando, e barrá-la em US$ X transformava o limite de segurança em
+  // impedimento de trabalho — com o agravante de a mensagem sugerir falta de
+  // saldo para quem tinha saldo.
+  //
+  // Mesmo critério de `isAdminEmail` usado no painel: a env `ADMIN_EMAILS` é a
+  // concessão. Ler o papel da tabela `profiles` aqui abriria um segundo caminho
+  // para virar developer — e quem escreve naquela coluna é justamente a
+  // sincronização que parte desta env.
+  const ehDeveloper = isAdminEmail(emailDoUsuario)
+  if (!byokKey && !ehDeveloper && Number.isFinite(DAILY_SPEND_CAP_USD) && DAILY_SPEND_CAP_USD > 0) {
     try {
       const spentTodayUsd = await getSpendTodayUsd(userId)
       if (spentTodayUsd >= DAILY_SPEND_CAP_USD) {
-        return json(402, { error: { message: 'limite de gasto diário atingido', type: 'daily_cap' } })
+        // A mensagem precisa dizer que NÃO é o saldo. Um usuário com créditos
+        // comprados lia "limite de gasto diário atingido" e concluía que tinha
+        // ficado sem crédito — dois problemas diferentes, com soluções opostas
+        // (esperar × comprar).
+        return json(402, {
+          error: {
+            message:
+              'teto diário de uso do serviço atingido (não é o seu saldo de créditos — ele continua intacto). ' +
+              'Renova à meia-noite UTC; até lá, use um modelo com chave própria (BYOK).',
+            type: 'daily_cap',
+          },
+        })
       }
     } catch (e) {
       // FAIL-CLOSED: se o cap está LIGADO e não conseguimos apurar o gasto do
