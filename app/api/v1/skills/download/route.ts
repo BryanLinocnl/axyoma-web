@@ -35,10 +35,6 @@ export async function POST(req: Request): Promise<Response> {
       headers: { 'Content-Type': 'application/json', ...CORS },
     })
 
-  if (!SUPABASE_URL || !SERVICE_ROLE) {
-    return json(500, { error: { message: 'servidor mal configurado', type: 'server' } })
-  }
-
   let userId: string
   // E-mail junto pelo mesmo motivo da rota de entitlements: sem ele, a conta
   // developer seria barrada nos tiers de skill que ela própria precisa testar.
@@ -49,6 +45,13 @@ export async function POST(req: Request): Promise<Response> {
     email = v.email
   } catch {
     return json(401, { error: { message: 'não autenticado', type: 'auth' } })
+  }
+
+  // DEPOIS do auth, de propósito: anônimo recebe 401 como em toda rota — não um
+  // 500 que anuncia o estado de configuração do servidor (e derrubava o smoke,
+  // que roda sem os secrets do Supabase).
+  if (!SUPABASE_URL || !SERVICE_ROLE) {
+    return json(500, { error: { message: 'servidor mal configurado', type: 'server' } })
   }
 
   // `failOpen: false`: aqui negar por instabilidade é o lado certo do erro —
