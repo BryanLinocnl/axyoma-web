@@ -85,6 +85,13 @@ interface RawModel {
   // duração e o Omni devolve sempre ~10s) sem expor o `api_flavor`, que é
   // detalhe interno de roteamento.
   video_durations_s?: number[]
+  // A entrada veio da NOSSA tabela (`public.models`) — é o conjunto que os
+  // créditos AXYOMA atendem com roteamento garantido. As demais são o fallback
+  // OpenRouter, que depende do saldo da nossa conta lá. O cliente usa isto para
+  // NÃO oferecer fallback nos seletores de infraestrutura (imagem/vídeo/visão):
+  // foi assim que um "Nano Banana Pro" do fallback virou 402 na cara do usuário
+  // (01/08). Não vaza roteamento: diz DE ONDE veio a linha, não POR ONDE roda.
+  curated?: boolean
 }
 
 // Linha de `public.models` — SOMENTE colunas seguras para expor (ver comentário
@@ -308,6 +315,7 @@ function tableRowToRawModel(row: ModelsTableRow): RawModel {
     max_reference_images: row.max_reference_images ?? undefined,
     reasoning_levels: row.reasoning_levels ?? undefined,
     video_durations_s: row.video_durations_s ?? undefined,
+    curated: true,
   }
 }
 
