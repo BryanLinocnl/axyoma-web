@@ -1,4 +1,4 @@
-import { verifyUser } from '@/lib/auth'
+import { verifyUserWithEmail } from '@/lib/auth'
 import { getEntitlements } from '@/lib/supabase-admin'
 import { checkRateLimit } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
@@ -29,8 +29,14 @@ export async function GET(req: Request): Promise<Response> {
     })
 
   let userId: string
+  // E-mail junto: o gate de developer (`ADMIN_EMAILS`) compara por e-mail, e
+  // `verifyUserWithEmail` só devolve o claim quando ele é VERIFICADO — sem isso,
+  // bastaria cadastrar-se com o e-mail de um admin para herdar as features dele.
+  let email: string | null = null
   try {
-    userId = await verifyUser(req.headers.get('authorization'))
+    const v = await verifyUserWithEmail(req.headers.get('authorization'))
+    userId = v.userId
+    email = v.email
   } catch {
     return json(401, { error: { message: 'não autenticado', type: 'auth' } })
   }
@@ -51,6 +57,6 @@ export async function GET(req: Request): Promise<Response> {
   // de erro aqui: a rota sempre responde 200 com um objeto completo. Um 5xx
   // deixaria o cliente sem resposta e o obrigaria a decidir sozinho o que
   // liberar — decisão que não é dele.
-  const ent = await getEntitlements(userId)
+  const ent = await getEntitlements(userId, email)
   return json(200, ent, { 'Cache-Control': 'private, max-age=60' })
 }

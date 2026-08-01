@@ -1,4 +1,4 @@
-import { verifyUser } from '@/lib/auth'
+import { verifyUserWithEmail } from '@/lib/auth'
 import { getEntitlements, checkRateLimit } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
 
@@ -40,8 +40,13 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   let userId: string
+  // E-mail junto pelo mesmo motivo da rota de entitlements: sem ele, a conta
+  // developer seria barrada nos tiers de skill que ela própria precisa testar.
+  let email: string | null = null
   try {
-    userId = await verifyUser(req.headers.get('authorization'))
+    const v = await verifyUserWithEmail(req.headers.get('authorization'))
+    userId = v.userId
+    email = v.email
   } catch {
     return json(401, { error: { message: 'não autenticado', type: 'auth' } })
   }
@@ -99,7 +104,7 @@ export async function POST(req: Request): Promise<Response> {
 
   // 2. O plano cobre esse tier? `getEntitlements` degrada para Free em qualquer
   //    falha, então a direção do erro é sempre "menos recursos".
-  const ent = await getEntitlements(userId)
+  const ent = await getEntitlements(userId, email)
   if (!ent.features.skillsCatalog || !ent.features.skillTiers.includes(tier)) {
     return json(403, {
       error: {

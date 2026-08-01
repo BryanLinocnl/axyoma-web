@@ -3,6 +3,7 @@
 // sem antes verificar o JWT do usuário na rota.
 
 import type { BillingConfig } from '@/lib/credits'
+import { isAdminEmail } from '@/lib/admin'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -115,6 +116,8 @@ export type Entitlements = {
     skillsCatalog: boolean
     skillTiers: string[]
     maxMembers: number
+    /** Canais de mensagem (Telegram/WhatsApp) no desktop. Pro e Teams. */
+    messaging: boolean
   }
 }
 
@@ -122,7 +125,7 @@ export type Entitlements = {
 const FREE_ENTITLEMENTS: Entitlements = {
   planId: 'free',
   planName: 'Free',
-  features: { design: false, skillsCatalog: false, skillTiers: [], maxMembers: 1 },
+  features: { design: false, skillsCatalog: false, skillTiers: [], maxMembers: 1, messaging: false },
 }
 
 /**
@@ -137,7 +140,48 @@ const FREE_ENTITLEMENTS: Entitlements = {
  * único lugar do sistema que decide o que alguém pode usar; errar para o lado
  * generoso aqui é dar produto de graça, e errar em silêncio.
  */
-export async function getEntitlements(userId: string): Promise<Entitlements> {
+export async function getEntitlements(userId: string, email?: string | null): Promise<Entitlements> {
+  // DEVELOPER TEM TUDO. A equipe usa o app o dia inteiro para testar, e um
+  // recurso escondido atrás do plano é um recurso que ninguém da equipe exercita
+  // antes do cliente — foi o que aconteceu com os canais de mensagem.
+  //
+  // Mesmo critério do teto diário em `chat/completions`: a concessão é a env
+  // `ADMIN_EMAILS`, não `profiles.role`. Ler o papel da tabela aqui abriria um
+  // segundo caminho para virar developer, e quem escreve naquela coluna é
+  // justamente a sincronização que parte desta env.
+  //
+  // O `planId` continua sendo o REAL. Mentir aqui faria a tela de conta mostrar
+  // uma assinatura que não existe, e a cobrança discordaria da interface.
+  if (isAdminEmail(email ?? null)) {
+    const real = await planoReal(userId)
+    return {
+      planId: real?.id ?? 'free',
+      planName: real?.name ?? 'Free',
+      features: { design: true, skillsCatalog: true, skillTiers: ['common', 'teams'], maxMembers: 4, messaging: true },
+    }
+  }
+  const plano = await planoReal(userId)
+  if (!plano) return FREE_ENTITLEMENTS
+  const f = (plano.features ?? {}) as Record<string, unknown>
+  return {
+    planId: String(plano.id),
+    planName: String(plano.name ?? 'Free'),
+    // Cada campo normalizado contra o default do Free: um plano cuja coluna
+    // `features` esteja vazia ou malformada entrega o mínimo, não o máximo.
+    features: {
+      design: f.design === true,
+      skillsCatalog: f.skillsCatalog === true,
+      skillTiers: Array.isArray(f.skillTiers) ? f.skillTiers.map(String) : [],
+      maxMembers: Number.isFinite(Number(f.maxMembers)) ? Number(f.maxMembers) : 1,
+      messaging: f.messaging === true,
+    },
+  }
+}
+
+/** Plano da assinatura ATIVA do usuário. `null` quando não há (ou falhou). */
+async function planoReal(
+  userId: string,
+): Promise<{ id?: string; name?: string; features?: Record<string, unknown> } | null> {
   try {
     const { url, key } = assertEnv()
     const qs = new URLSearchParams({
@@ -152,24 +196,10 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     if (!res.ok) throw new Error(`subscriptions falhou (${res.status})`)
     const rows = (await res.json()) as { plans?: { id?: string; name?: string; features?: Record<string, unknown> } }[]
     const plano = rows[0]?.plans
-    if (!plano?.id) return FREE_ENTITLEMENTS
-
-    const f = (plano.features ?? {}) as Record<string, unknown>
-    return {
-      planId: String(plano.id),
-      planName: String(plano.name ?? 'Free'),
-      // Cada campo normalizado contra o default do Free: um plano cuja coluna
-      // `features` esteja vazia ou malformada entrega o mínimo, não o máximo.
-      features: {
-        design: f.design === true,
-        skillsCatalog: f.skillsCatalog === true,
-        skillTiers: Array.isArray(f.skillTiers) ? f.skillTiers.map(String) : [],
-        maxMembers: Number.isFinite(Number(f.maxMembers)) ? Number(f.maxMembers) : 1,
-      },
-    }
+    return plano?.id ? plano : null
   } catch (e) {
-    console.error('getEntitlements falhou (degradando para Free):', (e as Error).message)
-    return FREE_ENTITLEMENTS
+    console.error('planoReal falhou (degradando para Free):', (e as Error).message)
+    return null
   }
 }
 
