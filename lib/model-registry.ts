@@ -25,7 +25,11 @@ export type ModelProvider = 'vertex' | 'openrouter' | 'openai' | 'groq'
 // como o `veo`, mas por um endpoint e um formato de resposta totalmente outros
 // (ver lib/vertex.ts). É flavor própria porque o roteamento depende disso: a
 // rota de vídeo escolhe o adapter por aqui.
-export type ApiFlavor = 'openai' | 'anthropic' | 'gemini_image' | 'veo' | 'interactions'
+// `gemini_tts` = geração de FALA pelo mesmo :generateContent da imagem, com
+// responseModalities ['AUDIO'] + speechConfig. Flavor própria porque o corpo
+// enviado e o formato de saída são outros (PCM cru em vez de imagem), e é o
+// api_flavor que escolhe o adapter na rota — mesma razão de `veo` vs `interactions`.
+export type ApiFlavor = 'openai' | 'anthropic' | 'gemini_image' | 'veo' | 'interactions' | 'gemini_tts'
 
 /** Flavors que a rota /api/v1/videos atende. */
 export const VIDEO_FLAVORS: ReadonlySet<ApiFlavor> = new Set<ApiFlavor>(['veo', 'interactions'])

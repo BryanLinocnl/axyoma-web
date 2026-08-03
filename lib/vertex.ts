@@ -387,6 +387,96 @@ export function extractInlineImages(data: unknown): InlineImage[] {
   return out
 }
 
+// ---------------------------------------------------------------------------
+// Geração de FALA — endpoint :generateContent com responseModalities ['AUDIO']
+// (api_flavor 'gemini_tts'). Mesmo endpoint e mesmo formato de resposta da
+// imagem (parts com inlineData); muda o mimeType e, principalmente, o fato de
+// que o que volta NÃO é um arquivo: é PCM cru.
+// ---------------------------------------------------------------------------
+
+/** Áudio inline extraído da resposta generateContent. `data` é base64 cru. */
+export type InlineAudio = {
+  /** Ex.: 'audio/L16;codec=pcm;rate=24000'. */
+  mimeType: string
+  /** base64 (sem prefixo data:). */
+  data: string
+}
+
+/**
+ * Extrai o PRIMEIRO áudio inline de uma resposta `:generateContent`.
+ *
+ * Separado de `extractInlineImages` de propósito: aquele assume `image/png`
+ * quando o mimeType falta, o que aqui produziria um WAV com taxa de amostragem
+ * errada — áudio tocando em velocidade errada é pior que erro, porque parece
+ * funcionar. Aqui só aceitamos parts que se declaram `audio/`.
+ * Nunca lança: entrada malformada → null.
+ */
+export function extractInlineAudio(data: unknown): InlineAudio | null {
+  const candidates = (data as { candidates?: unknown })?.candidates
+  if (!Array.isArray(candidates)) return null
+  for (const cand of candidates) {
+    const parts = (cand as { content?: { parts?: unknown } })?.content?.parts
+    if (!Array.isArray(parts)) continue
+    for (const part of parts) {
+      const inline =
+        (part as { inlineData?: unknown })?.inlineData ?? (part as { inline_data?: unknown })?.inline_data
+      if (!inline || typeof inline !== 'object') continue
+      const raw = (inline as { data?: unknown }).data
+      if (typeof raw !== 'string' || raw.length === 0) continue
+      const mime =
+        (inline as { mimeType?: unknown }).mimeType ?? (inline as { mime_type?: unknown }).mime_type
+      if (typeof mime !== 'string' || !mime.startsWith('audio/')) continue
+      return { data: raw, mimeType: mime }
+    }
+  }
+  return null
+}
+
+/**
+ * Taxa de amostragem declarada no mimeType (`audio/L16;codec=pcm;rate=24000`).
+ *
+ * `fallback` é usado quando o campo não vem. Não inventamos um número aqui: quem
+ * chama passa o que a tabela declara para aquele modelo (`metadata.sample_rate_hz`).
+ */
+export function sampleRateFromMime(mimeType: string, fallback: number): number {
+  const m = /(?:^|;)\s*rate=(\d{4,6})\b/.exec(mimeType)
+  const n = m ? Number(m[1]) : NaN
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+/**
+ * Embrulha PCM 16-bit little-endian num contêiner WAV.
+ *
+ * A Vertex devolve amostras cruas, sem cabeçalho. Sem isto, o que chega ao app é
+ * um arquivo que nenhum player abre — e o sintoma seria "o modelo não gerou
+ * áudio", que aponta para o lugar errado. São 44 bytes de cabeçalho RIFF; não
+ * há transcodificação nem dependência externa (a rota roda no edge).
+ */
+export function pcmToWav(pcm: Uint8Array, sampleRate: number, channels = 1, bitsPerSample = 16): Uint8Array {
+  const blockAlign = (channels * bitsPerSample) / 8
+  const byteRate = sampleRate * blockAlign
+  const out = new Uint8Array(44 + pcm.length)
+  const view = new DataView(out.buffer)
+  const ascii = (offset: number, s: string): void => {
+    for (let i = 0; i < s.length; i++) out[offset + i] = s.charCodeAt(i)
+  }
+  ascii(0, 'RIFF')
+  view.setUint32(4, 36 + pcm.length, true) // tamanho do arquivo - 8
+  ascii(8, 'WAVE')
+  ascii(12, 'fmt ')
+  view.setUint32(16, 16, true) // tamanho do bloco fmt (PCM)
+  view.setUint16(20, 1, true) // formato 1 = PCM sem compressão
+  view.setUint16(22, channels, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, byteRate, true)
+  view.setUint16(32, blockAlign, true)
+  view.setUint16(34, bitsPerSample, true)
+  ascii(36, 'data')
+  view.setUint32(40, pcm.length, true)
+  out.set(pcm, 44)
+  return out
+}
+
 /**
  * Extrai o usage do ÚLTIMO chunk que o contém, a partir de um buffer/texto SSE
  * acumulado. Varre todas as linhas `data:` e retorna o último usage encontrado

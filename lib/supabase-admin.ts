@@ -451,7 +451,7 @@ export async function logByokUsage(params: {
  */
 export async function recordPendingCharge(params: {
   userId: string
-  kind: 'chat' | 'image' | 'video'
+  kind: 'chat' | 'image' | 'video' | 'speech'
   model?: string | null
   costUsd?: number | null
   reason: string
