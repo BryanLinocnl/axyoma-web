@@ -2,6 +2,7 @@ import { verifyUserWithEmail } from '@/lib/auth'
 import { getEntitlements } from '@/lib/supabase-admin'
 import { checkRateLimit } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
+import { sincronizarPapel } from '@/lib/admin'
 
 // Recursos efetivos do usuário: "o que ele PODE usar", em vez de "ele é Pro?".
 //
@@ -52,6 +53,25 @@ export async function GET(req: Request): Promise<Response> {
     failOpen: true,
   })
   if (!rl.allowed) return json(429, { error: { message: 'muitas consultas', type: 'rate_limit' } })
+
+  // Espelha `profiles.role` a partir de ADMIN_EMAILS — AQUI, e não só em
+  // /api/admin/status.
+  //
+  // Aquela rota é do SITE (mostra/esconde o item "Dev" na sidebar). O aplicativo
+  // desktop nunca a chama: no login ele chama esta, `/credits/bootstrap` e o
+  // catálogo. Resultado, até 03/08: o bypass de cobrança de developer existia no
+  // SQL (`hold_credits` e `settle_hold` checam `is_developer`) e era inalcançável
+  // para quem só usa o app — `profiles.role` ficava em 'user' para sempre, porque
+  // ninguém nunca escrevia o espelho. Um usuário concedido na env batia em "402
+  // créditos esgotados" como qualquer outro.
+  //
+  // Esta rota é o lugar certo pelo mesmo motivo que a outra era: já roda uma vez
+  // por login, já tem o e-mail VERIFICADO em mãos, e não custa chamada extra.
+  // Sem `await`: o espelho serve ao SQL depois, e segurar a resposta do login por
+  // causa dele seria pagar latência por um efeito que ninguém espera aqui.
+  const supaUrl = process.env.SUPABASE_URL
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (supaUrl && serviceRole && userId) void sincronizarPapel(userId, email, supaUrl, serviceRole)
 
   // `getEntitlements` já degrada para Free em qualquer falha, então não há ramo
   // de erro aqui: a rota sempre responde 200 com um objeto completo. Um 5xx
