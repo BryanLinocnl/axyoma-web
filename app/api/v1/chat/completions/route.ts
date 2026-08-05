@@ -12,6 +12,7 @@ import {
   settleHold,
   releaseHold,
   InsufficientCreditsError,
+  getEntitlements,
 } from '@/lib/supabase-admin'
 import { corsHeaders } from '@/lib/cors'
 import { insufficientCreditsError } from '@/lib/credit-errors'
@@ -834,6 +835,33 @@ export async function POST(req: Request): Promise<Response> {
       { error: { message: 'muitas requisições — aguarde e tente de novo', type: 'rate_limited' } },
       { 'Retry-After': String(retry) },
     )
+  }
+
+  // 2a) CANAL DE MENSAGEM É PRO. O cliente declara a origem do turno no header
+  // `X-Axyoma-Origin`; se disser que veio de um canal, o plano precisa cobrir.
+  //
+  // O QUE ISTO ALCANÇA, e vale ser exato: um app MODIFICADO simplesmente não
+  // manda o header, e daqui ele é indistinguível de um turno de tela. Ou seja,
+  // isto não é uma barreira contra quem edita o código — é a barreira que
+  // garante que o cliente honesto seja recusado no servidor, e não só na tela
+  // dele, e que a recusa sobreviva a qualquer versão futura do app.
+  //
+  // A barreira que ninguém contorna é a do dinheiro: turno de canal com NOSSOS
+  // créditos passa por aqui e é cobrado. Turno BYOK fala direto com o provedor
+  // e não passa por servidor nenhum — nenhuma checagem aqui o alcança, e fingir
+  // o contrário seria pior que não ter checagem.
+  const origem = (req.headers.get('x-axyoma-origin') ?? '').toLowerCase()
+  if (origem === 'telegram' || origem === 'whatsapp') {
+    const ent = await getEntitlements(userId, emailDoUsuario)
+    if (ent.features?.messaging !== true) {
+      return json(403, {
+        error: {
+          message: 'canais de mensagem exigem o plano Pro',
+          type: 'plan_required',
+          feature: 'messaging',
+        },
+      })
+    }
   }
 
   // 2b) BYOK: chave do PRÓPRIO usuário. Presente = ele paga o fornecedor direto;
