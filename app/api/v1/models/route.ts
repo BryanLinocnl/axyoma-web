@@ -103,6 +103,8 @@ interface ModelsTableRow {
   input_modalities: string[]
   output_modalities: string[]
   supported_parameters: string[]
+  supports_tools: boolean | null
+  supports_reasoning: boolean | null
   input_price_usd_per_mtok: number | string
   output_price_usd_per_mtok: number | string
   sort_order: number
@@ -112,7 +114,7 @@ interface ModelsTableRow {
 }
 
 const MODELS_TABLE_SELECT =
-  'id,display_name,context_length,input_modalities,output_modalities,supported_parameters,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order,max_reference_images,reasoning_levels,video_durations_s'
+  'id,display_name,context_length,input_modalities,output_modalities,supported_parameters,supports_tools,supports_reasoning,input_price_usd_per_mtok,output_price_usd_per_mtok,sort_order,max_reference_images,reasoning_levels,video_durations_s'
 
 // `public.byok_models` — catálogo dos provedores em que a chave é DO USUÁRIO.
 //
@@ -136,6 +138,9 @@ interface ByokModelRow {
   context_length: number
   input_modalities: string[]
   output_modalities: string[]
+  // Sem `supports_tools`/`supports_reasoning`: estas colunas só existem em
+  // `public.models`. Aqui o array é a única declaração, e `parametrosDaLinha`
+  // lida com isso porque os dois campos são opcionais na assinatura dela.
   supported_parameters: string[]
   input_price_usd_per_mtok: number | string
   output_price_usd_per_mtok: number | string
@@ -278,6 +283,38 @@ async function fetchByokModels(provider: string): Promise<ByokModelRow[]> {
   }
 }
 
+/**
+ * `supported_parameters` UNIDO com as colunas booleanas.
+ *
+ * ── POR QUE ISTO EXISTE ─────────────────────────────────────────────────────
+ *
+ * A tabela descreve a mesma capacidade de DUAS formas: o array
+ * `supported_parameters` e os booleanos `supports_tools`/`supports_reasoning`.
+ * Elas divergem na prática — `google/gemini-3.6-flash` tinha `supports_tools =
+ * true` com o array VAZIO, e como a rota só servia o array, o modelo chegava ao
+ * cliente anunciando que não aceita ferramentas.
+ *
+ * O estrago não fica na etiqueta: o app filtra por `supported_parameters`, então
+ * o Gemini 3.6 Flash sumia do seletor de secundário do Flow Config e do chip
+ * "Tools" do grid, ainda que ligado e perfeitamente capaz. Reportado pelo dono
+ * em 06/08.
+ *
+ * União, e não "o array vence": os dois lados só AFIRMAM capacidade — nenhum
+ * deles nega. Array vazio é silêncio, não "não suporta nada". Preencher a partir
+ * do booleano é o que faz uma linha meio cadastrada se comportar como as outras,
+ * em vez de virar um modelo capado sem ninguém entender por quê.
+ */
+function parametrosDaLinha(row: {
+  supported_parameters?: string[] | null
+  supports_tools?: boolean | null
+  supports_reasoning?: boolean | null
+}): string[] {
+  const out = new Set(row.supported_parameters ?? [])
+  if (row.supports_tools === true) out.add('tools')
+  if (row.supports_reasoning === true) out.add('reasoning')
+  return [...out]
+}
+
 function byokRowToRawModel(row: ByokModelRow): RawModel {
   return {
     id: row.id,
@@ -291,7 +328,7 @@ function byokRowToRawModel(row: ByokModelRow): RawModel {
       input_modalities: row.input_modalities ?? [],
       output_modalities: row.output_modalities ?? [],
     },
-    supported_parameters: row.supported_parameters ?? [],
+    supported_parameters: parametrosDaLinha(row),
     reasoning_levels: row.reasoning_levels ?? undefined,
   }
 }
@@ -310,7 +347,7 @@ function tableRowToRawModel(row: ModelsTableRow): RawModel {
       input_modalities: row.input_modalities ?? [],
       output_modalities: row.output_modalities ?? [],
     },
-    supported_parameters: row.supported_parameters ?? [],
+    supported_parameters: parametrosDaLinha(row),
     // null → undefined: JSON.stringify omite o campo; o cliente aplica o fallback.
     max_reference_images: row.max_reference_images ?? undefined,
     reasoning_levels: row.reasoning_levels ?? undefined,
