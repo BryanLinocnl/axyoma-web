@@ -118,6 +118,14 @@ export type Entitlements = {
     maxMembers: number
     /** Canais de mensagem (Telegram/WhatsApp) no desktop. Pro e Teams. */
     messaging: boolean
+    /**
+     * Rotação de modelos no desktop (`specs/flow-config.md` §5). Pro e Teams.
+     *
+     * Ao contrário do `messaging`, esta feature NÃO tem contrapartida no proxy:
+     * a rotação acontece inteira na máquina do usuário, e um turno BYOK nem
+     * passa por aqui. O gate é o do app, e isto é o que o alimenta.
+     */
+    flowConfig: boolean
   }
 }
 
@@ -125,7 +133,7 @@ export type Entitlements = {
 const FREE_ENTITLEMENTS: Entitlements = {
   planId: 'free',
   planName: 'Free',
-  features: { design: false, skillsCatalog: false, skillTiers: [], maxMembers: 1, messaging: false },
+  features: { design: false, skillsCatalog: false, skillTiers: [], maxMembers: 1, messaging: false, flowConfig: false },
 }
 
 /**
@@ -157,7 +165,7 @@ export async function getEntitlements(userId: string, email?: string | null): Pr
     return {
       planId: real?.id ?? 'free',
       planName: real?.name ?? 'Free',
-      features: { design: true, skillsCatalog: true, skillTiers: ['common', 'teams'], maxMembers: 4, messaging: true },
+      features: { design: true, skillsCatalog: true, skillTiers: ['common', 'teams'], maxMembers: 4, messaging: true, flowConfig: true },
     }
   }
   const plano = await planoReal(userId)
@@ -174,6 +182,7 @@ export async function getEntitlements(userId: string, email?: string | null): Pr
       skillTiers: Array.isArray(f.skillTiers) ? f.skillTiers.map(String) : [],
       maxMembers: Number.isFinite(Number(f.maxMembers)) ? Number(f.maxMembers) : 1,
       messaging: f.messaging === true,
+      flowConfig: f.flowConfig === true,
     },
   }
 }
